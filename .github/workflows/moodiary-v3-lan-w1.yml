@@ -42,6 +42,7 @@ jobs:
           python3 /tmp/moodiary-v3-w4/scripts/patch_repository.py .
           cp /tmp/moodiary-v3-w4/overlay/mobile/lib/app/home/mod_lan_service.dart mobile/lib/app/home/
           cp /tmp/moodiary-v3-w4/overlay/mobile/lib/app/home/mod_lan_write.dart mobile/lib/app/home/
+          cp /tmp/moodiary-v3-w4/overlay/mobile/lib/app/home/mod_lan_page.dart mobile/lib/app/home/
           cp /tmp/moodiary-v3-w4/overlay/mobile/test/mod_lan_write_test.dart mobile/test/
           cp /tmp/moodiary-v3-w4/overlay/mobile/test/mod_lan_database_cas_test.dart mobile/test/
       - uses: actions/setup-java@v4
