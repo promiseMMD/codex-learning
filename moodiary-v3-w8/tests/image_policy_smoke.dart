@@ -28,7 +28,7 @@ List<int> pngHeader({int width = 800, int height = 600}) {
 }
 
 List<int> webpHeader() =>
-  [0x52, 0x49, 0x46, 0x46, 0x14, 0, 0, 0,
+  [0x52, 0x49, 0x46, 0x46, 0x30, 0, 0, 0,
     0x57, 0x45, 0x42, 0x50,
     0x56, 0x50, 0x38, 0x58, ...List<int>.filled(40, 0)];
 
@@ -60,6 +60,17 @@ void main() {
   denies(() => ModLanImagePolicy.checkImageHeader(
       pngHeader(width:12000,height:12000), 'image/png'),
       422, 'image_dimensions_invalid');
+
+  final validWebp = ModLanImageIntake(
+      contentType: 'image/webp', contentLength: webpHeader().length);
+  validWebp.addChunk(webpHeader());
+  validWebp.finish();
+  final truncatedContainer = [...webpHeader()];
+  truncatedContainer[4] = 0x20;
+  final inconsistentWebp = ModLanImageIntake(
+      contentType: 'image/webp', contentLength: truncatedContainer.length);
+  inconsistentWebp.addChunk(truncatedContainer);
+  denies(inconsistentWebp.finish, 422, 'image_riff_length_mismatch');
 
   // Chunks do not need to arrive on byte/record boundaries.
   final valid = ModLanImageIntake(
