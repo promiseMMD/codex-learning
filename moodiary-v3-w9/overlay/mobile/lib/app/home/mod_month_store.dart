@@ -243,6 +243,12 @@ class ModMonthStore {
         return _readRevision(block, revision, topic);
       }
 
+      final reusedRevision = await db.customSelect(
+        'SELECT 1 AS present FROM mod_month_revisions WHERE revision_id = ?',
+        variables: [Variable.withString(revision)],
+      ).get();
+      if (reusedRevision.isNotEmpty) _bad('revision_id_collision');
+
       final oldBlocks = await db.customSelect(
         'SELECT topic_id,month_key,kind FROM mod_month_blocks'
         ' WHERE block_id = ?',
@@ -251,6 +257,14 @@ class ModMonthStore {
 
       if (oldBlocks.isEmpty) {
         if (parent != null) _bad('unknown_block_parent');
+        if (kind == 'summary') {
+          final summary = await db.customSelect(
+            'SELECT 1 AS present FROM mod_month_blocks'
+            " WHERE topic_id = ? AND month_key = ? AND kind = 'summary'",
+            variables: [Variable.withString(topic), Variable.withString(month)],
+          ).get();
+          if (summary.isNotEmpty) _bad('summary_already_exists');
+        }
         await _ensureMonth(topic, month);
         await db.customStatement(
           'INSERT INTO mod_month_blocks'

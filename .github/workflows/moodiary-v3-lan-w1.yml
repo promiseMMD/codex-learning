@@ -1,4 +1,4 @@
-name: Moodiary V3 W9.1 Durable Month Blocks Integration
+name: Moodiary V3 W9.2 Authenticated Monthly Block API
 on:
   push:
     branches:
@@ -7,6 +7,7 @@ on:
       - moodiary-v3-w8-staged-http-20261107
       - moodiary-v3-w8-photo-attach-20261107
       - moodiary-v3-w9-month-store-20261107
+      - moodiary-v3-w9-2-block-api-20261107
   workflow_dispatch:
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -59,6 +60,7 @@ jobs:
           python3 ../moodiary-v3-w8-http/apply_w8_http.py .
           python3 ../moodiary-v3-w8-attach/apply_w8_attach.py .
           python3 ../moodiary-v3-w9/apply_w9.py .
+          python3 ../moodiary-v3-w9-2/apply_w9_2.py .
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -111,6 +113,17 @@ jobs:
         run: |
           corepack enable
           flutter pub get
+      - name: Disable unused Rust asset hooks for Dart-only tests
+        working-directory: upstream
+        run: |
+          cp pubspec.yaml /tmp/moodiary-w9-test-pubspec.yaml
+          python3 - <<'PYHOOK'
+          from pathlib import Path
+          p = Path('pubspec.yaml')
+          source = p.read_text()
+          assert source.count('build_assets: true') == 6
+          p.write_text(source.replace('build_assets: true', 'build_assets: false'))
+          PYHOOK
       - name: Dart formatting
         working-directory: upstream
         run: |
@@ -123,6 +136,9 @@ jobs:
           dart format mobile/lib/app/home/mod_lan_image_decoder.dart
           dart format packages/feature_base/moodiary_data/lib/src/mod_month_schema.dart
           dart format mobile/lib/app/home/mod_month_store.dart
+          dart format mobile/lib/app/home/mod_lan_month_http.dart
+          dart format mobile/test/mod_lan_month_http_test.dart
+          dart format mobile/test/mod_month_disk_test.dart
           dart format mobile/test/mod_month_store_test.dart
           dart format mobile/lib/app/home/mod_lan_image_attach.dart
           dart format mobile/test/mod_lan_image_attach_test.dart
@@ -140,17 +156,20 @@ jobs:
           dart format mobile/lib/app/home/mod_lan_page.dart
           dart format mobile/test/mod_monthly_index_test.dart
           dart format mobile/test/mod_lan_policy_test.dart
-      - name: "Unit tests: W7 assets + W6 rich CAS + W5 autosave + W4 editor + W3 realtime + W2 ledger + LAN policy"
-        working-directory: upstream/mobile
-        run: |
-          flutter test test/mod_month_store_test.dart test/mod_lan_image_attach_test.dart test/mod_lan_image_decoder_test.dart test/mod_lan_rich_test.dart test/mod_lan_write_test.dart test/mod_lan_database_cas_test.dart test/mod_lan_events_test.dart test/mod_monthly_ledger_test.dart test/mod_monthly_index_test.dart test/mod_lan_policy_test.dart test/mod_continuous_safety_test.dart --reporter expanded
       - name: W9 migration from older v2 and v3 database preserves user diaries
         working-directory: upstream/packages/feature_base/moodiary_data
         run: flutter test test/mod_month_migration_test.dart --reporter expanded
+      - name: "Unit tests: W7 assets + W6 rich CAS + W5 autosave + W4 editor + W3 realtime + W2 ledger + LAN policy"
+        working-directory: upstream/mobile
+        run: |
+          flutter test test/mod_month_disk_test.dart test/mod_lan_month_http_test.dart test/mod_month_store_test.dart test/mod_lan_image_attach_test.dart test/mod_lan_image_decoder_test.dart test/mod_lan_rich_test.dart test/mod_lan_write_test.dart test/mod_lan_database_cas_test.dart test/mod_lan_events_test.dart test/mod_monthly_ledger_test.dart test/mod_monthly_index_test.dart test/mod_lan_policy_test.dart test/mod_continuous_safety_test.dart --reporter expanded
       - name: "Regression: WebDAV partial download aborts push"
         working-directory: upstream/packages/feature/moodiary_sync
         run: flutter test test/sync/data/incremental_engine_test.dart --reporter expanded
-      - name: Build V3 W9.1 arm64 APK
+      - name: Restore native build hooks for Android
+        working-directory: upstream
+        run: cp /tmp/moodiary-w9-test-pubspec.yaml pubspec.yaml
+      - name: Build V3 W9.2 arm64 APK
         env:
           ANDROID_NDK_HOME: ${{ steps.ndk.outputs.ndk-path }}
         working-directory: upstream/mobile
@@ -161,7 +180,7 @@ jobs:
           sha256sum upstream/mobile/build/app/outputs/flutter-apk/app-v3dev-release.apk
       - uses: actions/upload-artifact@v4
         with:
-          name: Moodiary-V3-LAN-W9-1-Month-Persistence-Core-arm64
+          name: Moodiary-V3-LAN-W9-2-Month-Block-API-arm64
           path: upstream/mobile/build/app/outputs/flutter-apk/app-v3dev-release.apk
           retention-days: 30
           if-no-files-found: error
