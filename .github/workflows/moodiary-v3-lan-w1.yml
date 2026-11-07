@@ -36,6 +36,7 @@ jobs:
           cp /tmp/moodiary-v3-w3/overlay/mobile/lib/app/home/mod_lan_service.dart mobile/lib/app/home/
           cp /tmp/moodiary-v3-w3/overlay/mobile/lib/app/home/mod_lan_events.dart mobile/lib/app/home/
           cp /tmp/moodiary-v3-w3/overlay/mobile/test/mod_lan_events_test.dart mobile/test/
+          python3 ../moodiary-v3-w3/fix_replay_cursor.py
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
