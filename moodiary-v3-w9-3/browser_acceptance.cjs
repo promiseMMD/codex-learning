@@ -15,7 +15,7 @@ const text=d=>d.content.map(n=>(n.content||[]).map(p=>p.text||'').join('')).join
 const blocks=new Map([['block-initial-001',{
   blockId:'block-initial-001',revisionId:'revision-initial-001',parentRevisionId:null,
   topicId:topic,monthKey:'2026-11',kind:'entry',dayKey:'2026-11-07',
-  occurredAtMs:Date.parse('2026-11-07T08:20:30.123Z'),editedAtMs:1794040000000,
+  createdAtMs:1794038400000,occurredAtMs:Date.parse('2026-11-07T08:20:30.123Z'),editedAtMs:1794040000000,
   document:doc('原有月度记录'),deleted:false,
 }]])
 const receipts=new Map(),monthPages=new Set(['2026-11']),posts=[],sockets=[]
@@ -87,7 +87,7 @@ const checks=[]
     if(prior&&prior.revisionId!==body.parentRevisionId)return send({error:'stale_revision'},409)
     if(body.kind==='summary'&&!prior&&[...blocks.values()].some(b=>b.monthKey===key&&b.kind==='summary'))
       return send({error:'summary_already_exists'},409)
-    const saved={...body,topicId:topic,monthKey:key,editedAtMs:Date.now()}
+    const saved={...body,topicId:topic,monthKey:key,createdAtMs:blocks.get(body.blockId)?.createdAtMs??Date.now(),editedAtMs:Date.now()}
     blocks.set(body.blockId,saved);monthPages.add(key)
     receipts.set(body.operationId,{payload:JSON.stringify(body),month:key,block:saved})
     if(lostNext){lostNext=false;return route.abort('failed')}

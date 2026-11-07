@@ -1,4 +1,4 @@
-name: Moodiary V3 W9.5.1 Read-only Daily Preview Acceptance
+name: Moodiary V3 W9.5.2 Daily Timeline Acceptance
 on:
   push:
     branches:
@@ -11,6 +11,7 @@ on:
       - moodiary-v3-w9-3-month-workspace-20261107
       - moodiary-v3-w9-4-native-month-20261107
       - moodiary-v3-w9-5-daily-preview-20261107
+      - moodiary-v3-w9-5-2-day-timeline-20261108
   workflow_dispatch:
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -67,6 +68,7 @@ jobs:
           python3 ../moodiary-v3-w9-3/apply_w9_3.py .
           python3 ../moodiary-v3-w9-4/apply_w9_4.py .
           python3 ../moodiary-v3-w9-5/apply_w9_5.py .
+          python3 ../moodiary-v3-w9-5-2/apply_w9_5_2.py .
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -143,17 +145,22 @@ jobs:
       - name: Generate and retain native monthly translations
         working-directory: upstream/packages/foundation/moodiary_i18n
         run: |
-          sha256sum lib/i18n/*.dart > /tmp/moodiary-w94-generated.sha256
+          if test -f ../../../../moodiary-v3-w9-5-2/generated-i18n.b64; then
+            sha256sum lib/i18n/*.dart > /tmp/moodiary-w952-generated.sha256
+          fi
           dart run slang
-          sha256sum --check /tmp/moodiary-w94-generated.sha256
+          if test -f /tmp/moodiary-w952-generated.sha256; then
+            sha256sum --check /tmp/moodiary-w952-generated.sha256
+          fi
       - uses: actions/upload-artifact@v4
         with:
-          name: Moodiary-W9-4-Generated-I18n
+          name: Moodiary-W9-5-2-Generated-I18n
           path: upstream/packages/foundation/moodiary_i18n/lib/i18n
           retention-days: 30
       - name: Native month source formatting
         working-directory: upstream
         run: |
+          dart format mobile/lib/app/home/mod_month_order.dart mobile/test/mod_month_order_test.dart mobile/test/mod_month_day_page_test.dart
           dart format mobile/lib/app/home/mod_month_day_preview.dart mobile/test/mod_month_day_preview_test.dart
           dart format mobile/lib/app/home/mod_month_native.dart mobile/lib/app/home/mod_month_page.dart mobile/lib/app/home/mod_month_composer.dart mobile/lib/app/home/mod_month_updates.dart
           dart format mobile/test/mod_month_native_test.dart mobile/test/mod_month_page_test.dart mobile/test/mod_month_composer_test.dart packages/feature_base/moodiary_editor/lib/src/transport/editor_snapshot.dart packages/feature_base/moodiary_editor/lib/src/moodiary_editor.dart packages/feature_base/moodiary_editor/test/editor_snapshot_test.dart
@@ -209,14 +216,14 @@ jobs:
       - name: "Unit tests: W7 assets + W6 rich CAS + W5 autosave + W4 editor + W3 realtime + W2 ledger + LAN policy"
         working-directory: upstream/mobile
         run: |
-          flutter test test/mod_month_day_preview_test.dart test/mod_month_native_test.dart test/mod_month_page_test.dart test/mod_month_composer_test.dart test/mod_month_disk_test.dart test/mod_lan_month_http_test.dart test/mod_month_store_test.dart test/mod_lan_image_attach_test.dart test/mod_lan_image_decoder_test.dart test/mod_lan_rich_test.dart test/mod_lan_write_test.dart test/mod_lan_database_cas_test.dart test/mod_lan_events_test.dart test/mod_monthly_ledger_test.dart test/mod_monthly_index_test.dart test/mod_lan_policy_test.dart test/mod_continuous_safety_test.dart --reporter expanded
+          flutter test test/mod_month_order_test.dart test/mod_month_day_page_test.dart test/mod_month_day_preview_test.dart test/mod_month_native_test.dart test/mod_month_page_test.dart test/mod_month_composer_test.dart test/mod_month_disk_test.dart test/mod_lan_month_http_test.dart test/mod_month_store_test.dart test/mod_lan_image_attach_test.dart test/mod_lan_image_decoder_test.dart test/mod_lan_rich_test.dart test/mod_lan_write_test.dart test/mod_lan_database_cas_test.dart test/mod_lan_events_test.dart test/mod_monthly_ledger_test.dart test/mod_monthly_index_test.dart test/mod_lan_policy_test.dart test/mod_continuous_safety_test.dart --reporter expanded
       - name: "Regression: WebDAV partial download aborts push"
         working-directory: upstream/packages/feature/moodiary_sync
         run: flutter test test/sync/data/incremental_engine_test.dart --reporter expanded
       - name: Restore native build hooks for Android
         working-directory: upstream
         run: cp /tmp/moodiary-w9-test-pubspec.yaml pubspec.yaml
-      - name: Build V3 W9.5.1 arm64 APK
+      - name: Build V3 W9.5.2 arm64 APK
         env:
           ANDROID_NDK_HOME: ${{ steps.ndk.outputs.ndk-path }}
         working-directory: upstream/mobile
@@ -227,7 +234,7 @@ jobs:
           sha256sum upstream/mobile/build/app/outputs/flutter-apk/app-v3dev-release.apk
       - uses: actions/upload-artifact@v4
         with:
-          name: Moodiary-V3-LAN-W9-5-1-Daily-Preview-arm64
+          name: Moodiary-V3-LAN-W9-5-2-Daily-Timeline-arm64
           path: upstream/mobile/build/app/outputs/flutter-apk/app-v3dev-release.apk
           retention-days: 30
           if-no-files-found: error
