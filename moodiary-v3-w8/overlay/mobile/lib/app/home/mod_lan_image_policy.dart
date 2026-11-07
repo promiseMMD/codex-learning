@@ -143,5 +143,14 @@ class ModLanImageIntake {
       throw const ModLanImagePolicyException(422, 'image_incomplete');
     }
     ModLanImagePolicy.checkImageHeader(_prefix, declaredMime);
+    // WebP's RIFF header carries the full file length. Refuse an
+    // inconsistent container before invoking any real image decoder.
+    if (declaredMime == 'image/webp') {
+      final riffLength = ModLanImagePolicy._u32le(_prefix, 4) + 8;
+      if (riffLength != _received) {
+        throw const ModLanImagePolicyException(
+          422, 'image_riff_length_mismatch');
+      }
+    }
   }
 }
