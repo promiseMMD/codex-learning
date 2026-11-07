@@ -206,15 +206,18 @@ function App(){
       // CAS resolves competing writes; never misclassify that event as conflict.
       if(savingRef.current)return
       if(dirtyRef.current){
-        if(!changedId){
-          // On initial WebSocket reset, compare the server revision before
-          // declaring a conflict; unsaved new documents have no remote row.
-          if(!note.revision)return
-          try{
-            const latest=await api.read(note.id)
-            if(latest.revision===note.revision)return
-          }catch{return}
+        // Our own committed event may arrive after the save acknowledgment
+        // while the user has already started typing the next edit.
+        // Only a DIFFERENT authoritative revision is a real conflict.
+        if(!note.revision)return // Unsaved new document has no remote row.
+        let changed=true
+        try{
+          const latest=await api.read(note.id)
+          changed=latest.revision!==noteRef.current?.revision
+        }catch{
+          // Missing or inaccessible remote state is unsafe to overwrite.
         }
+        if(!changed || noteRef.current?.id!==note.id)return
         conflictRef.current=true;discardAutosave()
         setStatus('手机端已有新版本：本地草稿已保留，需先处理版本冲突')
         return
