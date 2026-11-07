@@ -5,7 +5,7 @@ import type { Editor } from '@tiptap/core'
 import { lanExtensions } from './schema'
 import {
   LanClient, LanApiError, emptyDocument, newDiaryId,
-  validateRichDocument,
+  validateRichDocument, canApplyRemoteRead,
   type JsonDoc, type RichNote, type DiaryPreview,
 } from './api'
 import './style.css'
@@ -110,10 +110,10 @@ function App(){
     const editGenerationAtRequest=generationRef.current
     try {
       const result=await api.read(id)
-      if (seq!==openSequence.current)return
       // A remote refresh may finish AFTER the user typed new local content.
       // Never replace a newer dirty draft with an older server response.
-      if (dirtyRef.current && generationRef.current!==editGenerationAtRequest) {
+      if (!canApplyRemoteRead(seq,openSequence.current,
+          editGenerationAtRequest,generationRef.current,dirtyRef.current)) {
         setStatus('读取期间发生新编辑，已保留本地草稿并忽略过期响应')
         return
       }
