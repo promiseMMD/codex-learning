@@ -1,11 +1,11 @@
-name: Moodiary V3 LAN W1 Build and Test
+name: Moodiary V3 LAN W2 Build and Test
 on:
   push:
     branches:
       - moodiary-v3-monthly-lan-dev-20261107
   workflow_dispatch:
 jobs:
-  v3-lan-w1:
+  v3-lan-w2:
     runs-on: ubuntu-latest
     timeout-minutes: 110
     permissions:
@@ -28,6 +28,9 @@ jobs:
           git checkout 2c552ddd7939a054122380397fb914cf000824b0
           python3 ../modkit/apply_beta_patch.py .
           python3 ../modkit/apply_v3_patch.py .
+          unzip -q ../moodiary-v3-w2/ledger-source.zip -d /tmp/moodiary-v3-w2
+          cp /tmp/moodiary-v3-w2/overlay/mobile/lib/app/home/mod_monthly_ledger.dart mobile/lib/app/home/
+          cp /tmp/moodiary-v3-w2/overlay/mobile/test/mod_monthly_ledger_test.dart mobile/test/
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -59,18 +62,20 @@ jobs:
         run: |
           dart format mobile/lib/app/home/mod_continuous.dart
           dart format mobile/lib/app/home/mod_monthly_index.dart
+          dart format mobile/lib/app/home/mod_monthly_ledger.dart
+          dart format mobile/test/mod_monthly_ledger_test.dart
           dart format mobile/lib/app/home/mod_lan_service.dart
           dart format mobile/lib/app/home/mod_lan_page.dart
           dart format mobile/test/mod_monthly_index_test.dart
           dart format mobile/test/mod_lan_policy_test.dart
-      - name: "Unit tests: monthly read-only index, LAN security policy, Beta safety"
+      - name: "Unit tests: W2 immutable ledger, read-only month index, LAN security, Beta safety"
         working-directory: upstream/mobile
         run: |
-          flutter test test/mod_monthly_index_test.dart test/mod_lan_policy_test.dart test/mod_continuous_safety_test.dart --reporter expanded
+          flutter test test/mod_monthly_ledger_test.dart test/mod_monthly_index_test.dart test/mod_lan_policy_test.dart test/mod_continuous_safety_test.dart --reporter expanded
       - name: "Regression: WebDAV partial download aborts push"
         working-directory: upstream/packages/feature/moodiary_sync
         run: flutter test test/sync/data/incremental_engine_test.dart --reporter expanded
-      - name: Build V3 W1 arm64 APK
+      - name: Build V3 W2 arm64 APK
         env:
           ANDROID_NDK_HOME: ${{ steps.ndk.outputs.ndk-path }}
         working-directory: upstream/mobile
@@ -81,7 +86,7 @@ jobs:
           sha256sum upstream/mobile/build/app/outputs/flutter-apk/app-v3dev-release.apk
       - uses: actions/upload-artifact@v4
         with:
-          name: Moodiary-V3-LAN-W1-arm64
+          name: Moodiary-V3-LAN-W2-arm64
           path: upstream/mobile/build/app/outputs/flutter-apk/app-v3dev-release.apk
           retention-days: 30
           if-no-files-found: error
