@@ -15,7 +15,7 @@ List<int> samplePng() => <int>[
 Future<void> main() async {
   final privateRoot = await Directory.systemTemp.createTemp('w8-http-test-');
   final queue = ModLanImageStaging(
-    privateCacheRoot: Directory('\${privateRoot.path}/upload'),
+    privateCacheRoot: Directory('${privateRoot.path}/upload'),
     verifyDecodedImage: (file, mime) async {
       if (mime != 'image/png' || !await file.exists()) {
         throw StateError('invalid staged image passed to decoder');
@@ -23,7 +23,7 @@ Future<void> main() async {
     },
   );
   final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
-  final host = 'http://127.0.0.1:\${server.port}';
+  final host = 'http://127.0.0.1:${server.port}';
   final calls = <String>[];
   final listen = server.listen((request) async {
     try {
