@@ -107,9 +107,16 @@ function App(){
     if (!force && dirtyRef.current && !window.confirm('存在未保存修改，确定放弃本地草稿？')) return
     discardAutosave()
     const seq=++openSequence.current
+    const editGenerationAtRequest=generationRef.current
     try {
       const result=await api.read(id)
       if (seq!==openSequence.current)return
+      // A remote refresh may finish AFTER the user typed new local content.
+      // Never replace a newer dirty draft with an older server response.
+      if (dirtyRef.current && generationRef.current!==editGenerationAtRequest) {
+        setStatus('读取期间发生新编辑，已保留本地草稿并忽略过期响应')
+        return
+      }
       conflictRef.current=false
       setUncommitted(false)
       const note={...result,loadId:++loadedNonce.current}
