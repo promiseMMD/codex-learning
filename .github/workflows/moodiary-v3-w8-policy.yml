@@ -32,3 +32,6 @@ jobs:
       - name: Session-bound staging and CAS cleanup regression
         working-directory: moodiary-v3-w8
         run: dart run tests/image_staging_smoke.dart
+      - name: Local HTTP image staging and authorization regression
+        working-directory: moodiary-v3-w8
+        run: dart run tests/image_http_smoke.dart
