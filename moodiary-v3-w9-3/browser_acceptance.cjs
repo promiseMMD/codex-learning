@@ -20,7 +20,7 @@ const blocks=new Map([['block-initial-001',{
 }]])
 const receipts=new Map(),monthPages=new Set(['2026-11']),posts=[],sockets=[]
 let lostNext=false,conflictNext=false,ordinaryDoc=doc('原有普通日记'),ordinaryTitle='已有普通日记'
-const failures=[]
+const failures=[],requestTrace=[]
 let server,browser,context,activePage
 const wait=async(condition,label)=>{
   for(let i=0;i<100;i++){if(await condition())return;await new Promise(r=>setTimeout(r,50))}
@@ -52,6 +52,7 @@ const checks=[]
   })
   await page.route('**/api/**',async route=>{
     const req=route.request(),url=new URL(req.url()),p=url.pathname
+    requestTrace.push(req.method()+' '+p)
     const send=(body,status=200)=>route.fulfill({status,contentType:'application/json',body:JSON.stringify(body)})
     if(p==='/api/session')return send({authorized:true,csrf:'browser-test-csrf'})
     if(p==='/api/diaries')return send({items:[{id:diary,title:ordinaryTitle,preview:text(ordinaryDoc),date:'2026-11-07T08:00:00Z'}]})
@@ -115,7 +116,7 @@ const checks=[]
   lostNext=true
   await dialog.getByRole('button',{name:'保存到手机',exact:true}).click()
   await dialog.getByRole('alert').waitFor()
-  assert.equal(await dialog.locator('.tiptap-area').getAttribute('contenteditable'),'false')
+  await wait(async()=>await dialog.locator('.tiptap-area').getAttribute('contenteditable')==='false','editor locked after uncertain write')
   const sent=posts.at(-1)
   await dialog.getByRole('button',{name:'验证授权并重试保存'}).click()
   await page.getByRole('dialog').waitFor({state:'detached'})
@@ -189,6 +190,7 @@ const checks=[]
   console.log(JSON.stringify({status:'passed',checks,posts:posts.length,blocks:blocks.size}))
 })().catch(async e=>{
   console.error(e.stack);process.exitCode=1
+  console.error(JSON.stringify({failures,requestTrace,checks}))
   if(activePage&&screenshotDir){
     try{fs.mkdirSync(screenshotDir,{recursive:true});await activePage.screenshot({path:path.join(screenshotDir,'failure.png'),fullPage:true})}catch{}
   }

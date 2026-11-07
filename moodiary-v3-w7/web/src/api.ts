@@ -144,8 +144,7 @@ export class LanClient {
   private csrf: string | null = null
 
   async session(): Promise<boolean> {
-    const resp = await this.fetcher('/api/session', {credentials:'same-origin', cache:'no-store'})
-    const info = await resp.json()
+    const info = await this.call<{authorized:boolean,csrf?:string}>('/api/session')
     this.csrf = info.authorized && typeof info.csrf === 'string' ? info.csrf : null
     return !!this.csrf
   }
@@ -156,7 +155,9 @@ export class LanClient {
     const controller = new AbortController()
     const timeout = setTimeout(()=>controller.abort(), 30000)
     try {
-    const response = await this.fetcher(url, {
+    // Native browser fetch must be called without this LanClient as receiver.
+    const fetcher = this.fetcher
+    const response = await fetcher(url, {
       method, credentials:'same-origin', cache:'no-store',
       signal: controller.signal,
       headers: write ? {'content-type':'application/json', 'x-moodiary-csrf':this.csrf!} : {},

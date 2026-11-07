@@ -57,6 +57,19 @@ describe('W7 async read race prevents silent draft loss',()=>{
 describe('W7 browser client enforces revisioned writes',()=>{
   const id='dc904ad3-d89d-44e6-8368-037299e3cb42'
   const revision='a'.repeat(64)
+  it('calls native-style fetch without the client instance as its receiver',async()=>{
+    const receivers:unknown[]=[]
+    const fetcher=function(this:unknown,input:RequestInfo|URL){
+      receivers.push(this)
+      if(this!==undefined)throw new TypeError('Illegal invocation')
+      return Promise.resolve(new Response(JSON.stringify(String(input)==='/api/session'?
+        {authorized:true,csrf:'test'}:{items:[]}),{status:200}))
+    }
+    const client=new LanClient(fetcher as typeof fetch)
+    expect(await client.session()).toBe(true)
+    expect(await client.list()).toEqual([])
+    expect(receivers).toEqual([undefined,undefined])
+  })
   it('does not transmit credentials in URLs and sends session CSRF with create/update',async()=>{
     const calls:Array<{url:string,method:string,headers:any,body:any}>=[]
     const fetcher=vi.fn(async(input:RequestInfo|URL,opts:RequestInit={})=>{

@@ -263,6 +263,7 @@ export function MonthWorkspace({api,refreshTick,onLock}:{
       {conflict&&<p className='alert' role='alert'>版本冲突：草稿仍在此处，请先导出需要保留的内容，再读取最新版本。</p>}
       <p className='save-state' role='status'>{status}</p>
       <footer><button className='secondary' onClick={exportDraft}>导出当前草稿</button>
+        <a className='secondary' href='/' target='_blank' rel='noopener noreferrer'>另开窗口配对</a>
         {conflict?<button className='primary' onClick={()=>void reloadAfterConflict()}>重新读取手机版本</button>:
           <button className='primary' disabled={busy} onClick={()=>void save()}>{busy?'保存中…':uncertain?'验证授权并重试保存':
             draft.intent==='delete'?'确认删除':draft.intent==='restore'?'恢复到手机':'保存到手机'}</button>}</footer>

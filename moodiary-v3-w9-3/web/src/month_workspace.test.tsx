@@ -133,6 +133,7 @@ describe('monthly PC editor user flow',()=>{
     fireEvent.click(screen.getByRole('button',{name:'验证授权并重试保存'}))
     await waitFor(()=>expect(screen.getAllByRole('status').some(n=>n.textContent?.includes('授权已失效'))).toBe(true))
     expect(body().value).toBe('授权中断也保留');expect(body().readOnly).toBe(true)
+    expect(screen.getByRole('link',{name:'另开窗口配对'}).getAttribute('target')).toBe('_blank')
     expect(f.raw.append).toHaveBeenCalledTimes(1)
   })
   it('retains a conflicting draft and never auto-saves with a new parent',async()=>{
