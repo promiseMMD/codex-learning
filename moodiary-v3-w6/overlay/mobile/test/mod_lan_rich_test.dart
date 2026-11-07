@@ -84,7 +84,7 @@ void main() {
   });
 
   test('W6 enforces schema-size budget', () {
-    final doc = richDoc('x' * 200001);
+    final doc = richDoc(List.filled(200001, 'x').join());
     expect(() => ModLanRichDocument.validate(doc),
         throwsA(isA<ModLanWriteException>()));
   });
