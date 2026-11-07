@@ -1,0 +1,87 @@
+name: Moodiary V3 LAN W1 Build and Test
+on:
+  push:
+    branches:
+      - moodiary-v3-monthly-lan-dev-20261107
+  workflow_dispatch:
+jobs:
+  v3-lan-w1:
+    runs-on: ubuntu-latest
+    timeout-minutes: 110
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Unpack W1 source bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          base64 --decode moodiary-longrecord/build-payload.b64 > /tmp/moodiary-v3-w1.zip
+          unzip -q /tmp/moodiary-v3-w1.zip
+          python3 modkit/verify_patch.py
+      - name: Check out pinned upstream and apply baseline + V3 overlays
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --no-checkout https://github.com/ZhuJHua/moodiary.git upstream
+          cd upstream
+          git checkout 2c552ddd7939a054122380397fb914cf000824b0
+          python3 ../modkit/apply_beta_patch.py .
+          python3 ../modkit/apply_v3_patch.py .
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.2'
+          channel: stable
+      - uses: nttld/setup-ndk@v1
+        id: ndk
+        with:
+          ndk-version: r28c
+          link-to-sdk: true
+      - name: Rust 1.95
+        run: rustup toolchain install 1.95.0 --profile minimal
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-about@0.9.2
+      - name: Flutter workspace dependencies
+        working-directory: upstream
+        run: |
+          corepack enable
+          flutter pub get
+      - name: Dart formatting
+        working-directory: upstream
+        run: |
+          dart format mobile/lib/app/home/mod_continuous.dart
+          dart format mobile/lib/app/home/mod_monthly_index.dart
+          dart format mobile/lib/app/home/mod_lan_service.dart
+          dart format mobile/lib/app/home/mod_lan_page.dart
+          dart format mobile/test/mod_monthly_index_test.dart
+          dart format mobile/test/mod_lan_policy_test.dart
+      - name: Unit tests: monthly read-only index, LAN security policy, Beta safety
+        working-directory: upstream/mobile
+        run: |
+          flutter test test/mod_monthly_index_test.dart test/mod_lan_policy_test.dart test/mod_continuous_safety_test.dart --reporter expanded
+      - name: Regression: WebDAV partial download aborts push
+        working-directory: upstream/packages/feature/moodiary_sync
+        run: flutter test test/sync/data/incremental_engine_test.dart --reporter expanded
+      - name: Build V3 W1 arm64 APK
+        env:
+          ANDROID_NDK_HOME: ${{ steps.ndk.outputs.ndk-path }}
+        working-directory: upstream/mobile
+        run: flutter build apk --flavor v3dev --release --target-platform android-arm64
+      - name: Validate artifact
+        run: |
+          test -s upstream/mobile/build/app/outputs/flutter-apk/app-v3dev-release.apk
+          sha256sum upstream/mobile/build/app/outputs/flutter-apk/app-v3dev-release.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Moodiary-V3-LAN-W1-arm64
+          path: upstream/mobile/build/app/outputs/flutter-apk/app-v3dev-release.apk
+          retention-days: 30
+          if-no-files-found: error
