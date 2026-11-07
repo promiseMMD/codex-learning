@@ -1,0 +1,41 @@
+name: Moodiary V3 W8.5.1 Cache Safety Regression
+on:
+  push:
+    branches:
+      - moodiary-v3-w8-5-1-cache-guard-20261107
+  workflow_dispatch:
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  safe-cache-cleanup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Pinned source with non-destructive cache patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --no-checkout https://github.com/ZhuJHua/moodiary.git upstream
+          cd upstream
+          git checkout 2c552ddd7939a054122380397fb914cf000824b0
+          python3 ../moodiary-v3-w8-hardening/apply_cache_guard.py .
+          cp ../moodiary-v3-w8-hardening/cache_guard_test.dart             packages/core/moodiary_files/test/mod_lan_cache_guard_test.dart
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.2'
+          channel: stable
+      - name: Dependencies
+        working-directory: upstream
+        run: |
+          corepack enable
+          flutter pub get
+      - name: Cache reset regression tests
+        working-directory: upstream/packages/core/moodiary_files
+        run: flutter test test/mod_lan_cache_guard_test.dart --reporter expanded
