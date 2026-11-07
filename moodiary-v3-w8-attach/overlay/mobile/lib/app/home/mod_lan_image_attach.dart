@@ -27,6 +27,7 @@ class ModLanImageAttach {
   final ModLanPromoteImage promoteImage;
   final ModLanImageFile fileForImage;
   final ModLanDeleteImage deleteImage;
+  final bool Function() isSessionActive;
 
   ModLanImageAttach({
     required this.repository,
@@ -34,7 +35,9 @@ class ModLanImageAttach {
     ModLanPromoteImage? promoteImage,
     ModLanImageFile? fileForImage,
     ModLanDeleteImage? deleteImage,
-  }) : promoteImage = promoteImage ?? _nativePromote,
+    bool Function()? isSessionActive,
+  }) : isSessionActive = isSessionActive ?? (() => true),
+       promoteImage = promoteImage ?? _nativePromote,
        fileForImage = fileForImage ??
            ((name) => File(AppFiles.getRealPath('image', name))),
        deleteImage = deleteImage ?? AppFiles.deleteImage;
@@ -85,6 +88,9 @@ class ModLanImageAttach {
     );
     _requiredString(revision, _revisionPattern, 'invalid_revision');
 
+    if (!isSessionActive()) {
+      throw const ModLanImagePolicyException(403, 'session_revoked');
+    }
     if (ownerSession.isEmpty) {
       throw const ModLanImagePolicyException(401, 'pairing_required');
     }
@@ -93,6 +99,9 @@ class ModLanImageAttach {
       id: safeStageId,
       ownerSession: ownerSession,
       commit: (staged) async {
+        if (!isSessionActive()) {
+          throw const ModLanImagePolicyException(403, 'session_revoked');
+        }
         // Read and validate BEFORE making a permanent media file.
         final previous = await repository.getDiaryByBusinessId(safeDiaryId);
         if (previous == null || !previous.show) {
@@ -162,6 +171,9 @@ class ModLanImageAttach {
             );
           }
 
+          if (!isSessionActive()) {
+            throw const ModLanImagePolicyException(403, 'session_revoked');
+          }
           // The repo operation checks a full expected snapshot in a SQLite
           // transaction. Another phone/PC edit must result in 409, not LWW.
           final ok = await repository.updateADiaryIfCurrent(
