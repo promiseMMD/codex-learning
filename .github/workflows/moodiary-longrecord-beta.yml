@@ -68,16 +68,16 @@ jobs:
         working-directory: upstream/mobile
         env:
           ANDROID_NDK_HOME: ${{ steps.ndk.outputs.ndk-path }}
-        run: flutter build apk --flavor alpha --release --target-platform android-arm64
+        run: flutter build apk --flavor beta --release --target-platform android-arm64
       - name: Validate APK
         run: |
-          test -s upstream/mobile/build/app/outputs/flutter-apk/app-alpha-release.apk
-          sha256sum upstream/mobile/build/app/outputs/flutter-apk/app-alpha-release.apk
-      - name: Upload signed installable artifact
+          test -s upstream/mobile/build/app/outputs/flutter-apk/app-beta-release.apk
+          sha256sum upstream/mobile/build/app/outputs/flutter-apk/app-beta-release.apk
+      - name: Upload test APK artifact
         uses: actions/upload-artifact@v4
         if: success()
         with:
           name: Moodiary-ContinuousDiary-Beta-Safety-Android-arm64
-          path: upstream/mobile/build/app/outputs/flutter-apk/app-alpha-release.apk
+          path: upstream/mobile/build/app/outputs/flutter-apk/app-beta-release.apk
           if-no-files-found: error
           retention-days: 30
