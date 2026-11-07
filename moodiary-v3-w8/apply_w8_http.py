@@ -123,10 +123,14 @@ one(
           });
         } else if (r.method == 'POST' && path == '/api/rich/diaries') {""")
 one(
-"      } on ModLanWriteException catch (e) {",
+"""      } on ModLanWriteException catch (e) {
+        await _json(r, e.status, {'error': e.code});
+      } on FormatException {""",
 """      } on ModLanImagePolicyException catch (e) {
         await _json(r, e.status, {'error': e.code});
-      } on ModLanWriteException catch (e) {""")
+      } on ModLanWriteException catch (e) {
+        await _json(r, e.status, {'error': e.code});
+      } on FormatException {""")
 
 p.write_text(s,encoding="utf-8")
 print("W8.4: authenticated upload-to-staging route installed; diary media writes remain disabled")
