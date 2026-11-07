@@ -29,7 +29,7 @@ Future<void> main() async {
     try {
       final identity = request.headers.value('x-test-session');
       final csrf = request.headers.value('x-test-csrf');
-      final origin = request.headers.value(HttpHeaders.originHeader);
+      final origin = request.headers.value('origin');
       if (identity != 'paired' || csrf != 'trusted-token' || origin != host) {
         request.response.statusCode = 403;
         request.response.write(jsonEncode({'error':'not_authorized'}));
@@ -67,7 +67,7 @@ Future<void> main() async {
       rq.headers.contentType=ContentType.parse(mime);
       rq.headers.set('x-test-session',session ?? '');
       rq.headers.set('x-test-csrf',token ?? '');
-      rq.headers.set(HttpHeaders.originHeader,origin ?? host);
+      rq.headers.set('origin',origin ?? host);
       if (encoding!=null) {
         rq.headers.set(HttpHeaders.contentEncodingHeader,encoding);
       }
