@@ -1,0 +1,64 @@
+name: Moodiary Long-Record Alpha APK
+on:
+  push:
+    branches:
+      - moodiary-longrecord-alpha-20261107
+  workflow_dispatch:
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch upstream and apply isolated mod
+        run: |
+          base64 --decode moodiary-longrecord/build-payload.b64 > /tmp/moodiary_modkit.zip
+          unzip -q /tmp/moodiary_modkit.zip
+          git clone --no-checkout https://github.com/ZhuJHua/moodiary.git upstream
+          cd upstream
+          git checkout 2c552ddd7939a054122380397fb914cf000824b0
+          python3 ../modkit/apply_patch.py .
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.2'
+          channel: stable
+      - uses: nttld/setup-ndk@v1
+        id: ndk
+        with:
+          ndk-version: r28c
+          link-to-sdk: true
+      - name: Rust 1.95
+        run: rustup toolchain install 1.95.0 --profile minimal
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-about@0.9.2
+      - name: Prepare workspace
+        working-directory: upstream
+        run: |
+          corepack enable
+          flutter pub get
+      - name: Build installable Android arm64 APK
+        working-directory: upstream/mobile
+        env:
+          ANDROID_NDK_HOME: ${{ steps.ndk.outputs.ndk-path }}
+        run: flutter build apk --flavor alpha --release --target-platform android-arm64
+      - name: Verify artifact
+        run: |
+          test -s upstream/mobile/build/app/outputs/flutter-apk/app-alpha-release.apk
+          sha256sum upstream/mobile/build/app/outputs/flutter-apk/app-alpha-release.apk
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: Moodiary-ContinuousDiary-Alpha-Android-arm64
+          path: upstream/mobile/build/app/outputs/flutter-apk/app-alpha-release.apk
+          if-no-files-found: error
+          retention-days: 30
