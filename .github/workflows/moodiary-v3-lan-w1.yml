@@ -1,4 +1,4 @@
-name: Moodiary V3 LAN W5 Safe Autosave Build and Test
+name: Moodiary V3 LAN W6 Rich Document API Build and Test
 on:
   push:
     branches:
@@ -8,7 +8,7 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 jobs:
-  v3-lan-w5:
+  v3-lan-w6:
     runs-on: ubuntu-latest
     timeout-minutes: 110
     permissions:
@@ -49,6 +49,7 @@ jobs:
           cp /tmp/moodiary-v3-w4/overlay/mobile/test/mod_lan_write_test.dart mobile/test/
           cp /tmp/moodiary-v3-w4/overlay/mobile/test/mod_lan_database_cas_test.dart mobile/test/
           python3 ../moodiary-v3-w5/apply_w5.py .
+          python3 ../moodiary-v3-w6/apply_w6.py .
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -94,6 +95,8 @@ jobs:
           dart format mobile/lib/app/home/mod_monthly_index.dart
           dart format mobile/lib/app/home/mod_monthly_ledger.dart
           dart format mobile/test/mod_monthly_ledger_test.dart
+          dart format mobile/lib/app/home/mod_lan_rich.dart
+          dart format mobile/test/mod_lan_rich_test.dart
           dart format mobile/lib/app/home/mod_lan_write.dart
           dart format mobile/test/mod_lan_write_test.dart
           dart format mobile/test/mod_lan_database_cas_test.dart
@@ -105,14 +108,14 @@ jobs:
           dart format mobile/lib/app/home/mod_lan_page.dart
           dart format mobile/test/mod_monthly_index_test.dart
           dart format mobile/test/mod_lan_policy_test.dart
-      - name: "Unit tests: W5 autosave + W4 editor + W3 realtime + W2 ledger + LAN policy"
+      - name: "Unit tests: W6 rich CAS + W5 autosave + W4 editor + W3 realtime + W2 ledger + LAN policy"
         working-directory: upstream/mobile
         run: |
-          flutter test test/mod_lan_write_test.dart test/mod_lan_database_cas_test.dart test/mod_lan_events_test.dart test/mod_monthly_ledger_test.dart test/mod_monthly_index_test.dart test/mod_lan_policy_test.dart test/mod_continuous_safety_test.dart --reporter expanded
+          flutter test test/mod_lan_rich_test.dart test/mod_lan_write_test.dart test/mod_lan_database_cas_test.dart test/mod_lan_events_test.dart test/mod_monthly_ledger_test.dart test/mod_monthly_index_test.dart test/mod_lan_policy_test.dart test/mod_continuous_safety_test.dart --reporter expanded
       - name: "Regression: WebDAV partial download aborts push"
         working-directory: upstream/packages/feature/moodiary_sync
         run: flutter test test/sync/data/incremental_engine_test.dart --reporter expanded
-      - name: Build V3 W5 arm64 APK
+      - name: Build V3 W6 arm64 APK
         env:
           ANDROID_NDK_HOME: ${{ steps.ndk.outputs.ndk-path }}
         working-directory: upstream/mobile
@@ -123,7 +126,7 @@ jobs:
           sha256sum upstream/mobile/build/app/outputs/flutter-apk/app-v3dev-release.apk
       - uses: actions/upload-artifact@v4
         with:
-          name: Moodiary-V3-LAN-W5-SafeAutosave-TextWrite-arm64
+          name: Moodiary-V3-LAN-W6-SchemaChecked-RichAPI-arm64
           path: upstream/mobile/build/app/outputs/flutter-apk/app-v3dev-release.apk
           retention-days: 30
           if-no-files-found: error
