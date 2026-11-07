@@ -51,7 +51,7 @@ replace_one(
     }
     if (r.method == 'GET' && (path == '/lan-editor/lan.js' ||
         path == '/lan-editor/lan.css' ||
-        RegExp(r'^/lan-editor/lan-chunk-[a-zA-Z0-9_-]+\\\\.js$').hasMatch(path))) {
+        RegExp(r'^/lan-editor/lan-chunk-[a-zA-Z0-9_-]+\.js$').hasMatch(path))) {
       final name = path.split('/').last;
       await _asset(r, await rootBundle.loadString('assets/lan/$name'),
           name.endsWith('.css') ? 'text/css; charset=utf-8'
