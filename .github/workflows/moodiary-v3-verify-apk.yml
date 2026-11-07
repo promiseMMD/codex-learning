@@ -26,10 +26,12 @@ jobs:
       - name: Verify Android cryptographic signature and manifest
         run: |
           set -euo pipefail
-          moodiary_apksigner_path="$(rg --files "$ANDROID_HOME/build-tools" | rg '/apksigner$' | sort -V | tail -n 1)"
+          moodiary_apksigner_path="$(python3 -c 'from pathlib import Path; import os; p=sorted(Path(os.environ["ANDROID_HOME"]).glob("build-tools/*/apksigner")); assert p; print(p[-1])')"
           test -n "$moodiary_apksigner_path"
           "$moodiary_apksigner_path" verify --verbose --print-certs verification/app-v3dev-release.apk | tee verification/signature.txt
           "$(dirname "$moodiary_apksigner_path")/aapt" dump badging verification/app-v3dev-release.apk | tee verification/manifest.txt
+      - name: Name verified APK
+        run: mv verification/app-v3dev-release.apk verification/Moodiary_V3_W9_5_2_Daily_Timeline_arm64.apk
       - uses: actions/upload-artifact@v4
         with:
           name: Moodiary-V3-W9-5-2-Verified-Delivery-arm64
