@@ -1,11 +1,11 @@
-name: Moodiary V3 LAN W2 Build and Test
+name: Moodiary V3 LAN W3 Realtime Build and Test
 on:
   push:
     branches:
       - moodiary-v3-monthly-lan-dev-20261107
   workflow_dispatch:
 jobs:
-  v3-lan-w2:
+  v3-lan-w3:
     runs-on: ubuntu-latest
     timeout-minutes: 110
     permissions:
@@ -31,6 +31,11 @@ jobs:
           unzip -q ../moodiary-v3-w2/ledger-source.zip -d /tmp/moodiary-v3-w2
           cp /tmp/moodiary-v3-w2/overlay/mobile/lib/app/home/mod_monthly_ledger.dart mobile/lib/app/home/
           cp /tmp/moodiary-v3-w2/overlay/mobile/test/mod_monthly_ledger_test.dart mobile/test/
+          base64 --decode ../moodiary-v3-w3/live-events.b64 > /tmp/moodiary-v3-w3.zip
+          unzip -q /tmp/moodiary-v3-w3.zip -d /tmp/moodiary-v3-w3
+          cp /tmp/moodiary-v3-w3/overlay/mobile/lib/app/home/mod_lan_service.dart mobile/lib/app/home/
+          cp /tmp/moodiary-v3-w3/overlay/mobile/lib/app/home/mod_lan_events.dart mobile/lib/app/home/
+          cp /tmp/moodiary-v3-w3/overlay/mobile/test/mod_lan_events_test.dart mobile/test/
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -64,18 +69,30 @@ jobs:
           dart format mobile/lib/app/home/mod_monthly_index.dart
           dart format mobile/lib/app/home/mod_monthly_ledger.dart
           dart format mobile/test/mod_monthly_ledger_test.dart
+          dart format mobile/lib/app/home/mod_lan_events.dart
+          dart format mobile/test/mod_lan_events_test.dart
           dart format mobile/lib/app/home/mod_lan_service.dart
           dart format mobile/lib/app/home/mod_lan_page.dart
           dart format mobile/test/mod_monthly_index_test.dart
           dart format mobile/test/mod_lan_policy_test.dart
-      - name: "Unit tests: W2 immutable ledger, read-only month index, LAN security, Beta safety"
+      - name: Verify deployed browser JavaScript syntax
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          data = Path('upstream/mobile/lib/app/home/mod_lan_service.dart').read_text()
+          source = data.split("const _script = r'''", 1)[1].split("'''", 1)[0]
+          Path('/tmp/moodiary-v3-w3-app.js').write_text(source)
+          PY
+          node --check /tmp/moodiary-v3-w3-app.js
+      - name: "Unit tests: W3 realtime journal, W2 ledger, WLAN security, Beta safety"
         working-directory: upstream/mobile
         run: |
-          flutter test test/mod_monthly_ledger_test.dart test/mod_monthly_index_test.dart test/mod_lan_policy_test.dart test/mod_continuous_safety_test.dart --reporter expanded
+          flutter test test/mod_lan_events_test.dart test/mod_monthly_ledger_test.dart test/mod_monthly_index_test.dart test/mod_lan_policy_test.dart test/mod_continuous_safety_test.dart --reporter expanded
       - name: "Regression: WebDAV partial download aborts push"
         working-directory: upstream/packages/feature/moodiary_sync
         run: flutter test test/sync/data/incremental_engine_test.dart --reporter expanded
-      - name: Build V3 W2 arm64 APK
+      - name: Build V3 W3 arm64 APK
         env:
           ANDROID_NDK_HOME: ${{ steps.ndk.outputs.ndk-path }}
         working-directory: upstream/mobile
@@ -86,7 +103,7 @@ jobs:
           sha256sum upstream/mobile/build/app/outputs/flutter-apk/app-v3dev-release.apk
       - uses: actions/upload-artifact@v4
         with:
-          name: Moodiary-V3-LAN-W2-arm64
+          name: Moodiary-V3-LAN-W3-ReadOnly-Realtime-arm64
           path: upstream/mobile/build/app/outputs/flutter-apk/app-v3dev-release.apk
           retention-days: 30
           if-no-files-found: error
