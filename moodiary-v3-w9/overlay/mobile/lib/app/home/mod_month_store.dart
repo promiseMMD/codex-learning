@@ -4,6 +4,7 @@
 import 'dart:convert';
 
 import 'package:crypto/crypto.dart';
+import 'package:drift/drift.dart';
 import 'package:moodiary_data/moodiary_data.dart';
 import 'package:moodiary_utils/moodiary_utils.dart';
 
