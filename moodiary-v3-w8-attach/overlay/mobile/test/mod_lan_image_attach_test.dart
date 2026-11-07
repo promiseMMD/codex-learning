@@ -158,6 +158,30 @@ void main() {
       expect(staging.pendingCount,1);
     });
 
+    test('phone revokes pairing during image promotion; no diary commit',() async {
+      final staged=await stage();
+      var active=true;
+      final guarded=ModLanImageAttach(
+        repository:repository,staging:staging,
+        isSessionActive:()=>active,
+        promoteImage:(value) async {
+          final name=await promote(value);
+          active=false;
+          return name;
+        },
+        fileForImage:imageFile,deleteImage:delete,
+      );
+      await expectLater(
+        guarded.appendStagedImage(diaryId:noteId,stageId:staged,
+          ownerSession:'paired-1',revision:await revision()),
+        throwsA(isA<ModLanImagePolicyException>().having(
+          (x)=>x.code,'code','session_revoked')),
+      );
+      expect((await rich.load(noteId)).imageName,isEmpty);
+      expect(await imageFile(imageName).exists(),false);
+      expect(staging.pendingCount,1);
+    });
+
     test('wrong promoted bytes cause rollback without DB write',() async {
       final staged=await stage();
       final wrong=ModLanImageAttach(
