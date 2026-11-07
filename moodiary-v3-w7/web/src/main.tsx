@@ -88,10 +88,8 @@ function App(){
   const openSequence=useRef(0)
   const autoTimer=useRef<ReturnType<typeof setTimeout>|null>(null)
   const loadedNonce=useRef(0)
-  const wsRef=useRef<WebSocket|null>(null)
   const eventsEpoch=useRef('')
   const eventsSeq=useRef(0)
-  const [refreshToken,setRefreshToken]=useState(0)
 
   function discardAutosave(){
     if(autoTimer.current!==null)clearTimeout(autoTimer.current)
@@ -204,12 +202,24 @@ function App(){
       await refreshList()
       const note=noteRef.current
       if (!note|| (changedId&&changedId!==note.id))return
+      // A local browser save emits the same event before its HTTP response.
+      // CAS resolves competing writes; never misclassify that event as conflict.
+      if(savingRef.current)return
       if(dirtyRef.current){
+        if(!changedId){
+          // On initial WebSocket reset, compare the server revision before
+          // declaring a conflict; unsaved new documents have no remote row.
+          if(!note.revision)return
+          try{
+            const latest=await api.read(note.id)
+            if(latest.revision===note.revision)return
+          }catch{return}
+        }
         conflictRef.current=true;discardAutosave()
         setStatus('手机端已有新版本：本地草稿已保留，需先处理版本冲突')
         return
       }
-      if(savingRef.current)return // CAS save result decides whether this event is an actual conflict.
+      if(!note.revision)return // New, not-yet-committed document.
       await loadNote(note.id,true)
     }
     function connect(){
@@ -221,7 +231,6 @@ function App(){
       }
       const wsurl=`ws://${window.location.host}/api/events${params.size?'?'+params.toString():''}`
       socket=new WebSocket(wsurl)
-      wsRef.current=socket
       socket.onopen=()=>{
         if(closed)return
         setConnected(true);backoff=400
@@ -260,7 +269,7 @@ function App(){
       closed=true
       if(reconnect)clearTimeout(reconnect)
       if(heartbeat)clearInterval(heartbeat)
-      socket?.close();wsRef.current=null
+      socket?.close()
       setConnected(false)
     }
   },[authorized,refreshList,loadNote])
@@ -281,7 +290,7 @@ function App(){
       window.removeEventListener('beforeunload',leaving)
       discardAutosave()
     }
-  },[refreshToken])
+  },[])
 
   if(authorized===null)return <main className="center">正在验证手机授权…</main>
   if(!authorized)return <main className="center"><h1>Moodiary Web</h1>
