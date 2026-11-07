@@ -1,4 +1,4 @@
-name: Moodiary V3 W9.3 PC Monthly Editor Acceptance
+name: Moodiary V3 W9.4 Native Monthly Editor Acceptance
 on:
   push:
     branches:
@@ -9,6 +9,7 @@ on:
       - moodiary-v3-w9-month-store-20261107
       - moodiary-v3-w9-2-block-api-20261107
       - moodiary-v3-w9-3-month-workspace-20261107
+      - moodiary-v3-w9-4-native-month-20261107
   workflow_dispatch:
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -63,6 +64,7 @@ jobs:
           python3 ../moodiary-v3-w9/apply_w9.py .
           python3 ../moodiary-v3-w9-2/apply_w9_2.py .
           python3 ../moodiary-v3-w9-3/apply_w9_3.py .
+          python3 ../moodiary-v3-w9-4/apply_w9_4.py .
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -89,6 +91,9 @@ jobs:
           set -euo pipefail
           corepack enable
           corepack pnpm install --frozen-lockfile
+          corepack pnpm exec tsc --noEmit
+          corepack pnpm exec vitest run src
+          corepack pnpm exec vite build
           corepack pnpm exec tsc --project lan/tsconfig.json --noEmit
           corepack pnpm exec vitest run lan/src/w7.test.ts lan/src/month_api.test.ts lan/src/month_workspace.test.tsx
           corepack pnpm exec vite build --config lan/vite.config.ts
@@ -106,6 +111,7 @@ jobs:
           export MOODIARY_PLAYWRIGHT_MODULE=/tmp/moodiary-lan-browser/node_modules/playwright
           export MOODIARY_CHROME="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
           node moodiary-v3-w9-3/browser_acceptance.cjs upstream/mobile/assets/lan /tmp/moodiary-w93-browser-qa
+          node moodiary-v3-w9-4/native_browser_acceptance.cjs upstream/packages/feature_base/moodiary_editor/assets/editor/index.html /tmp/moodiary-w93-browser-qa
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -132,6 +138,19 @@ jobs:
         run: |
           corepack enable
           flutter pub get
+      - name: Generate and retain native monthly translations
+        working-directory: upstream/packages/foundation/moodiary_i18n
+        run: dart run slang
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Moodiary-W9-4-Generated-I18n
+          path: upstream/packages/foundation/moodiary_i18n/lib/i18n
+          retention-days: 30
+      - name: Native month source formatting
+        working-directory: upstream
+        run: |
+          dart format mobile/lib/app/home/mod_month_native.dart mobile/lib/app/home/mod_month_page.dart mobile/lib/app/home/mod_month_composer.dart mobile/lib/app/home/mod_month_updates.dart
+          dart format mobile/test/mod_month_native_test.dart mobile/test/mod_month_page_test.dart mobile/test/mod_month_composer_test.dart packages/feature_base/moodiary_editor/lib/src/transport/editor_snapshot.dart packages/feature_base/moodiary_editor/lib/src/moodiary_editor.dart packages/feature_base/moodiary_editor/test/editor_snapshot_test.dart
       - name: Disable unused Rust asset hooks for Dart-only tests
         working-directory: upstream
         run: |
@@ -143,6 +162,9 @@ jobs:
           assert source.count('build_assets: true') == 6
           p.write_text(source.replace('build_assets: true', 'build_assets: false'))
           PYHOOK
+      - name: Native editor acknowledgement and ordinary editor regression
+        working-directory: upstream/packages/feature_base/moodiary_editor
+        run: flutter test test/editor_snapshot_test.dart test/editor_activation_test.dart test/edit_controller_test.dart --reporter expanded
       - name: Dart formatting
         working-directory: upstream
         run: |
@@ -181,14 +203,14 @@ jobs:
       - name: "Unit tests: W7 assets + W6 rich CAS + W5 autosave + W4 editor + W3 realtime + W2 ledger + LAN policy"
         working-directory: upstream/mobile
         run: |
-          flutter test test/mod_month_disk_test.dart test/mod_lan_month_http_test.dart test/mod_month_store_test.dart test/mod_lan_image_attach_test.dart test/mod_lan_image_decoder_test.dart test/mod_lan_rich_test.dart test/mod_lan_write_test.dart test/mod_lan_database_cas_test.dart test/mod_lan_events_test.dart test/mod_monthly_ledger_test.dart test/mod_monthly_index_test.dart test/mod_lan_policy_test.dart test/mod_continuous_safety_test.dart --reporter expanded
+          flutter test test/mod_month_native_test.dart test/mod_month_page_test.dart test/mod_month_composer_test.dart test/mod_month_disk_test.dart test/mod_lan_month_http_test.dart test/mod_month_store_test.dart test/mod_lan_image_attach_test.dart test/mod_lan_image_decoder_test.dart test/mod_lan_rich_test.dart test/mod_lan_write_test.dart test/mod_lan_database_cas_test.dart test/mod_lan_events_test.dart test/mod_monthly_ledger_test.dart test/mod_monthly_index_test.dart test/mod_lan_policy_test.dart test/mod_continuous_safety_test.dart --reporter expanded
       - name: "Regression: WebDAV partial download aborts push"
         working-directory: upstream/packages/feature/moodiary_sync
         run: flutter test test/sync/data/incremental_engine_test.dart --reporter expanded
       - name: Restore native build hooks for Android
         working-directory: upstream
         run: cp /tmp/moodiary-w9-test-pubspec.yaml pubspec.yaml
-      - name: Build V3 W9.3 arm64 APK
+      - name: Build V3 W9.4 arm64 APK
         env:
           ANDROID_NDK_HOME: ${{ steps.ndk.outputs.ndk-path }}
         working-directory: upstream/mobile
@@ -199,7 +221,7 @@ jobs:
           sha256sum upstream/mobile/build/app/outputs/flutter-apk/app-v3dev-release.apk
       - uses: actions/upload-artifact@v4
         with:
-          name: Moodiary-V3-LAN-W9-3-PC-Monthly-Editor-arm64
+          name: Moodiary-V3-LAN-W9-4-Native-Monthly-Editor-arm64
           path: upstream/mobile/build/app/outputs/flutter-apk/app-v3dev-release.apk
           retention-days: 30
           if-no-files-found: error
