@@ -1,0 +1,7 @@
+name: moodiary_v3_w8_standalone_tests
+description: Local W8 temporary image upload security tests
+publish_to: none
+environment:
+  sdk: '>=3.3.0 <4.0.0'
+dependencies:
+  crypto: ^3.0.6
