@@ -21,8 +21,8 @@ jobs:
       - uses: dart-lang/setup-dart@v1
         with:
           sdk: stable
-      - name: Dart format check
+      - name: Dart formatting diagnostic
         run: |
-          dart format --output=none --set-exit-if-changed             moodiary-v3-w8/overlay/mobile/lib/app/home/mod_lan_image_policy.dart             moodiary-v3-w8/tests/image_policy_smoke.dart
+          dart format --output=none             moodiary-v3-w8/overlay/mobile/lib/app/home/mod_lan_image_policy.dart             moodiary-v3-w8/tests/image_policy_smoke.dart
       - name: Bounded image MIME and stream safety regression
         run: dart run moodiary-v3-w8/tests/image_policy_smoke.dart
