@@ -127,6 +127,18 @@ export const emptyDocument = (): JsonDoc => ({
   type:'doc',attrs:{v:2},content:[{type:'paragraph'}],
 })
 
+// Prevent stale fetch completion from overwriting a newer local draft.
+export function canApplyRemoteRead(
+  requestSequence: number,
+  activeSequence: number,
+  editGenerationAtRequest: number,
+  currentEditGeneration: number,
+  hasDirtyDraft: boolean,
+): boolean {
+  return requestSequence === activeSequence &&
+    !(hasDirtyDraft && editGenerationAtRequest !== currentEditGeneration)
+}
+
 export class LanClient {
   constructor(private readonly fetcher: typeof fetch = fetch) {}
   private csrf: string | null = null
