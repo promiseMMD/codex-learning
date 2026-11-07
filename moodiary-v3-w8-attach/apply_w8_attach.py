@@ -65,6 +65,8 @@ one(
         final writer = ModLanImageAttach(
           repository: getIt<DiaryRepository>(),
           staging: staging,
+          isSessionActive: () =>
+              _sessions[session.id] == session && _imageStaging == staging,
         );
         final updated = await writer.appendStagedImage(
           diaryId: r.uri.pathSegments[3],
