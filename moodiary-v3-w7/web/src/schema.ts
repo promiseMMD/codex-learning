@@ -1,50 +1,58 @@
-// W7 deliberately uses only document nodes validated by W6.
-// Unsupported diary content never enters an editable Tiptap instance.
-import { Node } from '@tiptap/core'
+// W7 intentionally matches the schema accepted by the phone W6 writer.
+import { Mark, Node } from '@tiptap/core'
 import StarterKit from '@tiptap/starter-kit'
-import Link from '@tiptap/extension-link'
 import Underline from '@tiptap/extension-underline'
+// Import typing for setLink/unsetLink commands; the extension itself is NOT
+// registered, because its extra stored attributes do not match W6.
+import '@tiptap/extension-link'
 
 export const LanDoc = Node.create({
   name: 'doc',
   topNode: true,
   content: 'block+',
-  addAttributes() {
-    return { v: { default: 2 } }
-  },
+  addAttributes() { return { v: { default: 2 } } },
 })
 
-// Default Link emits target/rel/class attrs that W6 intentionally rejects.
-// This extension persists ONLY href.
-const LanLink = Link.extend({
+// Only href is stored in the ProseMirror JSON; HTML rel/target are rendered
+// defensively, but never become persistent document attributes.
+const LanLink = Mark.create({
+  name: 'link',
+  priority: 1000,
+  inclusive: false,
   addAttributes() {
     return {
-      href: {
-        default: null,
-        parseHTML: element => element.getAttribute('href'),
-        renderHTML: attributes =>
-          attributes.href ? { href: attributes.href } : {},
-      },
+      href: { default: null, parseHTML: el => el.getAttribute('href') },
     }
   },
-}).configure({
-  autolink: false,
-  linkOnPaste: false,
-  openOnClick: false,
-  HTMLAttributes: {},
+  parseHTML() { return [{ tag: 'a[href]' }] },
+  renderHTML({ HTMLAttributes }) {
+    return ['a', {
+      href: HTMLAttributes.href,
+      rel: 'noopener noreferrer nofollow',
+      target: '_blank',
+    }, 0]
+  },
+  addCommands() {
+    return {
+      setLink: (attrs: {href: string}) => ({commands}) =>
+        commands.setMark(this.name, attrs),
+      unsetLink: () => ({commands}) => commands.unsetMark(this.name),
+    }
+  },
 })
 
 export const lanExtensions = [
   LanDoc,
   StarterKit.configure({
     document: false,
+    link: false,
+    underline: false,
     blockquote: false,
     bulletList: false,
     orderedList: false,
     listItem: false,
     codeBlock: false,
     horizontalRule: false,
-    // Root content is constrained to paragraphs and headings.
   }),
   Underline,
   LanLink,
