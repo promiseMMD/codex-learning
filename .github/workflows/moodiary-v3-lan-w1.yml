@@ -4,6 +4,9 @@ on:
     branches:
       - moodiary-v3-monthly-lan-dev-20261107
   workflow_dispatch:
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   v3-lan-w5:
     runs-on: ubuntu-latest
@@ -53,6 +56,18 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
+      - name: Verify deployed browser JavaScript syntax
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          data = Path('upstream/mobile/lib/app/home/mod_lan_service.dart').read_text()
+          source = data.split("const _script = r'''", 1)[1].split("'''", 1)[0]
+          Path('/tmp/moodiary-v3-w3-app.js').write_text(source)
+          PY
+          node --check /tmp/moodiary-v3-w3-app.js
+          node /tmp/moodiary-v3-w4/scripts/browser-write.test.cjs /tmp/moodiary-v3-w3-app.js
+          node moodiary-v3-w5/browser_race.test.cjs /tmp/moodiary-v3-w3-app.js
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.47.2'
@@ -90,18 +105,6 @@ jobs:
           dart format mobile/lib/app/home/mod_lan_page.dart
           dart format mobile/test/mod_monthly_index_test.dart
           dart format mobile/test/mod_lan_policy_test.dart
-      - name: Verify deployed browser JavaScript syntax
-        shell: bash
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          data = Path('upstream/mobile/lib/app/home/mod_lan_service.dart').read_text()
-          source = data.split("const _script = r'''", 1)[1].split("'''", 1)[0]
-          Path('/tmp/moodiary-v3-w3-app.js').write_text(source)
-          PY
-          node --check /tmp/moodiary-v3-w3-app.js
-          node /tmp/moodiary-v3-w4/scripts/browser-write.test.cjs /tmp/moodiary-v3-w3-app.js
-          node moodiary-v3-w5/browser_race.test.cjs /tmp/moodiary-v3-w3-app.js
       - name: "Unit tests: W5 autosave + W4 editor + W3 realtime + W2 ledger + LAN policy"
         working-directory: upstream/mobile
         run: |
