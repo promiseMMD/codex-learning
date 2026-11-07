@@ -16,6 +16,7 @@ for relative in [
     "packages/feature_base/moodiary_data/lib/src/mod_month_schema.dart",
     "mobile/lib/app/home/mod_month_store.dart",
     "mobile/test/mod_month_store_test.dart",
+    "packages/feature_base/moodiary_data/test/mod_month_migration_test.dart",
 ]:
     src=here/"overlay"/relative
     dst=root/relative
