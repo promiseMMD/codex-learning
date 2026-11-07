@@ -1,7 +1,7 @@
 import 'dart:async';
 
-import 'package:moodiary_data/moodiary_data.dart';
 import 'package:moodiary_i18n/moodiary_i18n.dart';
+import 'package:moodiary_models/moodiary_models.dart';
 import 'package:mui/mui.dart';
 
 import 'mod_month_composer.dart';
@@ -115,6 +115,7 @@ class _ModMonthPageState extends State<ModMonthPage> with WidgetsBindingObserver
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final snapshot = _snapshot?.monthKey == _month ? _snapshot : null;
     final blocks = snapshot?.blocks ?? const <ModStoredBlock>[];
     final summaries = blocks.where((b) => b.kind == 'summary').toList();

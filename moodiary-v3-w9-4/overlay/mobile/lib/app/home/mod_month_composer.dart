@@ -185,6 +185,7 @@ class _ModMonthComposerState extends State<ModMonthComposer> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final title = !_editing
       ? (widget.action == 'delete' ? l10n.month.deleteTitle : l10n.diary.recycleRestore)
       : (_summary ? l10n.month.summary : l10n.month.record);
