@@ -144,6 +144,9 @@ jobs:
         working-directory: upstream/mobile
         run: |
           flutter test test/mod_month_store_test.dart test/mod_lan_image_attach_test.dart test/mod_lan_image_decoder_test.dart test/mod_lan_rich_test.dart test/mod_lan_write_test.dart test/mod_lan_database_cas_test.dart test/mod_lan_events_test.dart test/mod_monthly_ledger_test.dart test/mod_monthly_index_test.dart test/mod_lan_policy_test.dart test/mod_continuous_safety_test.dart --reporter expanded
+      - name: W9 migration from older v2 and v3 database preserves user diaries
+        working-directory: upstream/packages/feature_base/moodiary_data
+        run: flutter test test/mod_month_migration_test.dart --reporter expanded
       - name: "Regression: WebDAV partial download aborts push"
         working-directory: upstream/packages/feature/moodiary_sync
         run: flutter test test/sync/data/incremental_engine_test.dart --reporter expanded
