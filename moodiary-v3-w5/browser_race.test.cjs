@@ -26,7 +26,8 @@ class Element {
      updates.push(JSON.parse(opts.body));
      return {ok:true,json:async()=>({id:url.split('/').at(-1),revision:'b'.repeat(64),editable:true})};
    }
-   if(url==='/api/diaries'&&!opts.method)return {ok:true,json:async()=>({items:[]})};
+   if(url==='/api/diaries'&&!opts.method)return {ok:true,json:async()=>({items:[{id:'00000000-aaaa-4aaa-aaaa-000000000000',title:'复杂只读笔记',preview:'只读正文',date:'2026-11-07'}]})};
+   if(url==='/api/diaries/00000000-aaaa-4aaa-aaaa-000000000000' && !opts.method)return {ok:true,json:async()=>({id:'00000000-aaaa-4aaa-aaaa-000000000000',revision:'c'.repeat(64),title:'复杂只读笔记',text:'只读正文',editable:false})};
    if(url==='/api/months')return {ok:true,json:async()=>({topics:[]})};
    throw Error('unexpected request '+url);
  };
@@ -47,6 +48,13 @@ class Element {
  assert.equal(updates[0].text,'保存期间追加内容');
  assert.equal(updates[0].revision,'a'.repeat(64));
  assert.match(el.editStatus.textContent,/已保存至手机/);
+ assert.ok(el.records.children.length>0);
+ el.records.children[0].click();await delay(30);
+ assert.equal(el.saveEntry.disabled,true,'complex note must stay read-only');
+ assert.equal(el.editText.disabled,true,'complex note text field must be read-only');
+ const before=updates.length;
+ el.saveEntry.click();await delay(20);
+ assert.equal(updates.length,before,'read-only note must never submit a write');
  listeners.pagehide();
  console.log('W5 in-flight edits, deferred autosave, and subsequent CAS save passed');
 })().catch(e=>{console.error(e);process.exitCode=1});
