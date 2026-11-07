@@ -1,11 +1,11 @@
-name: Moodiary V3 LAN W3 Realtime Build and Test
+name: Moodiary V3 LAN W4 Safe Editor Build and Test
 on:
   push:
     branches:
       - moodiary-v3-monthly-lan-dev-20261107
   workflow_dispatch:
 jobs:
-  v3-lan-w3:
+  v3-lan-w4:
     runs-on: ubuntu-latest
     timeout-minutes: 110
     permissions:
@@ -37,6 +37,13 @@ jobs:
           cp /tmp/moodiary-v3-w3/overlay/mobile/lib/app/home/mod_lan_events.dart mobile/lib/app/home/
           cp /tmp/moodiary-v3-w3/overlay/mobile/test/mod_lan_events_test.dart mobile/test/
           python3 ../moodiary-v3-w3/fix_replay_cursor.py
+          base64 --decode ../moodiary-v3-w4/source.b64 > /tmp/moodiary-v3-w4.zip
+          unzip -q /tmp/moodiary-v3-w4.zip -d /tmp/moodiary-v3-w4
+          python3 /tmp/moodiary-v3-w4/scripts/patch_repository.py .
+          cp /tmp/moodiary-v3-w4/overlay/mobile/lib/app/home/mod_lan_service.dart mobile/lib/app/home/
+          cp /tmp/moodiary-v3-w4/overlay/mobile/lib/app/home/mod_lan_write.dart mobile/lib/app/home/
+          cp /tmp/moodiary-v3-w4/overlay/mobile/test/mod_lan_write_test.dart mobile/test/
+          cp /tmp/moodiary-v3-w4/overlay/mobile/test/mod_lan_database_cas_test.dart mobile/test/
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -70,6 +77,11 @@ jobs:
           dart format mobile/lib/app/home/mod_monthly_index.dart
           dart format mobile/lib/app/home/mod_monthly_ledger.dart
           dart format mobile/test/mod_monthly_ledger_test.dart
+          dart format mobile/lib/app/home/mod_lan_write.dart
+          dart format mobile/test/mod_lan_write_test.dart
+          dart format mobile/test/mod_lan_database_cas_test.dart
+          dart format packages/feature_base/moodiary_data/lib/src/diary_repository.dart
+          dart format packages/feature_base/moodiary_editor/lib/src/application/edit_controller.dart
           dart format mobile/lib/app/home/mod_lan_events.dart
           dart format mobile/test/mod_lan_events_test.dart
           dart format mobile/lib/app/home/mod_lan_service.dart
@@ -86,14 +98,15 @@ jobs:
           Path('/tmp/moodiary-v3-w3-app.js').write_text(source)
           PY
           node --check /tmp/moodiary-v3-w3-app.js
-      - name: "Unit tests: W3 realtime journal, W2 ledger, WLAN security, Beta safety"
+          node /tmp/moodiary-v3-w4/scripts/browser-write.test.cjs /tmp/moodiary-v3-w3-app.js
+      - name: "Unit tests: W4 editor + W3 realtime + W2 ledger + LAN policy"
         working-directory: upstream/mobile
         run: |
-          flutter test test/mod_lan_events_test.dart test/mod_monthly_ledger_test.dart test/mod_monthly_index_test.dart test/mod_lan_policy_test.dart test/mod_continuous_safety_test.dart --reporter expanded
+          flutter test test/mod_lan_write_test.dart test/mod_lan_database_cas_test.dart test/mod_lan_events_test.dart test/mod_monthly_ledger_test.dart test/mod_monthly_index_test.dart test/mod_lan_policy_test.dart test/mod_continuous_safety_test.dart --reporter expanded
       - name: "Regression: WebDAV partial download aborts push"
         working-directory: upstream/packages/feature/moodiary_sync
         run: flutter test test/sync/data/incremental_engine_test.dart --reporter expanded
-      - name: Build V3 W3 arm64 APK
+      - name: Build V3 W4 arm64 APK
         env:
           ANDROID_NDK_HOME: ${{ steps.ndk.outputs.ndk-path }}
         working-directory: upstream/mobile
@@ -104,7 +117,7 @@ jobs:
           sha256sum upstream/mobile/build/app/outputs/flutter-apk/app-v3dev-release.apk
       - uses: actions/upload-artifact@v4
         with:
-          name: Moodiary-V3-LAN-W3-ReadOnly-Realtime-arm64
+          name: Moodiary-V3-LAN-W4-SafeText-Write-arm64
           path: upstream/mobile/build/app/outputs/flutter-apk/app-v3dev-release.apk
           retention-days: 30
           if-no-files-found: error
