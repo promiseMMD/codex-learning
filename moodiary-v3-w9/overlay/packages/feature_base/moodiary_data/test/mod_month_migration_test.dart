@@ -90,7 +90,7 @@ void main() {
     expect(uv.read<int>('user_version'), 4);
     final legacy = await upgraded.customSelect(
       'SELECT title,content_text,mood_level FROM diaries WHERE id = ?',
-      variables: [const Variable.withString('old-upgrade-row')],
+      variables: [const Variable<String>('old-upgrade-row')],
     ).getSingle();
     expect(legacy.read<String>('title'), '旧版苹果日记');
     expect(legacy.read<String>('content_text'), '苹果和工作记录');
