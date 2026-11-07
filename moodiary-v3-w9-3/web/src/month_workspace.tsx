@@ -30,6 +30,8 @@ export function MonthWorkspace({api,refreshTick,onLock}:{
   const [month,setMonth]=useState(localDay().slice(0,7))
   const [snapshot,setSnapshot]=useState<MonthSnapshot|null>(null)
   const [loading,setLoading]=useState(false)
+  const [topicsVerified,setTopicsVerified]=useState(false)
+  const [monthVerified,setMonthVerified]=useState(false)
   const [status,setStatus]=useState('正在读取手机中的长期主题…')
   const [query,setQuery]=useState('')
   const [limit,setLimit]=useState(50)
@@ -49,10 +51,11 @@ export function MonthWorkspace({api,refreshTick,onLock}:{
   const replaceDraft=(next:Draft|null)=>{draftRef.current=next;setDraft(next)}
   const refreshTopics=useCallback(async()=>{
     const seq=++topicSeq.current
+    setTopicsVerified(false)
     try{
       const list=await api.topics()
       if(!alive.current||seq!==topicSeq.current)return
-      setTopics(list)
+      setTopics(list);setTopicsVerified(true)
       if(!selection.current.topicId&&list[0]){
         selection.current.topicId=list[0].id;setTopicId(list[0].id)
       }
@@ -65,11 +68,11 @@ export function MonthWorkspace({api,refreshTick,onLock}:{
     if(!chosen.topicId||!validMonth(chosen.month))return
     if(draftRef.current||attemptRef.current){setRemoteChanged(true);return}
     const seq=++readSeq.current
-    setLoading(true)
+    setLoading(true);setMonthVerified(false)
     try{
       const data=await api.month(chosen.topicId,chosen.month)
       if(!alive.current||seq!==readSeq.current||draftRef.current||attemptRef.current)return
-      setSnapshot(data);setRemoteChanged(false)
+      setSnapshot(data);setRemoteChanged(false);setMonthVerified(true)
       setStatus(confirmedMessage??'已从手机读取 · 这些月度记录目前仅保存在手机')
     }catch(e){if(alive.current&&seq===readSeq.current)setStatus(message(e))}
     finally{if(alive.current&&seq===readSeq.current)setLoading(false)}
@@ -97,8 +100,9 @@ export function MonthWorkspace({api,refreshTick,onLock}:{
   },[draft?.key])
 
   const topic=topics?.find(t=>t.id===topicId)
-  const ready=!!topic&&snapshot?.topicId===topicId&&snapshot?.monthKey===month&&!loading
-  const blocks=ready?snapshot!.blocks:[]
+  const matchingSnapshot=!!topic&&snapshot?.topicId===topicId&&snapshot?.monthKey===month
+  const ready=matchingSnapshot&&topicsVerified&&monthVerified&&!loading
+  const blocks=matchingSnapshot?snapshot!.blocks:[]
   const summary=blocks.find(b=>b.kind==='summary')
   const entries=chronologicalEntries(blocks)
   const filtered=entries.filter(b=>documentText(b.document).toLowerCase().includes(query.toLowerCase()))
@@ -140,6 +144,7 @@ export function MonthWorkspace({api,refreshTick,onLock}:{
   async function save(){
     const active=draftRef.current
     if(!active||busyRef.current||conflict)return
+    if(!ready&&!attemptRef.current){setStatus('尚未完成完整读取，草稿已保留，请稍后重新读取。');return}
     busyRef.current=true;setBusy(true)
     let attempt=attemptRef.current
     try{
@@ -217,11 +222,13 @@ export function MonthWorkspace({api,refreshTick,onLock}:{
       <div className='month-notice'>新月度记录目前仅保存在手机，尚未接入云端同步。请勿将本版作为唯一长期存档。</div>
       {!!topic?.legacyCount&&<p className='legacy-notice'>此主题另有 {topic.legacyCount} 条旧记录，仍可在手机原有页面查看；本页暂不合并显示。</p>}
       <div role='status' className={'save-state'+(conflict||uncertain?' alert':'')}>{loading?'正在读取手机记录…':status}</div>
+      {matchingSnapshot&&!loading&&(!topicsVerified||!monthVerified)&&
+        <p className='month-notice' role='alert'>当前内容仅供查看；完整刷新成功后才可继续编辑。</p>}
       {remoteChanged&&!draft&&<button className='secondary' onClick={()=>void readSelection()}>读取最新记录</button>}
       <section className='month-summary' aria-label='本月总结'>
         {summary&&!summary.deleted?<details><summary>本月总结</summary><RichPreview document={summary.document}/>
-          <div className='block-actions'><button className='secondary' onClick={()=>open('summary',summary)}>编辑总结</button>
-            <button className='secondary' onClick={()=>open('summary',summary,'delete')}>删除总结</button></div></details>:
+          <div className='block-actions'><button className='secondary' disabled={!ready} onClick={()=>open('summary',summary)}>编辑总结</button>
+            <button className='secondary' disabled={!ready} onClick={()=>open('summary',summary,'delete')}>删除总结</button></div></details>:
           <button className='secondary' disabled={!ready} onClick={()=>open('summary',summary,summary?'restore':'edit')}>
             {summary?'恢复并编辑本月总结':'添加本月总结'}</button>}
       </section>
@@ -234,16 +241,16 @@ export function MonthWorkspace({api,refreshTick,onLock}:{
           {(i===0||filtered[i-1].dayKey!==b.dayKey)&&<h2 className='day-heading'>{b.dayKey}</h2>}
           <article className='month-block' data-block-id={b.blockId}>
             <header><time>{localClock(new Date(b.occurredAtMs))}</time><div className='block-actions'>
-              <button className='secondary' onClick={()=>open('entry',b)}>编辑记录</button>
-              <button className='secondary' onClick={()=>open('entry',b,'delete')}>删除记录</button></div></header>
+              <button className='secondary' disabled={!ready} onClick={()=>open('entry',b)}>编辑记录</button>
+              <button className='secondary' disabled={!ready} onClick={()=>open('entry',b,'delete')}>删除记录</button></div></header>
             <RichPreview document={b.document}/>
           </article>
         </React.Fragment>)}</div>
       {filtered.length>limit&&<button className='secondary' onClick={()=>setLimit(n=>n+50)}>再显示 50 条</button>}
       <p className='subtle month-timezone'>日期按所选日期归档；时间按当前浏览器时区 {Intl.DateTimeFormat().resolvedOptions().timeZone} 显示。</p>
-      {ready&&deleted.length>0&&<details className='month-trash'><summary>回收站 · {deleted.length} 条</summary>
+      {matchingSnapshot&&deleted.length>0&&<details className='month-trash'><summary>回收站 · {deleted.length} 条</summary>
         {deleted.map(b=><article key={b.blockId}><p>{b.kind==='summary'?'本月总结':b.dayKey} · {documentText(b.document).slice(0,100)}</p>
-          <button className='secondary' onClick={()=>open(b.kind,b,'restore')}>恢复记录</button></article>)}</details>}
+          <button className='secondary' disabled={!ready} onClick={()=>open(b.kind,b,'restore')}>恢复记录</button></article>)}</details>}
     </main>
     {draft&&<div className='month-modal-backdrop'><div className='month-dialog' role='dialog' aria-modal='true'
       aria-labelledby='month-dialog-title' tabIndex={-1} ref={dialogRef} onKeyDown={dialogKey}>

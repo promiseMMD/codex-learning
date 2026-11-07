@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import React from 'react'
 import {afterEach,beforeEach,describe,it,expect,vi} from 'vitest'
-import {render,screen,within,fireEvent,waitFor,cleanup} from '@testing-library/react'
+import {render,screen,within,fireEvent,waitFor,cleanup,act} from '@testing-library/react'
 import {LanApiError,type JsonDoc} from './api'
 import {MonthWorkspace} from './month_workspace'
 import {documentText,type MonthApiClient,type MonthBlock,type MonthRevision,type MonthSnapshot} from './month_api'
@@ -175,5 +175,27 @@ describe('monthly PC editor user flow',()=>{
     await waitFor(()=>expect(screen.getByRole('status').textContent).toContain('连接中断'))
     expect((screen.getByRole('button',{name:'＋ 追加记录'}) as HTMLButtonElement).disabled).toBe(true)
     expect(f.raw.append).not.toHaveBeenCalled()
+  })
+  it('incompatible refresh preserves the previous content as read-only until verified again',async()=>{
+    const f=fakeApi();await mount(f.api)
+    f.raw.month.mockRejectedValueOnce(new LanApiError('invalid_month_response',502))
+    await act(async()=>fireEvent.click(screen.getByRole('button',{name:'刷新主题与记录'})))
+    expect(screen.getByText('原来的记录')).toBeDefined()
+    expect(screen.getByRole('alert').textContent).toContain('仅供查看')
+    expect((screen.getByRole('button',{name:'＋ 追加记录'}) as HTMLButtonElement).disabled).toBe(true)
+    expect((screen.getByRole('button',{name:'编辑记录'}) as HTMLButtonElement).disabled).toBe(true)
+    expect((screen.getByRole('button',{name:'删除记录'}) as HTMLButtonElement).disabled).toBe(true)
+    await act(async()=>fireEvent.click(screen.getByRole('button',{name:'刷新主题与记录'})))
+    await waitFor(()=>expect((screen.getByRole('button',{name:'编辑记录'}) as HTMLButtonElement).disabled).toBe(false))
+    expect(f.raw.append).not.toHaveBeenCalled()
+  })
+  it('a failed topic refresh cannot be bypassed by a successful month response',async()=>{
+    const f=fakeApi();await mount(f.api)
+    f.raw.topics.mockRejectedValueOnce(new LanApiError('invalid_month_response',502))
+    await act(async()=>fireEvent.click(screen.getByRole('button',{name:'刷新主题与记录'})))
+    expect(screen.getByText('原来的记录')).toBeDefined()
+    expect(screen.getByRole('alert').textContent).toContain('仅供查看')
+    expect((screen.getByRole('button',{name:'编辑记录'}) as HTMLButtonElement).disabled).toBe(true)
+    expect((screen.getByRole('button',{name:'＋ 追加记录'}) as HTMLButtonElement).disabled).toBe(true)
   })
 })

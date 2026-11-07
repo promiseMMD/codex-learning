@@ -19,7 +19,7 @@ const blocks=new Map([['block-initial-001',{
   document:doc('原有月度记录'),deleted:false,
 }]])
 const receipts=new Map(),monthPages=new Set(['2026-11']),posts=[],sockets=[]
-let lostNext=false,conflictNext=false,ordinaryDoc=doc('原有普通日记'),ordinaryTitle='已有普通日记'
+let lostNext=false,conflictNext=false,incompatibleNext=false,ordinaryDoc=doc('原有普通日记'),ordinaryTitle='已有普通日记'
 const failures=[],requestTrace=[]
 let server,browser,context,activePage
 const wait=async(condition,label)=>{
@@ -66,8 +66,11 @@ const checks=[]
     const match=p.match(/^\/api\/v3\/months\/([^/]+)\/(\d{4}-\d{2})(\/revisions)?$/)
     if(!match)return send({error:'not_found'},404)
     const key=match[2]
-    if(req.method()==='GET')return send({schemaVersion:1,topicId:topic,monthKey:key,syncState:'local_only',
-      blocks:[...blocks.values()].filter(b=>b.monthKey===key)})
+    if(req.method()==='GET'){
+      const version=incompatibleNext?999:1;incompatibleNext=false
+      return send({schemaVersion:version,topicId:topic,monthKey:key,syncState:'local_only',
+        blocks:[...blocks.values()].filter(b=>b.monthKey===key)})
+    }
     assert.equal(req.headers()['x-moodiary-csrf'],'browser-test-csrf')
     const body=req.postDataJSON();posts.push(JSON.stringify(body))
     const receipt=receipts.get(body.operationId)
@@ -176,6 +179,16 @@ const checks=[]
   await page.getByRole('dialog').waitFor({state:'detached'})
   await page.getByText('手机端的新版本',{exact:true}).waitFor()
   checks.push('409 preserves and exports draft without rebase or automatic overwrite')
+
+  incompatibleNext=true
+  await page.getByRole('button',{name:'刷新主题与记录'}).click()
+  await page.getByRole('alert').filter({hasText:'仅供查看'}).waitFor()
+  assert(await page.getByRole('button',{name:'＋ 追加记录'}).isDisabled())
+  assert(await page.locator(`[data-block-id="${created.blockId}"]`).getByRole('button',{name:'编辑记录'}).isDisabled())
+  await page.getByText('手机端的新版本',{exact:true}).waitFor()
+  await page.getByRole('button',{name:'刷新主题与记录'}).click()
+  await wait(async()=>await page.getByRole('button',{name:'＋ 追加记录'}).isEnabled(),'compatible snapshot revalidated')
+  checks.push('incompatible refresh retains read-only cache and blocks writes until complete revalidation')
 
   if(screenshotDir){fs.mkdirSync(screenshotDir,{recursive:true});await page.screenshot({path:path.join(screenshotDir,'month-desktop.png'),fullPage:true})}
   await page.setViewportSize({width:390,height:844})
