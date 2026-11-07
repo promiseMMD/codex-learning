@@ -18,10 +18,11 @@ shutil.copytree(src,dst)
 
 pub=root/"mobile/pubspec.yaml"
 s=pub.read_text(encoding="utf-8")
-old="    - assets/licenses/"
+old="flutter:\n  assets:\n"
 if s.count(old)!=1:
-    raise SystemExit("W7 pubspec anchor changed")
-s=s.replace(old,old+"\n    - assets/lan/",1)
+    raise SystemExit(f"W7 pubspec flutter assets section not unique: {s.count(old)}")
+if "    - assets/lan/" not in s:
+    s=s.replace(old,old+"    - assets/lan/\n",1)
 pub.write_text(s,encoding="utf-8")
 
 p=root/"mobile/lib/app/home/mod_lan_service.dart"
