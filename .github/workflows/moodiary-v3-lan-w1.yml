@@ -63,11 +63,11 @@ jobs:
           dart format mobile/lib/app/home/mod_lan_page.dart
           dart format mobile/test/mod_monthly_index_test.dart
           dart format mobile/test/mod_lan_policy_test.dart
-      - name: Unit tests: monthly read-only index, LAN security policy, Beta safety
+      - name: "Unit tests: monthly read-only index, LAN security policy, Beta safety"
         working-directory: upstream/mobile
         run: |
           flutter test test/mod_monthly_index_test.dart test/mod_lan_policy_test.dart test/mod_continuous_safety_test.dart --reporter expanded
-      - name: Regression: WebDAV partial download aborts push
+      - name: "Regression: WebDAV partial download aborts push"
         working-directory: upstream/packages/feature/moodiary_sync
         run: flutter test test/sync/data/incremental_engine_test.dart --reporter expanded
       - name: Build V3 W1 arm64 APK
