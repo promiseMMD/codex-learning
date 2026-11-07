@@ -3,7 +3,7 @@ import {describe,expect,it,vi} from 'vitest'
 import {Editor} from '@tiptap/core'
 import {lanExtensions} from './schema'
 import {
-  LanClient,LanApiError,emptyDocument,newDiaryId,validateRichDocument,
+  LanClient,LanApiError,emptyDocument,newDiaryId,validateRichDocument,canApplyRemoteRead,
 } from './api'
 
 describe('W7 schema matches W6 native allowed nodes',()=>{
@@ -40,6 +40,17 @@ describe('W7 schema matches W6 native allowed nodes',()=>{
   })
   it('creates locally stable operation ids without requiring a secure context',()=>{
     expect(newDiaryId()).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/)
+  })
+})
+
+describe('W7 async read race prevents silent draft loss',()=>{
+  it('rejects a response if a new draft edit began after its request',()=>{
+    expect(canApplyRemoteRead(7,7,4,5,true)).toBe(false)
+  })
+  it('allows unchanged draft or clean reads and rejects outdated navigation',()=>{
+    expect(canApplyRemoteRead(7,7,4,4,true)).toBe(true)
+    expect(canApplyRemoteRead(7,7,4,5,false)).toBe(true)
+    expect(canApplyRemoteRead(6,7,4,4,false)).toBe(false)
   })
 })
 
