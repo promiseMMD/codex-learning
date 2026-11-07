@@ -1,9 +1,10 @@
 // W7: browser-only transport, intentionally without durable client-side storage.
 // The phone owns all committed notes and attachments.
+import type { JSONContent } from '@tiptap/core'
 export type JsonDoc = {
   type: 'doc'
   attrs: { v: 2 }
-  content: unknown[]
+  content: JSONContent[]
 }
 
 export type RichNote = {
@@ -41,7 +42,7 @@ const keysIn = (v: Record<string, unknown>, keys: string[]) =>
   Object.keys(v).every((key) => keys.includes(key))
 
 export function validateRichDocument(doc: unknown): asserts doc is JsonDoc {
-  const fail = () => { throw new LanApiError('unsupported_rich_document', 422) }
+  function fail(): never { throw new LanApiError('unsupported_rich_document', 422) }
   if (!isObject(doc) || doc.type !== 'doc' ||
     !keysIn(doc, ['type', 'attrs', 'content']) ||
     !isObject(doc.attrs) || !keysIn(doc.attrs, ['v']) ||
