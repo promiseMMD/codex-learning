@@ -26,3 +26,9 @@ jobs:
           dart format --output=none             moodiary-v3-w8/overlay/mobile/lib/app/home/mod_lan_image_policy.dart             moodiary-v3-w8/tests/image_policy_smoke.dart
       - name: Bounded image MIME and stream safety regression
         run: dart run moodiary-v3-w8/tests/image_policy_smoke.dart
+      - name: Resolve W8 staging digest dependency
+        working-directory: moodiary-v3-w8
+        run: dart pub get
+      - name: Session-bound staging and CAS cleanup regression
+        working-directory: moodiary-v3-w8
+        run: dart run tests/image_staging_smoke.dart
