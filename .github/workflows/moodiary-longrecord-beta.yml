@@ -1,0 +1,83 @@
+name: Moodiary Long-Record Beta Safety APK
+on:
+  push:
+    branches:
+      - moodiary-longrecord-beta-safety-20261107
+  workflow_dispatch:
+jobs:
+  beta-test-and-apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 110
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Unpack and validate mod source kit
+        shell: bash
+        run: |
+          set -euo pipefail
+          base64 --decode moodiary-longrecord/build-payload.b64 > /tmp/moodiary-beta-modkit.zip
+          unzip -q /tmp/moodiary-beta-modkit.zip
+          python3 modkit/verify_patch.py
+      - name: Fetch upstream pinned revision + apply Beta safety patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --no-checkout https://github.com/ZhuJHua/moodiary.git upstream
+          cd upstream
+          git checkout 2c552ddd7939a054122380397fb914cf000824b0
+          python3 ../modkit/apply_patch.py .
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.2'
+          channel: stable
+      - uses: nttld/setup-ndk@v1
+        id: ndk
+        with:
+          ndk-version: r28c
+          link-to-sdk: true
+      - name: Rust 1.95
+        run: rustup toolchain install 1.95.0 --profile minimal
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-about@0.9.2
+      - name: Prepare Flutter workspace
+        working-directory: upstream
+        run: |
+          corepack enable
+          flutter pub get
+      - name: Dart formatting check via formatter
+        working-directory: upstream
+        run: |
+          dart format mobile/lib/app/home/mod_continuous.dart mobile/test/mod_continuous_safety_test.dart
+          dart format packages/feature/moodiary_sync/lib/src/data/incremental_engine.dart packages/feature/moodiary_sync/test/sync/data/incremental_engine_test.dart
+      - name: Unit tests - metadata / safety audit / draft serialization
+        working-directory: upstream/mobile
+        run: flutter test test/mod_continuous_safety_test.dart --reporter expanded
+      - name: Regression tests - remote replay and abort on partial pull
+        working-directory: upstream/packages/feature/moodiary_sync
+        run: flutter test test/sync/data/incremental_engine_test.dart --reporter expanded
+      - name: Build Android arm64 Beta APK
+        working-directory: upstream/mobile
+        env:
+          ANDROID_NDK_HOME: ${{ steps.ndk.outputs.ndk-path }}
+        run: flutter build apk --flavor alpha --release --target-platform android-arm64
+      - name: Validate APK
+        run: |
+          test -s upstream/mobile/build/app/outputs/flutter-apk/app-alpha-release.apk
+          sha256sum upstream/mobile/build/app/outputs/flutter-apk/app-alpha-release.apk
+      - name: Upload signed installable artifact
+        uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: Moodiary-ContinuousDiary-Beta-Safety-Android-arm64
+          path: upstream/mobile/build/app/outputs/flutter-apk/app-alpha-release.apk
+          if-no-files-found: error
+          retention-days: 30
