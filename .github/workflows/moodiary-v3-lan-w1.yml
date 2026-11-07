@@ -160,6 +160,7 @@ jobs:
       - name: Native month source formatting
         working-directory: upstream
         run: |
+          dart format mobile/test/mod_home_quick_entry_test.dart
           dart format mobile/lib/app/home/mod_month_order.dart mobile/test/mod_month_order_test.dart mobile/test/mod_month_day_page_test.dart
           dart format mobile/lib/app/home/mod_month_day_preview.dart mobile/test/mod_month_day_preview_test.dart
           dart format mobile/lib/app/home/mod_month_native.dart mobile/lib/app/home/mod_month_page.dart mobile/lib/app/home/mod_month_composer.dart mobile/lib/app/home/mod_month_updates.dart
@@ -216,7 +217,7 @@ jobs:
       - name: "Unit tests: W7 assets + W6 rich CAS + W5 autosave + W4 editor + W3 realtime + W2 ledger + LAN policy"
         working-directory: upstream/mobile
         run: |
-          flutter test test/mod_month_order_test.dart test/mod_month_day_page_test.dart test/mod_month_day_preview_test.dart test/mod_month_native_test.dart test/mod_month_page_test.dart test/mod_month_composer_test.dart test/mod_month_disk_test.dart test/mod_lan_month_http_test.dart test/mod_month_store_test.dart test/mod_lan_image_attach_test.dart test/mod_lan_image_decoder_test.dart test/mod_lan_rich_test.dart test/mod_lan_write_test.dart test/mod_lan_database_cas_test.dart test/mod_lan_events_test.dart test/mod_monthly_ledger_test.dart test/mod_monthly_index_test.dart test/mod_lan_policy_test.dart test/mod_continuous_safety_test.dart --reporter expanded
+          flutter test test/mod_home_quick_entry_test.dart test/mod_month_order_test.dart test/mod_month_day_page_test.dart test/mod_month_day_preview_test.dart test/mod_month_native_test.dart test/mod_month_page_test.dart test/mod_month_composer_test.dart test/mod_month_disk_test.dart test/mod_lan_month_http_test.dart test/mod_month_store_test.dart test/mod_lan_image_attach_test.dart test/mod_lan_image_decoder_test.dart test/mod_lan_rich_test.dart test/mod_lan_write_test.dart test/mod_lan_database_cas_test.dart test/mod_lan_events_test.dart test/mod_monthly_ledger_test.dart test/mod_monthly_index_test.dart test/mod_lan_policy_test.dart test/mod_continuous_safety_test.dart --reporter expanded
       - name: "Regression: WebDAV partial download aborts push"
         working-directory: upstream/packages/feature/moodiary_sync
         run: flutter test test/sync/data/incremental_engine_test.dart --reporter expanded

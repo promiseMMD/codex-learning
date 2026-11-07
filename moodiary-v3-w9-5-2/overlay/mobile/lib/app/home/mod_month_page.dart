@@ -97,14 +97,10 @@ class _ModMonthPageState extends State<ModMonthPage> with WidgetsBindingObserver
     if (!_verified || _loading || _composing) return;
     _composing = true;
     try {
-      final saved = await showModalBottomSheet<ModStoredBlock>(context:context,
-        isScrollControlled:true, isDismissible:false, enableDrag:false,
-        useSafeArea:true,
-        builder: (_) => FractionallySizedBox(heightFactor:0.95,
-          child:ModMonthComposer(repository: widget.repository,
-            topicId: widget.topicId, monthKey: _month, block: block,
-            summary: summary, action: action, initialDayKey:_day,
-            editorController:widget.composerController)));
+      final saved = await showModMonthComposer(context:context,
+        repository:widget.repository,topicId:widget.topicId,monthKey:_month,
+        block:block,summary:summary,action:action,initialDayKey:_day,
+        editorController:widget.composerController);
       if (!mounted) return;
       if (saved != null) ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(l10n.month.savedLocal)));

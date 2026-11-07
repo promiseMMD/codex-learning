@@ -13,6 +13,18 @@ import 'mod_month_order.dart';
 
 const _emptyBody = '{"type":"doc","attrs":{"v":2},"content":[{"type":"paragraph"}]}';
 
+Future<ModStoredBlock?> showModMonthComposer({required BuildContext context,
+  required ModNativeMonthRepository repository,required String topicId,
+  required String monthKey,ModStoredBlock? block,bool summary=false,
+  String action='edit',String? initialDayKey,
+  MoodiaryEditorController? editorController}) =>
+  showModalBottomSheet<ModStoredBlock>(context:context,
+    isScrollControlled:true,isDismissible:false,enableDrag:false,useSafeArea:true,
+    builder:(_)=>FractionallySizedBox(heightFactor:0.95,
+      child:ModMonthComposer(repository:repository,topicId:topicId,
+        monthKey:monthKey,block:block,summary:summary,action:action,
+        initialDayKey:initialDayKey,editorController:editorController)));
+
 /// A separate route retains its original parent revision during all refreshes.
 /// No temporary ordinary Diary or automatic local/cloud draft is created.
 class ModMonthComposer extends StatefulWidget {

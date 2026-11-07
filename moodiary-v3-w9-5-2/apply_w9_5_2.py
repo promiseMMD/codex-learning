@@ -28,4 +28,38 @@ if generated.exists():
         target = root / 'packages/foundation/moodiary_i18n/lib/i18n'
         for name in z.namelist():
             (target / name).write_bytes(z.read(name))
+
+def patch(relative, old, new):
+    path = root / relative
+    source = path.read_text()
+    if new in source:
+        return
+    assert source.count(old) == 1, (relative, old)
+    path.write_text(source.replace(old, new, 1))
+
+continuous = 'mobile/lib/app/home/mod_continuous.dart'
+patch(continuous, "import 'mod_month_page.dart';", "import 'mod_month_page.dart';\nimport 'mod_month_composer.dart';\nimport 'package:moodiary_i18n/moodiary_i18n.dart';")
+patch(continuous, '  List<Diary> _pins = const [];', '  List<Diary> _pins = const [];\n  bool _adding = false;')
+patch(continuous, '''? Navigator.of(context).push(MaterialPageRoute<void>(
+                        builder: (_) => ModTopicPage(topicId: d.id, append: true)))''',
+      '? _quickAppend(context, d.id)')
+patch(continuous, '  void _open(BuildContext context, Diary d) {', '''  Future<void> _quickAppend(BuildContext context, String topicId) async {
+    if (_adding) return;
+    _adding = true;
+    try {
+      final now = DateTime.now();
+      final saved = await showModMonthComposer(context: context,
+        repository: ModNativeMonthRepository(
+          store: ModMonthStore(getIt<MoodiaryDatabase>()),
+          diaries: ModDiary.repo,
+          onCommitted: ModLanServer.instance.notifyMonthCommitted),
+        topicId: topicId, monthKey: modMonthKey(now), initialDayKey: modDayKey(now));
+      if (saved != null && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(context.l10n.month.savedLocal)));
+      }
+    } finally { _adding = false; }
+  }
+
+  void _open(BuildContext context, Diary d) {''')
 print('Applied W9.5.2 daily routes and created-time ordering; no Diary projection or sync-format change')
