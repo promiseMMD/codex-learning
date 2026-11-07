@@ -63,7 +63,26 @@ New tests exercise rich-text retention, idempotent replay, CAS conflicts,
 revision collision, summary uniqueness, soft deletion, month moves, revoked
 sessions during slow upload and before commit, oversized/malformed requests,
 unrelated Diary protection, WAL-file close/reopen, durable operation receipts,
-full history and foreign-key consistency. CI results are pending at commit.
+full history and foreign-key consistency.
+
+## Verified result — 2026-11-07
+
+- Implementation commit: `9999c5b82e4f242c58aff0beebb85560bd921a03`.
+- Full CI: https://github.com/promiseMMD/codex-learning/actions/runs/42371348940 — success.
+- W9.1 repair also passed independently: https://github.com/promiseMMD/codex-learning/actions/runs/42370665984.
+- PC editor: 8 tests, TypeScript check and production bundle passed.
+- Legacy database upgrade: 2 tests (v2/v3 to v4) passed.
+- Mobile mod regressions: 68 tests, including 9 real HTTP and 1 WAL-file
+  close/reopen test, passed.
+- WebDAV regression suite: 63 tests passed.
+- Legacy browser save/CAS/in-flight draft checks passed locally and in CI.
+- Android ARM64 release build passed. ZIP CRC, app package, native ABI,
+  bundled PC assets and the monthly API marker in compiled AOT were checked.
+- Package: `cn.yooss.moodiary.v3dev`; Android version `2.9.2+98`.
+- APK size: `56,603,006` bytes.
+- APK SHA-256: `22dc544e32bcb0aa2d03e36f0e511d16419cf1bd014b45a7413df61ddde2f1f0`.
+- APK remains a CI development-signing build. Stable signing and physical
+  device acceptance remain pending; replacing an older CI APK is not guaranteed.
 
 ## Still pending
 
