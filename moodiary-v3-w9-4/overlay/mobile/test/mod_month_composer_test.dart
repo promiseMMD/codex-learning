@@ -56,6 +56,12 @@ void main() {
   });
   tearDown(() async { await db.close(); await getIt.reset(); });
   Future<void> mount(WidgetTester tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    tester.view.viewInsets = const FakeViewPadding(bottom: 320);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetViewInsets);
     await tester.pumpWidget(TranslationProvider(child:MaterialApp(
       theme:buildMuiTheme(brightness:.light),
       localizationsDelegates:const [...GlobalMaterialLocalizations.delegates,
@@ -64,6 +70,7 @@ void main() {
       home:ModMonthComposer(repository:repository,topicId:topicId,
         monthKey:'2026-11',editorController:editor))));
     await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
   }
 
   testWidgets('missing editor acknowledgement never calls the writer',(tester) async {

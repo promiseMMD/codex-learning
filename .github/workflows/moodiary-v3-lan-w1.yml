@@ -140,7 +140,10 @@ jobs:
           flutter pub get
       - name: Generate and retain native monthly translations
         working-directory: upstream/packages/foundation/moodiary_i18n
-        run: dart run slang
+        run: |
+          sha256sum lib/i18n/*.dart > /tmp/moodiary-w94-generated.sha256
+          dart run slang
+          sha256sum --check /tmp/moodiary-w94-generated.sha256
       - uses: actions/upload-artifact@v4
         with:
           name: Moodiary-W9-4-Generated-I18n

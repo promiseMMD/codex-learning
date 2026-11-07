@@ -165,6 +165,21 @@ void main() {
     expect((await native.load(topicId,month)).blocks.single.revisionId,saved.revisionId);
   });
 
+  test('out-of-range persisted timestamp fails the snapshot before native rendering', () async {
+    await native.commit(operation());
+    await db.customStatement('UPDATE mod_month_revisions SET occurred_at_ms = 9223372036854775807');
+    await expectLater(native.load(topicId,month),throwsA(isA<ModMonthStoreException>()
+      .having((e)=>e.code,'code','invalid_event_time')));
+    expect((await db.customSelect('SELECT COUNT(*) AS n FROM mod_month_revisions').getSingle()).read<int>('n'),1);
+  });
+
+  test('invalid archive date is rejected instead of normalizing across a month boundary', () async {
+    await native.commit(operation());
+    await db.customStatement("UPDATE mod_month_revisions SET day_key = '2026-11-31'");
+    await expectLater(native.load(topicId,month),throwsA(isA<ModMonthStoreException>()
+      .having((e)=>e.code,'code','invalid_record_day')));
+  });
+
   test('real HTTP and native adapters share heads and cross-device stale-parent protection', () async {
     final first = await native.commit(operation());
     final handler = ModLanMonthHttp(store:native.store,repository:diaries);

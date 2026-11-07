@@ -63,6 +63,12 @@ class _ModMonthComposerState extends State<ModMonthComposer> {
       SnackBar(content: Text(message)));
   }
 
+  Future<void> _details(String message) => showDialog<void>(context: context,
+    builder: (c) => AlertDialog(title: Text(l10n.month.title),
+      content: SingleChildScrollView(child: SelectableText(message)),
+      actions: [TextButton(onPressed: () => Navigator.pop(c),
+        child: Text(l10n.common.close))]));
+
   Future<void> _date() async {
     if (_locked || _summary) return;
     final initial = DateTime.parse(_day!);
@@ -190,10 +196,13 @@ class _ModMonthComposerState extends State<ModMonthComposer> {
           onPressed: _busy ? null : _leave, tooltip: l10n.common.close,
           icon: const Icon(LucideIcons.x)),
           actions: [IconButton(onPressed: _busy ? null : _copyDraft,
-            tooltip: l10n.month.copyDraft, icon: const Icon(LucideIcons.copy))]),
+            tooltip: l10n.month.copyDraft, icon: const Icon(LucideIcons.copy)),
+            IconButton(onPressed: () => _details('${l10n.month.localOnly}\n\n${l10n.month.timezone}'),
+              tooltip: l10n.common.more, icon: const Icon(LucideIcons.info))]),
         body: SafeArea(child: Column(children: [
           Padding(padding: const EdgeInsets.all(12),
-            child: Text(l10n.month.localOnly, style: context.theme.typography.bodySmall.secondary)),
+            child: Text(l10n.month.localOnly, maxLines: 2, overflow: TextOverflow.ellipsis,
+              style: context.theme.typography.bodySmall.secondary)),
           if (_editing && !_summary) Wrap(spacing: 8, children: [
             TextButton.icon(onPressed: _locked ? null : _date,
               icon: const Icon(LucideIcons.calendar), label: Text(_day!)),
@@ -201,10 +210,10 @@ class _ModMonthComposerState extends State<ModMonthComposer> {
               icon: const Icon(LucideIcons.clock),
               label: Text(TimeOfDay.fromDateTime(_event).format(context))),
           ]),
-          if (_editing && !_summary) Padding(padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: Text(l10n.month.timezone, style: context.theme.typography.bodySmall.secondary)),
           if (_error != null) Padding(padding: const EdgeInsets.all(12),
-            child: SelectableText(_error!)),
+            child: Row(children: [Expanded(child: Text(_error!, maxLines: 3,
+              overflow: TextOverflow.ellipsis)), IconButton(onPressed: () => _details(_error!),
+              tooltip: l10n.common.more, icon: const Icon(LucideIcons.info))])),
           Expanded(child: _editing ? AbsorbPointer(absorbing: _locked,
             child: MoodiaryEditor(controller: _editor, bodyOnly: true,
               initialContent: widget.block?.tiptapJson ?? _emptyBody,

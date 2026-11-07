@@ -89,9 +89,33 @@ class ModNativeMonthRepository {
       includeDeleted: true);
     for (final block in blocks) {
       ModLanRichDocument.validate(jsonDecode(block.tiptapJson));
+      // A corrupt/imported timestamp or date must fail this snapshot before
+      // native date widgets can throw or normalize it into another archive day.
+      if (block.occurredAtMs < 0) {
+        throw const ModMonthStoreException('invalid_event_time');
+      }
+      try { DateTime.fromMillisecondsSinceEpoch(block.occurredAtMs); }
+      catch (_) { throw const ModMonthStoreException('invalid_event_time'); }
+      final day = block.dayKey;
+      if (block.kind == 'entry') {
+        final parsed = day == null ? null : DateTime.tryParse(day);
+        if (parsed == null || modDayKey(parsed) != day ||
+            !day!.startsWith('$monthKey-')) {
+          throw const ModMonthStoreException('invalid_record_day');
+        }
+      } else if (block.kind != 'summary' || day != null) {
+        throw const ModMonthStoreException('invalid_block_kind');
+      }
     }
     final months = {...await store.monthKeysForTopic(topicId), monthKey}.toList()
       ..sort((a, b) => b.compareTo(a));
+    for (final key in months) {
+      final date = DateTime.tryParse('$key-01');
+      if (!RegExp(r'^[0-9]{4}-(0[1-9]|1[0-2])$').hasMatch(key) ||
+          date == null || date.year < 1 || modMonthKey(date) != key) {
+        throw const ModMonthStoreException('invalid_month_index');
+      }
+    }
     final all = await diaries.getAllDiaries();
     return ModNativeMonthSnapshot(topic: topic, monthKey: monthKey,
       months: months, blocks: blocks,

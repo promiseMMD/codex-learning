@@ -1,10 +1,22 @@
 """W9.4 native month workspace over the existing W9 store, without projection."""
 from pathlib import Path
+import base64
+import io
 import shutil
 import sys
+import zipfile
 
 root = Path(sys.argv[1]).resolve()
 here = Path(__file__).resolve().parent
+generated = here / 'generated-i18n.b64'
+if generated.exists():
+    target = root / 'packages/foundation/moodiary_i18n/lib/i18n'
+    target.mkdir(parents=True, exist_ok=True)
+    with zipfile.ZipFile(io.BytesIO(base64.b64decode(generated.read_bytes()))) as z:
+        assert set(z.namelist()) == {'strings.g.dart', 'strings_en.g.dart', 'strings_zh.g.dart'}
+        assert z.testzip() is None
+        for name in z.namelist():
+            (target / name).write_bytes(z.read(name))
 for source in (here / 'overlay').rglob('*'):
     if source.is_file():
         target = root / source.relative_to(here / 'overlay')
@@ -22,6 +34,9 @@ def patch(path, old, new):
 patch('mobile/pubspec.yaml', 'version: 2.9.2+98', 'version: 2.9.2+99')
 
 continuous = 'mobile/lib/app/home/mod_continuous.dart'
+patch(continuous, '''// All content is persisted as ordinary Diary objects so the upstream
+// WebDAV, ZIP backup and encrypted-sync paths continue to transport it.''', '''// Legacy topics/children below remain ordinary Diary objects. W9.4's native
+// monthly workspace uses the separate W9 revision tables and is local-only.''')
 patch(continuous, "import 'mod_monthly_index.dart';", "import 'mod_monthly_index.dart';\nimport 'mod_month_page.dart';\nimport 'mod_month_native.dart';\nimport 'mod_month_store.dart';\nimport 'mod_lan_service.dart';")
 patch(continuous, 'class ModTopicPage extends StatefulWidget {', '''class ModTopicPage extends StatelessWidget {
   const ModTopicPage({super.key, required this.topicId, this.append = false});
@@ -122,4 +137,44 @@ css = root / 'packages/feature_base/moodiary_editor/editor/src/styles/editor.scs
 rule = '\n/* Structured bodies have no independent diary title or metadata. */\n[data-body-only="true"] :is(.md-title, .md-meta, .md-links) { display: none !important; }\n'
 if rule not in css.read_text():
     css.write_text(css.read_text() + rule)
+
+# W4 introduced atomic native saves; upstream's pre-W4 mock still only handles
+# unconditional updates. Keep its interleaving tests and model the new CAS API.
+controller_test = 'packages/feature_base/moodiary_editor/test/edit_controller_test.dart'
+patch(controller_test, '  @override\n  Future<void> insertADiary(', '''  @override
+  Future<bool> updateADiaryIfCurrent({
+    required Diary newDiary,
+    required Diary expectedSnapshot,
+    IndexMode index = .inline,
+  }) async {
+    operations.add('update');
+    indexes.add(index);
+    final gate = updateGate;
+    updateGate = null;
+    if (gate != null) await gate.wait();
+    if (writeLatency case final latency?) await Future<void>.delayed(latency);
+    // Check at the write boundary, after any externally gated concurrent edit.
+    if (newDiary.id != expectedSnapshot.id || stored != expectedSnapshot) return false;
+    stored = newDiary;
+    writes.add(newDiary);
+    events.add(DiaryUpdated(newDiary));
+    return true;
+  }
+
+  @override
+  Future<void> insertADiary(''')
+patch(controller_test, '''    expect(container.read(provider).value?.content, 'local');
+    expect(await controller.autoSave(), DraftSaveResult.saved);
+    expect(repository.stored?.content, 'local');''', '''    expect(container.read(provider).value?.content, 'local');
+    expect(await controller.autoSave(), DraftSaveResult.failed);
+    expect(container.read(provider).value?.content, 'local');
+    expect(repository.stored?.content, 'external');''')
+patch(controller_test, '''    gate.release.complete();
+    expect(await saving, DraftSaveResult.saved);
+    expect(repository.stored?.content, 'local');
+    expect(repository.writes, hasLength(2));''', '''    gate.release.complete();
+    expect(await saving, DraftSaveResult.failed);
+    expect(container.read(provider).value?.content, 'local');
+    expect(repository.stored?.content, 'external');
+    expect(repository.writes, hasLength(1));''')
 print('Applied W9.4 native workspace; no native Diary projection or sync format change')
