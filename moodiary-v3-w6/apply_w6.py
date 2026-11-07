@@ -12,6 +12,11 @@ target=root/"mobile/lib/app/home/mod_lan_rich.dart"
 target.parent.mkdir(parents=True, exist_ok=True)
 target.write_bytes(source.read_bytes())
 
+test_source=Path(__file__).resolve().parents[0]/"overlay/mobile/test/mod_lan_rich_test.dart"
+test_target=root/"mobile/test/mod_lan_rich_test.dart"
+test_target.parent.mkdir(parents=True,exist_ok=True)
+test_target.write_bytes(test_source.read_bytes())
+
 p=root/"mobile/lib/app/home/mod_lan_service.dart"
 s=p.read_text(encoding="utf-8")
 
