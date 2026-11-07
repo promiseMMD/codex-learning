@@ -1,8 +1,9 @@
-name: Moodiary V3 LAN W7 Tiptap Editor Build and Test
+name: Moodiary V3 W8 Native Image Staging Integration
 on:
   push:
     branches:
       - moodiary-v3-monthly-lan-dev-20261107
+      - moodiary-v3-w8-media-validation-20261107
   workflow_dispatch:
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -51,6 +52,7 @@ jobs:
           python3 ../moodiary-v3-w5/apply_w5.py .
           python3 ../moodiary-v3-w6/apply_w6.py .
           python3 ../moodiary-v3-w7/apply_w7.py .
+          python3 ../moodiary-v3-w8/apply_w8.py .
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -110,6 +112,10 @@ jobs:
           dart format mobile/lib/app/home/mod_monthly_index.dart
           dart format mobile/lib/app/home/mod_monthly_ledger.dart
           dart format mobile/test/mod_monthly_ledger_test.dart
+          dart format mobile/lib/app/home/mod_lan_image_policy.dart
+          dart format mobile/lib/app/home/mod_lan_image_staging.dart
+          dart format mobile/lib/app/home/mod_lan_image_decoder.dart
+          dart format mobile/test/mod_lan_image_decoder_test.dart
           dart format mobile/lib/app/home/mod_lan_rich.dart
           dart format mobile/test/mod_lan_rich_test.dart
           dart format mobile/lib/app/home/mod_lan_write.dart
@@ -126,11 +132,11 @@ jobs:
       - name: "Unit tests: W7 assets + W6 rich CAS + W5 autosave + W4 editor + W3 realtime + W2 ledger + LAN policy"
         working-directory: upstream/mobile
         run: |
-          flutter test test/mod_lan_rich_test.dart test/mod_lan_write_test.dart test/mod_lan_database_cas_test.dart test/mod_lan_events_test.dart test/mod_monthly_ledger_test.dart test/mod_monthly_index_test.dart test/mod_lan_policy_test.dart test/mod_continuous_safety_test.dart --reporter expanded
+          flutter test test/mod_lan_image_decoder_test.dart test/mod_lan_rich_test.dart test/mod_lan_write_test.dart test/mod_lan_database_cas_test.dart test/mod_lan_events_test.dart test/mod_monthly_ledger_test.dart test/mod_monthly_index_test.dart test/mod_lan_policy_test.dart test/mod_continuous_safety_test.dart --reporter expanded
       - name: "Regression: WebDAV partial download aborts push"
         working-directory: upstream/packages/feature/moodiary_sync
         run: flutter test test/sync/data/incremental_engine_test.dart --reporter expanded
-      - name: Build V3 W7 arm64 APK
+      - name: Build V3 W8 arm64 APK
         env:
           ANDROID_NDK_HOME: ${{ steps.ndk.outputs.ndk-path }}
         working-directory: upstream/mobile
@@ -141,7 +147,7 @@ jobs:
           sha256sum upstream/mobile/build/app/outputs/flutter-apk/app-v3dev-release.apk
       - uses: actions/upload-artifact@v4
         with:
-          name: Moodiary-V3-LAN-W7-Tiptap-Editor-Preview-arm64
+          name: Moodiary-V3-LAN-W8-Image-Staging-Core-arm64
           path: upstream/mobile/build/app/outputs/flutter-apk/app-v3dev-release.apk
           retention-days: 30
           if-no-files-found: error
