@@ -11,7 +11,7 @@ This branch is an isolated Beta build for [Moodiary](https://github.com/ZhuJHua/
 - CI runs unit, serialization and simulated cloud round-trip tests **before** building Android APK.
 
 ## Limitations
-The app keeps the native Moodiary diary, media, ZIP and WebDAV object formats. It does not perform real two-device WebDAV verification in CI. Simultaneous edits of the *same* diary still follow upstream timestamp logic. Unsubmitted drafts are local-only. This Android `alpha`-flavor package uses a temporary debug signing key; upgrading an earlier APK may fail if signatures differ. Do not put personal records in the test WebDAV directory; this is not an independently audited release.
+The app keeps the native Moodiary diary, media, ZIP and WebDAV object formats. It does not perform real two-device WebDAV verification in CI. Simultaneous edits of the *same* diary still follow upstream timestamp logic. Unsubmitted drafts are local-only. This Android `beta`-flavor package (ID `cn.yooss.moodiary.beta`) is installed separately from official/Alpha and uses a temporary debug signing key; upgrading an earlier APK may fail if signatures differ. Do not put personal records in the test WebDAV directory; this is not an independently audited release.
 
 Source bundle: `moodiary-longrecord/build-payload.b64` (Base64 of the downloadable open-source modkit ZIP).
 
