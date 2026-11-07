@@ -1,9 +1,10 @@
-name: Moodiary V3 W8 Native Image Staging Integration
+name: Moodiary V3 W8.4 Authenticated Image Staging API
 on:
   push:
     branches:
       - moodiary-v3-monthly-lan-dev-20261107
       - moodiary-v3-w8-media-validation-20261107
+      - moodiary-v3-w8-staged-http-20261107
   workflow_dispatch:
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -53,6 +54,7 @@ jobs:
           python3 ../moodiary-v3-w6/apply_w6.py .
           python3 ../moodiary-v3-w7/apply_w7.py .
           python3 ../moodiary-v3-w8/apply_w8.py .
+          python3 ../moodiary-v3-w8-http/apply_w8_http.py .
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -136,7 +138,7 @@ jobs:
       - name: "Regression: WebDAV partial download aborts push"
         working-directory: upstream/packages/feature/moodiary_sync
         run: flutter test test/sync/data/incremental_engine_test.dart --reporter expanded
-      - name: Build V3 W8 arm64 APK
+      - name: Build V3 W8.4 arm64 APK
         env:
           ANDROID_NDK_HOME: ${{ steps.ndk.outputs.ndk-path }}
         working-directory: upstream/mobile
@@ -147,7 +149,7 @@ jobs:
           sha256sum upstream/mobile/build/app/outputs/flutter-apk/app-v3dev-release.apk
       - uses: actions/upload-artifact@v4
         with:
-          name: Moodiary-V3-LAN-W8-Image-Staging-Core-arm64
+          name: Moodiary-V3-LAN-W8-4-Authenticated-TempUpload-arm64
           path: upstream/mobile/build/app/outputs/flutter-apk/app-v3dev-release.apk
           retention-days: 30
           if-no-files-found: error
