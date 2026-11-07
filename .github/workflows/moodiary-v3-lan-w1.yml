@@ -1,4 +1,4 @@
-name: Moodiary V3 W9.2 Authenticated Monthly Block API
+name: Moodiary V3 W9.3 PC Monthly Editor Acceptance
 on:
   push:
     branches:
@@ -8,6 +8,7 @@ on:
       - moodiary-v3-w8-photo-attach-20261107
       - moodiary-v3-w9-month-store-20261107
       - moodiary-v3-w9-2-block-api-20261107
+      - moodiary-v3-w9-3-month-workspace-20261107
   workflow_dispatch:
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -61,6 +62,7 @@ jobs:
           python3 ../moodiary-v3-w8-attach/apply_w8_attach.py .
           python3 ../moodiary-v3-w9/apply_w9.py .
           python3 ../moodiary-v3-w9-2/apply_w9_2.py .
+          python3 ../moodiary-v3-w9-3/apply_w9_3.py .
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -88,12 +90,27 @@ jobs:
           corepack enable
           corepack pnpm install --frozen-lockfile
           corepack pnpm exec tsc --project lan/tsconfig.json --noEmit
-          corepack pnpm exec vitest run lan/src/w7.test.ts
+          corepack pnpm exec vitest run lan/src/w7.test.ts lan/src/month_api.test.ts lan/src/month_workspace.test.tsx
           corepack pnpm exec vite build --config lan/vite.config.ts
           test -s ../../../../mobile/assets/lan/index.html
           test -s ../../../../mobile/assets/lan/lan.js
           test -s ../../../../mobile/assets/lan/lan.css
           grep -q 'lan.js' ../../../../mobile/assets/lan/index.html
+      - name: Actual Chromium PC and mobile-width editor acceptance
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --prefix /tmp/moodiary-lan-browser --no-save --package-lock=false --ignore-scripts playwright@1.62.1
+          export MOODIARY_PLAYWRIGHT_MODULE=/tmp/moodiary-lan-browser/node_modules/playwright
+          export MOODIARY_CHROME="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          node moodiary-v3-w9-3/browser_acceptance.cjs upstream/mobile/assets/lan /tmp/moodiary-w93-browser-qa
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Moodiary-W9-3-Browser-QA
+          path: /tmp/moodiary-w93-browser-qa
+          retention-days: 7
+          if-no-files-found: warn
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.47.2'
@@ -169,7 +186,7 @@ jobs:
       - name: Restore native build hooks for Android
         working-directory: upstream
         run: cp /tmp/moodiary-w9-test-pubspec.yaml pubspec.yaml
-      - name: Build V3 W9.2 arm64 APK
+      - name: Build V3 W9.3 arm64 APK
         env:
           ANDROID_NDK_HOME: ${{ steps.ndk.outputs.ndk-path }}
         working-directory: upstream/mobile
@@ -180,7 +197,7 @@ jobs:
           sha256sum upstream/mobile/build/app/outputs/flutter-apk/app-v3dev-release.apk
       - uses: actions/upload-artifact@v4
         with:
-          name: Moodiary-V3-LAN-W9-2-Month-Block-API-arm64
+          name: Moodiary-V3-LAN-W9-3-PC-Monthly-Editor-arm64
           path: upstream/mobile/build/app/outputs/flutter-apk/app-v3dev-release.apk
           retention-days: 30
           if-no-files-found: error

@@ -25,6 +25,7 @@ class ModLanMonthHttp {
   });
 
   static const prefix = '/api/v3/months/';
+  static const topicsPath = '/api/v3/topics';
   static const maxRequestBytes = 262144;
   static const _fields = {
     'operationId', 'blockId', 'revisionId', 'parentRevisionId',
@@ -108,7 +109,8 @@ class ModLanMonthHttp {
     required String csrfToken,
     required bool Function() isSessionActive,
   }) async {
-    if (!r.uri.path.startsWith(prefix)) return false;
+    final topicIndex = r.uri.path == topicsPath;
+    if (!topicIndex && !r.uri.path.startsWith(prefix)) return false;
     try {
       final mutation = r.method != 'GET' && r.method != 'HEAD';
       final origin = r.headers.value('origin');
@@ -121,6 +123,31 @@ class ModLanMonthHttp {
       if (mutation && (csrfToken.isEmpty ||
           r.headers.value('x-moodiary-csrf') != csrfToken)) {
         _reject(403, 'csrf_required');
+      }
+
+      if (topicIndex) {
+        if (r.method != 'GET') _reject(405, 'method_not_allowed');
+        if (r.uri.hasQuery) _reject(422, 'invalid_query');
+        final topics = await store.db.transaction(() async {
+          _active(isSessionActive);
+          final all = await repository.getAllDiaries();
+          final visible = all.where((d) => d.show && ModDiary.isTopic(d) &&
+              !ModDiary.isChild(d)).toList()
+            ..sort((a, b) => a.title.compareTo(b.title));
+          final result = <Map<String, Object?>>[];
+          for (final topic in visible) {
+            result.add({
+              'id': topic.id, 'title': topic.title,
+              'months': await store.monthKeysForTopic(topic.id),
+              'legacyCount': all.where((d) => d.show && ModDiary.isChild(d) &&
+                  ModDiary.topicIdOf(d) == topic.id).length,
+            });
+          }
+          _active(isSessionActive);
+          return result;
+        });
+        await _reply(r, 200, {'schemaVersion': 1, 'topics': topics});
+        return true;
       }
 
       final parts = r.uri.pathSegments;

@@ -399,6 +399,17 @@ class ModMonthStore {
     return out;
   }
 
+  /// Discovery is read-only, including months whose blocks were moved/deleted.
+  Future<List<String>> monthKeysForTopic(String topicId) async {
+    final topic = _identifier(topicId, 'invalid_topic', pattern: _topicPattern);
+    final rows = await db.customSelect(
+      'SELECT month_key FROM mod_month_pages WHERE topic_id = ?'
+      ' ORDER BY month_key DESC',
+      variables: [Variable.withString(topic)],
+    ).get();
+    return rows.map((r) => r.read<String>('month_key')).toList(growable: false);
+  }
+
   /// The summary is stored once, but the view must decide whether to show
   /// it collapsed; it is deliberately not included in entry previews.
   Future<ModStoredBlock?> readSummary({

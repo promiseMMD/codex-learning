@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
-import { EditorContent, useEditor } from '@tiptap/react'
-import type { Editor } from '@tiptap/core'
-import { lanExtensions } from './schema'
+import {RichCanvas} from './rich_canvas'
+import {MonthApiClient} from './month_api'
+import {MonthWorkspace} from './month_workspace'
 import {
   LanClient, LanApiError, emptyDocument, newDiaryId,
   validateRichDocument, canApplyRemoteRead,
@@ -11,7 +11,7 @@ import {
 import './style.css'
 
 type OpenNote = RichNote & { loadId: number }
-const api = new LanClient()
+const api = new MonthApiClient()
 const msg = (e: unknown) => e instanceof LanApiError ?
   ({
     stale_revision: '手机端版本已改变：为保护草稿，已暂停覆盖保存。',
@@ -21,52 +21,6 @@ const msg = (e: unknown) => e instanceof LanApiError ?
   } as Record<string,string>)[e.code] ?? '请求失败：'+e.code :
   '网络不可用，尚未确认保存，请检查连接。'
 
-function RichCanvas({ initial, onChange }: {
-  initial: JsonDoc, onChange: (next: JsonDoc)=>void
-}) {
-  const callback = useRef(onChange)
-  callback.current = onChange
-  const editor = useEditor({
-    extensions: lanExtensions,
-    content: initial,
-    immediatelyRender: false,
-    editorProps: {attributes: {'class':'tiptap-area', 'spellcheck':'true'}},
-    onUpdate: ({editor}) => callback.current(editor.getJSON() as JsonDoc),
-  })
-  if (!editor) return <p className="subtle">正在打开编辑器…</p>
-  return <>
-    <nav className="toolbar" aria-label="富文本格式">
-      <Tool editor={editor} label="撤销" action={()=>editor.chain().focus().undo().run()} />
-      <Tool editor={editor} label="重做" action={()=>editor.chain().focus().redo().run()} />
-      <Tool editor={editor} label="粗体" action={()=>editor.chain().focus().toggleBold().run()} active={editor.isActive('bold')} />
-      <Tool editor={editor} label="斜体" action={()=>editor.chain().focus().toggleItalic().run()} active={editor.isActive('italic')} />
-      <Tool editor={editor} label="下划线" action={()=>editor.chain().focus().toggleUnderline().run()} active={editor.isActive('underline')} />
-      <Tool editor={editor} label="删除线" action={()=>editor.chain().focus().toggleStrike().run()} active={editor.isActive('strike')} />
-      <Tool editor={editor} label="行内代码" action={()=>editor.chain().focus().toggleCode().run()} active={editor.isActive('code')} />
-      <Tool editor={editor} label="正文" action={()=>editor.chain().focus().setParagraph().run()} active={editor.isActive('paragraph')} />
-      <Tool editor={editor} label="标题" action={()=>editor.chain().focus().toggleHeading({level:2}).run()} active={editor.isActive('heading',{level:2})} />
-      <Tool editor={editor} label="链接" action={()=>{
-        const typed=window.prompt('输入 http://、https:// 或 mailto: 链接')
-        if (!typed) return
-        let ok=false
-        try { const url=new URL(typed);ok=['https:','http:','mailto:'].includes(url.protocol)&&
-          (url.protocol==='mailto:'||!!url.hostname) } catch {}
-        if (!ok){window.alert('只允许 http、https 或 mailto 链接');return}
-        editor.chain().focus().setLink({href:typed}).run()
-      }}/>
-      <Tool editor={editor} label="取消链接" action={()=>editor.chain().focus().unsetLink().run()} />
-    </nav>
-    <EditorContent editor={editor} className="editor-wrap" />
-  </>
-}
-function Tool({editor,label,action,active=false}:{
-  editor:Editor,label:string,action:()=>void,active?:boolean
-}) {
-  return <button type="button" className={active?'active':''}
-    aria-label={label} aria-pressed={active}
-    onMouseDown={e=>e.preventDefault()}
-    onClick={action} disabled={!editor.isEditable}>{label}</button>
-}
 
 function App(){
   const [authorized,setAuthorized]=useState<boolean|null>(null)
@@ -77,6 +31,9 @@ function App(){
   const [dirty,setDirty]=useState(false)
   const [connected,setConnected]=useState(false)
   const [status,setStatus]=useState('手机已保存的数据将在这里显示')
+  const [section,setSection]=useState<'ordinary'|'monthly'>('ordinary')
+  const [monthLocked,setMonthLocked]=useState(false)
+  const [monthRefresh,setMonthRefresh]=useState(0)
   const [query,setQuery]=useState('')
   const noteRef=useRef<OpenNote|null>(null)
   const titleRef=useRef('')
@@ -206,6 +163,7 @@ function App(){
     let reconnect:ReturnType<typeof setTimeout>|null=null
     let heartbeat:ReturnType<typeof setInterval>|null=null
     async function syncOpen(changedId?:string){
+      setMonthRefresh(n=>n+1)
       await refreshList()
       const note=noteRef.current
       if (!note|| (changedId&&changedId!==note.id))return
@@ -302,6 +260,17 @@ function App(){
     }
   },[])
 
+  function switchSection(next:'ordinary'|'monthly'){
+    if(next===section||monthLocked)return
+    if(savingRef.current){setStatus('正在保存，请完成后再切换');return}
+    if(dirtyRef.current){
+      if(!window.confirm('存在未保存修改，确定放弃本地草稿？'))return
+      discardAutosave();++openSequence.current;setUncommitted(false)
+      noteRef.current=null;setCurrent(null)
+    }
+    setSection(next)
+  }
+
   if(authorized===null)return <main className="center">正在验证手机授权…</main>
   if(!authorized)return <main className="center"><h1>Moodiary Web</h1>
     <p>请先在手机端批准连接，再打开富文本工作台。</p>
@@ -310,7 +279,13 @@ function App(){
   const showing=items.filter(x=>
     (x.title+' '+x.preview).toLowerCase().includes(query.toLowerCase()))
 
-  return <div className="app">
+  return <><nav className="workspace-tabs" aria-label="工作台视图">
+    <button aria-pressed={section==='ordinary'} disabled={monthLocked}
+      onClick={()=>switchSection('ordinary')}>普通日记</button>
+    <button aria-pressed={section==='monthly'} disabled={monthLocked}
+      onClick={()=>switchSection('monthly')}>长期记录</button>
+    <span>{connected?'已连接手机':'正在连接手机'}</span>
+  </nav>{section==='monthly'?<MonthWorkspace api={api} refreshTick={monthRefresh} onLock={setMonthLocked}/>:<div className="app ordinary-app">
     <aside className="sidebar">
       <div className="sidebar-top"><strong>Moodiary Web</strong><span className={connected?'online':'offline'}>{connected?'● 实时连接':'○ 重新连接中'}</span></div>
       <button className="primary new" onClick={newNote}>＋ 新建富文本日记</button>
@@ -348,8 +323,8 @@ function App(){
           </div>}
       </>:<div className="empty"><h2>局域网富文本工作台</h2>
         <p>从左侧选择普通日记，或创建新日记。</p>
-        <p>当前支持标题、段落、标题格式、文字标记、换行和安全链接。图片与月度记录暂不允许写入。</p></div>}
+        <p>当前支持标题、段落、标题格式、文字标记、换行和安全链接。可切换到“长期记录”管理月度记录；图片编辑尚未开放。</p></div>}
     </main>
-  </div>
+  </div>}</>
 }
 createRoot(document.getElementById('root')!).render(<App/>)

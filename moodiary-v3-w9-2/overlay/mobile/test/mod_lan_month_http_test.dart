@@ -127,6 +127,22 @@ void main() {
     'SELECT COUNT(*) AS n FROM $table',
   ).getSingle()).read<int>('n');
 
+  test('topic discovery lists only visible topics and discovers durable months', () async {
+    final index = await send('/api/v3/topics');
+    expect(index.status, 200);
+    expect(index.body['topics'], hasLength(1));
+    expect(index.body['topics'].single['id'], topicId);
+    expect(index.body['topics'].single['months'], isEmpty);
+    expect(await count('mod_month_pages'), 0);
+    await send('${path()}/revisions', method: 'POST', body: revision());
+    expect((await send('/api/v3/topics')).body['topics'].single['months'], ['2026-11']);
+    authorized = false;
+    expect((await send('/api/v3/topics')).status, 401);
+    authorized = true;
+    await db.customStatement('UPDATE diaries SET show = 0 WHERE id = ?', [topicId]);
+    expect((await send('/api/v3/topics')).body['topics'], isEmpty);
+  });
+
   test('HTTP GET is side-effect free; create and retry preserve rich blocks', () async {
     final empty = await send(path());
     expect(empty.status, 200);

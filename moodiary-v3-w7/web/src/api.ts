@@ -150,11 +150,15 @@ export class LanClient {
     return !!this.csrf
   }
 
-  private async call<T>(url: string, method = 'GET', body?: unknown): Promise<T> {
+  protected async call<T>(url: string, method = 'GET', body?: unknown): Promise<T> {
     const write = method !== 'GET'
     if (write && !this.csrf) throw new LanApiError('pairing_required',401)
+    const controller = new AbortController()
+    const timeout = setTimeout(()=>controller.abort(), 30000)
+    try {
     const response = await this.fetcher(url, {
       method, credentials:'same-origin', cache:'no-store',
+      signal: controller.signal,
       headers: write ? {'content-type':'application/json', 'x-moodiary-csrf':this.csrf!} : {},
       body: write ? JSON.stringify(body) : undefined,
     })
@@ -163,6 +167,7 @@ export class LanClient {
     catch { throw new LanApiError('invalid_response', response.status) }
     if (!response.ok) throw new LanApiError(typeof result.error==='string' ? result.error : 'request_failed',response.status)
     return result as T
+    } finally { clearTimeout(timeout) }
   }
 
   async list(): Promise<DiaryPreview[]> {
