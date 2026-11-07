@@ -1,0 +1,40 @@
+name: Moodiary W9.5.2 Verify Built APK
+on:
+  push:
+    branches:
+      - moodiary-v3-w9-5-2-verify-20261108
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  verify-artifact:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: Moodiary-V3-LAN-W9-5-2-Daily-Timeline-arm64
+          run-id: 42421819359
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: verification
+      - name: Verify exact APK bytes and packed app identity
+        run: |
+          set -euo pipefail
+          python3 moodiary-v3-w9-5-2/verify_apk.py verification/app-v3dev-release.apk 1b0ea183c3b9da10ca341e042b85f471c921fb43835d39406e6d6a0b80a4aa42 101 | tee verification/verification.json
+      - name: Verify Android cryptographic signature and manifest
+        run: |
+          set -euo pipefail
+          moodiary_apksigner_path="$(python3 -c 'from pathlib import Path; import os; p=sorted(Path(os.environ["ANDROID_HOME"]).glob("build-tools/*/apksigner")); assert p; print(p[-1])')"
+          test -n "$moodiary_apksigner_path"
+          "$moodiary_apksigner_path" verify --verbose --print-certs verification/app-v3dev-release.apk | tee verification/signature.txt
+          "$(dirname "$moodiary_apksigner_path")/aapt" dump badging verification/app-v3dev-release.apk | tee verification/manifest.txt
+      - name: Name verified APK
+        run: mv verification/app-v3dev-release.apk verification/Moodiary_V3_W9_5_2_Daily_Timeline_arm64.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Moodiary-V3-W9-5-2-Verified-Delivery-arm64
+          path: verification
+          retention-days: 30
+          if-no-files-found: error

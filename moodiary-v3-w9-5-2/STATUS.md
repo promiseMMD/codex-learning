@@ -7,7 +7,12 @@
 
 最新功能提交：`b0e80ef56f912912a135df997300dc5eefa2f92b`。
 最新 CI：<https://github.com/promiseMMD/codex-learning/actions/runs/42421819359>。
-当前测试步骤全部通过，完整 Flutter/Rust ARM64 APK 正在构建；产物校验和交付尚未完成。
+完整 CI 已成功，APK 已构建，并通过独立字节、包名/版本、资源及 Android 签名校验。
+成品下载：<https://github.com/promiseMMD/codex-learning/actions/runs/42424085662/artifacts/13594238399>（ZIP，包含命名后的 APK 及校验记录）。
+成品校验 CI：<https://github.com/promiseMMD/codex-learning/actions/runs/42424085662>。
+APK：56,755,490 字节，SHA-256 `1b0ea183c3b9da10ca341e042b85f471c921fb43835d39406e6d6a0b80a4aa42`。
+开发签名与 W9.5.1 不同，不能直接覆盖该版本；保留旧包及数据。
+运行环境在出包后中断，直接附件保存未完成；可使用上述已验证的 GitHub 成品。
 
 ## 接续时已核实的结果
 
@@ -39,7 +44,7 @@
 不修改数据库版本或已有持久化字段，不创建临时普通 Diary，不改变新块仅本机保存的状态。
 版本号递增为独立开发包 `2.9.2+101`，包名继续 `cn.yooss.moodiary.v3dev`。
 
-## 验收计划
+## 已通过的验收
 
 - 真实 SQLite 的创建时间持久化、编辑后不变及同事件时间排序。
 - 真实 HTTP 创建元数据与拒绝伪造字段；PC DTO 严格校验及一致排序。
@@ -47,7 +52,9 @@
   保存回执丢失后原样重试、无效日只读、390×844 窄屏与 320 像素键盘占位。
 - 保留所有已有迁移、应用/HTTP、编辑器、生产浏览器、WebDAV 回归。
 - CI 生成 slang 文案后将生成归档一并保存在分支，后续构建对比重新生成后的字节哈希。
-- 完整 Flutter/Rust ARM64 构建成功后校验成品再交付；不手工替换 APK 内部资源。
+- 完整 Flutter/Rust ARM64 构建成功；独立校验已通过，未手工替换 APK 内部资源。
+- 实测通过：172 项编辑器前端、31 项 PC 前端、21 项编辑器、2 项迁移、107 项应用/HTTP、63 项 WebDAV 回归及生产浏览器场景。
+- 已核对 CRC、APK SHA-256、包名、版本 2.9.2+101、ARM64、网页/原生编辑器资源；Android apksigner v2 验证成功。
 
 ## 仍未完成
 
