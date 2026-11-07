@@ -1,4 +1,4 @@
-name: Moodiary V3 W8 Native Image Staging Integration
+name: Moodiary V3 W8 Authenticated Image Staging HTTP Integration
 on:
   push:
     branches:
@@ -53,6 +53,7 @@ jobs:
           python3 ../moodiary-v3-w6/apply_w6.py .
           python3 ../moodiary-v3-w7/apply_w7.py .
           python3 ../moodiary-v3-w8/apply_w8.py .
+          python3 ../moodiary-v3-w8/apply_w8_http.py .
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -115,6 +116,7 @@ jobs:
           dart format mobile/lib/app/home/mod_lan_image_policy.dart
           dart format mobile/lib/app/home/mod_lan_image_staging.dart
           dart format mobile/lib/app/home/mod_lan_image_decoder.dart
+          dart format mobile/lib/app/home/mod_lan_image_http.dart
           dart format mobile/test/mod_lan_image_decoder_test.dart
           dart format mobile/lib/app/home/mod_lan_rich.dart
           dart format mobile/test/mod_lan_rich_test.dart
@@ -147,7 +149,7 @@ jobs:
           sha256sum upstream/mobile/build/app/outputs/flutter-apk/app-v3dev-release.apk
       - uses: actions/upload-artifact@v4
         with:
-          name: Moodiary-V3-LAN-W8-Image-Staging-Core-arm64
+          name: Moodiary-V3-LAN-W8-Staging-HTTP-arm64
           path: upstream/mobile/build/app/outputs/flutter-apk/app-v3dev-release.apk
           retention-days: 30
           if-no-files-found: error
