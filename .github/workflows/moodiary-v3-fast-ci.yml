@@ -135,7 +135,7 @@ jobs:
         run: flutter test test/editor_snapshot_test.dart test/editor_activation_test.dart --reporter compact
       - name: Basic mobile autosave and LAN policy smoke tests
         working-directory: upstream/mobile
-        run: flutter test test/mod_lan_policy_test.dart test/mod_continuous_safety_test.dart test/mod_month_store_test.dart --reporter compact
+        run: flutter test test/mod_lan_policy_test.dart test/mod_continuous_safety_test.dart test/mod_month_store_test.dart test/mod_day_home_index_test.dart test/mod_day_home_panel_test.dart --reporter compact
       - name: Focused SQLite and WebDAV safety regressions on sensitive changes
         if: ${{ steps.changed.outputs.data_risk == 'true' }}
         env:

@@ -40,6 +40,8 @@ for needle in ("moodiary-ci/prepare-workspace.sh",
 
 for source in (fast, full):
     require(source, "test/mod_day_map_test.dart", "W9.8 daily mapping safety regression")
+    for target in ("test/mod_day_home_index_test.dart", "test/mod_day_home_panel_test.dart"):
+        require(source, target, "W9.8.2 home card safety and widget regressions")
 
 require(full, "cargo +1.95.0 test sync::webdav::tests --lib",
         "all Rust WebDAV tests, including Nutstore pagination-risk regression")
@@ -82,7 +84,8 @@ for needle in ("git checkout 2c552ddd7939a054122380397fb914cf000824b0",
   "moodiary-v3-w9-7-8/apply_w9_7_8.py",
   "moodiary-v3-w9-7-8-3/apply_w9_7_8_3.py",
   "moodiary-v3-w9-7-8-4/apply_w9_7_8_4.py",
-  "moodiary-v3-w9-8-1/apply_w9_8_1.py"):
+  "moodiary-v3-w9-8-1/apply_w9_8_1.py",
+  "moodiary-v3-w9-8-2/apply_w9_8_2.py"):
     require(prepare,needle,"pinned source assembly")
 # Changes to CI workflows or their gate scripts must exercise sensitive
 # tests as well; otherwise a workflow-only commit can appear green while
