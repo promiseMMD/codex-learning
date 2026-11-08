@@ -72,7 +72,14 @@ final class ModMonthGraphArchiveV1 {
       ).get();
       out[s.name] = [
         for (final r in rows)
-          {for (final c in s.columns) c: r.readNullable<Object>(c)}
+          {
+            for (final c in s.columns)
+              c: _numeric.contains(c)
+                  ? r.read<int>(c)
+                  : _nullable.contains(c)
+                      ? r.readNullable<String>(c)
+                      : r.read<String>(c),
+          }
       ];
     }
     return out;
