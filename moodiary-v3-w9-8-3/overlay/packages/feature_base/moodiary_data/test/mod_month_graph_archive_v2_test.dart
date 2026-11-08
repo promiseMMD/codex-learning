@@ -142,7 +142,7 @@ void main() {
     await seed(source);
     final first=jsonDecode(await ModMonthGraphArchiveV2.exportGraph(source))
       as Map<String,dynamic>;
-    (first['dayPages'] as List<dynamic>).first['visible_local']=0;
+    (first['dayPages'] as List<dynamic>).first['visible_local']=1;
     final altered=jsonEncode(first);
     expect(()=>ModMonthGraphArchiveV2.verify(altered),
       throwsA(isA<ModGraphV2Exception>().having(
