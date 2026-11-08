@@ -110,7 +110,7 @@ void main() {
       await slot.installVerified(sourceDirectory:previous,generationId:oldId);
       check((await slot.currentDirectory())?.endsWith(oldId)==true,
         'baseline_missing');
-      print('SIGKILL_SETUP_OK');
+      print('SIGKILL_V2_SETUP_OK');
       return;
     }
     final slot=await ModMonthRecoverySlotV2.openExisting(root);
