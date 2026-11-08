@@ -26,9 +26,19 @@ const { chromium } = require(process.env.MOODIARY_PLAYWRIGHT_MODULE || 'playwrig
       window.MoodiaryBridge.setTitle('这个独立标题不能出现在块编辑页');
       window.MoodiaryBridge.setMeta('');
     });
+    await page.waitForFunction(() => document.querySelector('.ProseMirror')?.textContent.includes('手机原生块编辑验收'));
     await page.locator('.ProseMirror').click();
-    await page.keyboard.press('Control+End');
-    await page.evaluate(() => window.MoodiaryBridge.exec('toggleBold'));
+    await page.keyboard.press('Control+A');
+    const selected = await page.evaluate(() => window.getSelection()?.toString() || '');
+    assert.ok(selected.includes('手机原生块编辑验收'), 'Editor text selection must be visible before bold');
+    await page.evaluate(() => {
+      window.MoodiaryBridge.exec('toggleBold');
+      window.MoodiaryBridge.snapshot('bold-command-applied');
+    });
+    const afterBold = await page.evaluate(() => window.__messages.filter(m=>m.type==='snapshot').at(-1).payload);
+    assert.equal(afterBold.reqId, 'bold-command-applied');
+    assert.ok(afterBold.document.includes('bold'), 'Real native editor must apply a bold mark to the selected text');
+    await page.keyboard.press('ArrowRight');
     await page.keyboard.insertText(' · 当日补记');
     await page.evaluate(() => window.MoodiaryBridge.snapshot('actual-native-save'));
     const snapshot = await page.evaluate(() => window.__messages.filter(m=>m.type==='snapshot').at(-1).payload);
