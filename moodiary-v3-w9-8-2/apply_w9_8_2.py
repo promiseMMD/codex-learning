@@ -29,15 +29,16 @@ one(home,
     "import 'package:mui/mui.dart';",
     "import 'package:mui/mui.dart';\n\nimport 'mod_day_home_panel.dart';")
 one(home,
-    "        body: body,",
-    """        // W9 daily blocks stay out of the ordinary Diary model until
-        // their entire history and assets are safely backed up and restored.
-        body: filter.isAll && !selecting
-            ? Column(children: [
-                const ModDayHomePanel(),
-                Expanded(child: body),
-              ])
-            : body,""")
+    "    final body = _buildDiaryView(filter);",
+    """    final ordinaryBody = _buildDiaryView(filter);
+    // W9 daily blocks stay out of the native Diary model until the
+    // complete block/history/media archive can be safely restored.
+    final body = filter.isAll && !selecting
+        ? Column(children: [
+            const ModDayHomePanel(),
+            Expanded(child: ordinaryBody),
+          ])
+        : ordinaryBody;""")
 
 one("mobile/pubspec.yaml","version: 2.9.2+111","version: 2.9.2+112")
 print("W9.8.2 home daily cards and protected dedicated route installed")
