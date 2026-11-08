@@ -2,8 +2,8 @@
 # The one pinned upstream + all historical overlays shared by ALL CI tiers.
 # Refuse silent failures: no incremental overlay may skip a missing source.
 set -euo pipefail
-if [[ ! -f modkit/verify_patch.py ]]; then
-  echo "Run from the checked-out codex-learning repository root" >&2
+if [[ ! -f moodiary-longrecord/build-payload.b64 ]]; then
+  echo "Missing checked-out W1 source bundle; run from repository root" >&2
   exit 2
 fi
 set -euo pipefail
