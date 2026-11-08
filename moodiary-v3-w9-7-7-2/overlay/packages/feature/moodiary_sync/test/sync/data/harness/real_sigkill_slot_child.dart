@@ -17,12 +17,16 @@ Future<void> main(List<String> args) async {
     return;
   }
   try {
+    stderr.writeln('SIGKILL_CHILD_BOOT pid=$pid mode=${args.first}');
+    await stderr.flush();
     final root=p.normalize(p.absolute(args[1]));
     // Fail closed unless the parent explicitly chose a temporary test slot.
     if (!p.basename(root).startsWith('real-sigkill-slot-')) {
       throw StateError('refuse_non_test_slot');
     }
     final slot=await ModMonthRecoverySlotV1.openExisting(root);
+    stderr.writeln('SIGKILL_CHILD_OPEN_OK');
+    await stderr.flush();
     if (args.first=='recover') {
       if (args.length!=2) throw StateError('recover_arity');
       final result=await slot.recover();
@@ -43,11 +47,15 @@ Future<void> main(List<String> args) async {
         p.dirname(signal.path)!=p.dirname(root)) {
       throw StateError('untrusted_test_paths');
     }
+    stderr.writeln('SIGKILL_CHILD_INSTALL_START phase=$stopAt');
+    await stderr.flush();
     await slot.installVerified(
       sourceDirectory:source,
       generationId:generation,
       checkpoint:(phase) async {
         if (phase==stopAt) {
+          stderr.writeln('SIGKILL_CHILD_CHECKPOINT phase=$phase');
+          await stderr.flush();
           // Durable signal arrives AFTER the precise slot checkpoint has
           // written to disk. The parent kills this process with SIGKILL.
           await signal.writeAsString(

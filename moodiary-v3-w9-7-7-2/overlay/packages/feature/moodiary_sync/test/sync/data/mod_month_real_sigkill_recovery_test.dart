@@ -83,13 +83,30 @@ void main() {
     ...args,
   ];
 
-  // Never use Platform.resolvedExecutable here: inside flutter test it is
-  // flutter_tester, not the independent Dart CLI process we must SIGKILL.
+  // Flutter's "dart" wrapper may block on the SDK startup lock held by
+  // flutter test. Use the raw Dart VM binary rather than that wrapper or
+  // the flutter_tester executable reported by Platform.resolvedExecutable.
+  String rawDartVm() {
+    final flutterRoot=Platform.environment['FLUTTER_ROOT'];
+    final resolved=Platform.resolvedExecutable;
+    final marker=p.join('bin','cache')+p.separator;
+    final i=resolved.indexOf(marker);
+    final roots=<String>[
+      if (flutterRoot!=null && flutterRoot.isNotEmpty) flutterRoot,
+      if (i>=0) resolved.substring(0,i),
+    ];
+    for (final root in roots) {
+      final dart=File(p.join(root,'bin','cache','dart-sdk','bin','dart'));
+      if (dart.existsSync()) return dart.path;
+    }
+    throw StateError('raw_flutter_dart_sdk_binary_not_found: $resolved');
+  }
+
   Future<String> killAtPhase(
       String config,String root,String from,String phase,String signal) async {
     final output=StringBuffer();
     final errors=StringBuffer();
-    final process=await Process.start('dart',
+    final process=await Process.start(rawDartVm(),
       childArgs(config,'install',[root,from,_incomingId,phase,signal]),
       workingDirectory:Directory.current.path,
     );
@@ -126,7 +143,7 @@ void main() {
   Future<Map<String,dynamic>> coldRestart(
       String config,String root) async {
     final result=await Process.run(
-      'dart',childArgs(config,'recover',[root]),
+      rawDartVm(),childArgs(config,'recover',[root]),
       workingDirectory:Directory.current.path,
     ).timeout(const Duration(seconds:30));
     expect(result.exitCode,0,
