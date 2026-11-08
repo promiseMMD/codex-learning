@@ -13,7 +13,7 @@ replaceable_test=Path(
 expected_base_blob='6c02ed6d4d0351e5ee72005ddc8e8826ed30606a'
 
 def git_blob_sha(data: bytes) -> str:
-    header=f'blob {len(data)}\\0'.encode('ascii')
+    header=f'blob {len(data)}\0'.encode('ascii')
     return hashlib.sha1(header+data).hexdigest()
 
 for source in (here/'overlay').rglob('*'):
