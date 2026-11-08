@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """CI tiering contract (stdlib only); regression tests remain immutable gates."""
 from pathlib import Path
+import ast
+import re
 ROOT=Path(__file__).resolve().parents[1]
 fast=(ROOT/".github/workflows/moodiary-v3-fast-ci.yml").read_text()
 full=(ROOT/".github/workflows/moodiary-v3-full-ci.yml").read_text()
@@ -82,5 +84,23 @@ for needle in ("git checkout 2c552ddd7939a054122380397fb914cf000824b0",
 # skipping the actual real-SIGKILL recovery test.
 for needle in (r"^\.github/workflows/", r"^moodiary-ci/"):
     require(fast,needle,"CI self-modification risk routing")
+
+# Parse embedded Python heredocs in workflow run blocks before expensive
+# Flutter installation. YAML indentation must not be mistaken for Python.
+for workflow_name, source in (("fast", fast), ("full", full)):
+    snippets = re.findall(
+        r"(?ms)^([ ]+)python3 - <<'([A-Z]+)'\s*\n(.*?)^\1\2\s*$",
+        source,
+    )
+    if not snippets:
+        raise SystemExit("Missing inline Python scripts: " + workflow_name)
+    for padding, fence, raw in snippets:
+        code = "\n".join(line[len(padding):] if line.startswith(padding)
+                         else line for line in raw.splitlines())
+        try:
+            ast.parse(code)
+        except SyntaxError as error:
+            raise SystemExit("Broken " + workflow_name +
+                             " embedded Python syntax: " + str(error))
 
 print("All CI contracts verified: quick, full coverage, APK SHA and device QA")

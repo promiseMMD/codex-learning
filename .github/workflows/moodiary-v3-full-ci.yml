@@ -158,10 +158,10 @@ jobs:
           source = p.read_text()
           assert source.count('build_assets: true') == 6
           native = source.replace('build_assets: true', 'build_assets: false')
-                    anchor = '    fast_zip: {build_assets: false}'
-                    assert native.count(anchor) == 1
-                    native = native.replace(anchor, anchor + '\n    sqlite3: {source: system}')
-                    p.write_text(native)
+          anchor = '    fast_zip: {build_assets: false}'
+          assert native.count(anchor) == 1
+          native = native.replace(anchor, anchor + '\n    sqlite3: {source: system}')
+          p.write_text(native)
           PYHOOK
       - name: Native editor acknowledgement and ordinary editor regression
         working-directory: upstream/packages/feature_base/moodiary_editor
