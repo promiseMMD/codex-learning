@@ -93,12 +93,18 @@ Future<void> main() async {
   final sandbox=await Directory.systemTemp.createTemp('w9774-crash-');
   try {
     for (var n=0;n<selected.length;n++) {
-      final phase=selected[n],root=p.join(sandbox.path,'real-sigkill-slot-'+n.toString());
-      final signal=p.join(sandbox.path,'checkpoint-'+n.toString()+'.json');
-      final setup=await execute('prepare',sandbox.path,root,phase,signal);
+      // Keep SQLite fixture identity and on-disk state isolated per checkpoint.
+      // The prior harness re-used the source DB, then attempted to INSERT the
+      // same diary ID during the second phase (UNIQUE constraint failure).
+      final phase=selected[n];
+      final phaseSandbox=p.join(sandbox.path,'w9774-crash-'+n.toString());
+      await Directory(phaseSandbox).create();
+      final root=p.join(phaseSandbox,'real-sigkill-slot-'+n.toString());
+      final signal=p.join(phaseSandbox,'checkpoint-'+n.toString()+'.json');
+      final setup=await execute('prepare',phaseSandbox,root,phase,signal);
       check(setup.contains('SIGKILL_SETUP_OK'),'missing_setup_receipt');
-      await killAt(sandbox.path,root,phase,signal);
-      final output=await execute('recover',sandbox.path,root,phase,signal);
+      await killAt(phaseSandbox,root,phase,signal);
+      final output=await execute('recover',phaseSandbox,root,phase,signal);
       final at=output.indexOf('SIGKILL_RECOVER=');
       check(at>=0,'recovery_receipt_missing '+output);
       final raw=output.substring(at+'SIGKILL_RECOVER='.length).split('\n').first.trim();
@@ -112,9 +118,9 @@ Future<void> main() async {
       final mediaBase=p.join(root,'generations',oldId,'media','image');
       await verifyBytes(p.join(mediaBase,'current.png'),[137,80,78,71,11]);
       await verifyBytes(p.join(mediaBase,'historic.png'),[137,80,78,71,11,42]);
-      await verifyBytes(p.join(sandbox.path,'real-sigkill-source-baseline',
+      await verifyBytes(p.join(phaseSandbox,'real-sigkill-source-baseline',
           'media','image','current.png'),[137,80,78,71,11]);
-      await verifyBytes(p.join(sandbox.path,'real-sigkill-source-incoming',
+      await verifyBytes(p.join(phaseSandbox,'real-sigkill-source-incoming',
           'media','image','current.png'),[137,80,78,71,12]);
       await verifyBytes(p.join(root,'generations',committed?newId:oldId,
           'media','image','current.png'),[137,80,78,71,committed?12:11]);
