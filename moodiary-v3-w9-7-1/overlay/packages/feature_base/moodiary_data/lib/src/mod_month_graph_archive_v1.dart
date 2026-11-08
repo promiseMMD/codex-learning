@@ -242,12 +242,19 @@ final class ModMonthGraphArchiveV1 {
         parented.add(parent);
       }
     }
+    // Linear-time cycle detection, including very long revision chains.
+    final visited=<String,int>{};
     for (final id in revisions.keys) {
-      final seen=<String>{};
+      final trail=<String>[];
       String? at=id;
-      while (at!=null) {
-        if (!seen.add(at)) _fail('revision_cycle');
+      while (at!=null && visited[at]!=2) {
+        if (visited[at]==1) _fail('revision_cycle');
+        visited[at]=1;
+        trail.add(at);
         at=revisions[at]?['parent_revision_id'] as String?;
+      }
+      for (final node in trail) {
+        visited[node]=2;
       }
     }
     final heads=<String,Set<String>>{};
@@ -301,9 +308,38 @@ final class ModMonthGraphArchiveV1 {
         'SELECT COUNT(*) AS n FROM diaries',
       ).getSingle();
       if (diaryCount.read<int>('n')!=0) _fail('native_diaries_present');
+      // Insert parent revisions before children. UUID lexical order is
+      // unrelated to ancestry; SQLite foreign keys can be enabled on restore.
+      final originals=graph['mod_month_revisions']!;
+      final byRevision={
+        for (final r in originals) r['revision_id'] as String:r
+      };
+      final descendants=<String,List<String>>{};
+      final ready=<String>[];
+      for (final r in originals) {
+        final id=r['revision_id'] as String;
+        final parent=r['parent_revision_id'] as String?;
+        if (parent==null) {
+          ready.add(id);
+        } else {
+          descendants.putIfAbsent(parent,()=> <String>[]).add(id);
+        }
+      }
+      ready.sort();
+      final parentFirst=<Map<String,Object?>>[];
+      for (var i=0;i<ready.length;i++) {
+        final id=ready[i];
+        parentFirst.add(byRevision[id]!);
+        final children=descendants[id] ?? <String>[];
+        children.sort();
+        ready.addAll(children);
+      }
+      if (parentFirst.length!=originals.length) _fail('invalid_dag_order');
       for (final s in _tables) {
         final marks=List.filled(s.columns.length,'?').join(',');
-        for (final row in graph[s.name]!) {
+        final rows=s.name=='mod_month_revisions'
+            ? parentFirst : graph[s.name]!;
+        for (final row in rows) {
           await db.customStatement(
             'INSERT INTO ' + s.name + ' (' + s.columns.join(',') +
                 ') VALUES (' + marks + ')',
