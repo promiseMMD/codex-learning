@@ -60,7 +60,8 @@ for needle in ("git checkout 2c552ddd7939a054122380397fb914cf000824b0",
   "moodiary-v3-w9-7-5/apply_w9_7_5.py",
   "moodiary-v3-w9-7-6/apply_w9_7_6.py",
   "moodiary-v3-w9-7-7/apply_w9_7_7.py",
-  "moodiary-v3-w9-7-7-2/apply_w9_7_7_2.py"):
+  "moodiary-v3-w9-7-7-2/apply_w9_7_7_2.py",
+  "moodiary-v3-w9-7-7-4/apply_w9_7_7_4.py"):
     require(prepare,needle,"pinned source assembly")
 # Changes to CI workflows or their gate scripts must exercise sensitive
 # tests as well; otherwise a workflow-only commit can appear green while
