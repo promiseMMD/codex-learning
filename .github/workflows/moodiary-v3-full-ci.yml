@@ -135,6 +135,7 @@ jobs:
           dart format packages/feature/moodiary_sync/test/sync/data/harness/real_sigkill_orchestrator.dart packages/feature/moodiary_sync/test/sync/data/harness/real_sigkill_slot_child.dart
           dart format packages/feature/moodiary_sync/lib/src/data/mod_month_orphan_inspector_v1.dart packages/feature/moodiary_sync/test/sync/data/mod_month_orphan_inspector_v1_test.dart
           dart format packages/feature/moodiary_sync/lib/src/data/mod_month_recovery_slot_v1.dart packages/feature/moodiary_sync/test/sync/data/mod_month_recovery_slot_v1_test.dart
+          dart format packages/feature/moodiary_sync/lib/src/data/mod_month_recovery_slot_v2.dart packages/feature/moodiary_sync/test/sync/data/mod_month_recovery_slot_v2_test.dart packages/feature/moodiary_sync/test/sync/data/harness/real_sigkill_v2_orchestrator.dart packages/feature/moodiary_sync/test/sync/data/harness/real_sigkill_v2_slot_child_test.dart
           dart format packages/feature/moodiary_sync/lib/src/data/mod_month_isolated_restore_v1.dart packages/feature/moodiary_sync/test/sync/data/mod_month_isolated_restore_v1_test.dart
           dart format packages/feature/moodiary_sync/lib/src/data/mod_month_zip_preflight_v1.dart packages/feature/moodiary_sync/lib/src/data/mod_month_zip_bundle_v1.dart packages/feature/moodiary_sync/test/sync/data/mod_month_zip_bundle_v1_test.dart
           dart format packages/feature/moodiary_sync/lib/src/data/mod_month_zip_preflight_v2.dart packages/feature/moodiary_sync/lib/src/data/mod_month_zip_bundle_v2.dart packages/feature/moodiary_sync/lib/src/data/mod_month_isolated_restore_v2.dart packages/feature/moodiary_sync/test/sync/data/mod_month_isolated_restore_v2_test.dart
@@ -214,12 +215,14 @@ jobs:
         env:
           MOODIARY_CRASH_MATRIX: full
         working-directory: upstream/packages/feature/moodiary_sync
-        run: flutter test test/sync/data/incremental_engine_test.dart test/sync/data/mod_month_archive_gate_test.dart test/sync/data/mod_month_verified_manifest_v1_test.dart test/sync/data/mod_month_stream_stage_v1_test.dart test/sync/data/mod_month_zip_bundle_v1_test.dart test/sync/data/mod_month_verified_manifest_v2_test.dart test/sync/data/mod_month_stream_stage_v2_test.dart test/sync/data/mod_month_isolated_restore_v1_test.dart test/sync/data/mod_month_isolated_restore_v2_test.dart test/sync/data/mod_month_recovery_slot_v1_test.dart test/sync/data/mod_month_orphan_inspector_v1_test.dart test/sync/data/mod_nutstore_webdav_policy_test.dart --reporter expanded
+        run: flutter test test/sync/data/incremental_engine_test.dart test/sync/data/mod_month_archive_gate_test.dart test/sync/data/mod_month_verified_manifest_v1_test.dart test/sync/data/mod_month_stream_stage_v1_test.dart test/sync/data/mod_month_zip_bundle_v1_test.dart test/sync/data/mod_month_verified_manifest_v2_test.dart test/sync/data/mod_month_stream_stage_v2_test.dart test/sync/data/mod_month_isolated_restore_v1_test.dart test/sync/data/mod_month_isolated_restore_v2_test.dart test/sync/data/mod_month_recovery_slot_v1_test.dart test/sync/data/mod_month_recovery_slot_v2_test.dart test/sync/data/mod_month_orphan_inspector_v1_test.dart test/sync/data/mod_nutstore_webdav_policy_test.dart --reporter expanded
       - name: "Real SIGKILL crash matrix: all seven checkpoints (standalone process)"
         working-directory: upstream/packages/feature/moodiary_sync
         env:
           MOODIARY_CRASH_MATRIX: full
-        run: dart run test/sync/data/harness/real_sigkill_orchestrator.dart
+        run: |
+          dart run test/sync/data/harness/real_sigkill_orchestrator.dart
+          dart run test/sync/data/harness/real_sigkill_v2_orchestrator.dart
       - name: Restore native build hooks for Android
         if: ${{ inputs.build_apk }}
         working-directory: upstream
