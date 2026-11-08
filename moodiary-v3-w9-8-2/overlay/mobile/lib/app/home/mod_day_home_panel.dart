@@ -180,14 +180,15 @@ class _ModDayHomePanelState extends State<ModDayHomePanel>
           ),
           if (_loading) const SizedBox(
             width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2)),
-          if (hidden > 0) ...[
-            const Text('显示隐藏'),
-            Switch(
-              value: _showHidden,
-              onChanged: _saving ? null :
-                (value) => setState(() => _showHidden = value),
+          if (hidden > 0)
+            IconButton(
+              tooltip: _showHidden ? '收起已隐藏' : '显示已隐藏',
+              onPressed: _saving ? null :
+                () => setState(() => _showHidden = !_showHidden),
+              icon: Icon(_showHidden
+                ? Icons.visibility_off_outlined
+                : Icons.visibility_outlined),
             ),
-          ],
         ]),
       ),
       if (shown.isEmpty)

@@ -69,8 +69,8 @@ void main() {
     await tester.tap(find.byTooltip('从首页隐藏'));
     await tester.pumpAndSettle();
     expect(find.text('学习主题'),findsNothing);
-    expect(find.text('显示隐藏'),findsOneWidget);
-    await tester.tap(find.byType(Switch));
+    expect(find.byTooltip('显示已隐藏'),findsOneWidget);
+    await tester.tap(find.byTooltip('显示已隐藏'));
     await tester.pumpAndSettle();
     expect(find.text('学习主题'),findsOneWidget);
     await tester.tap(find.byTooltip('在首页显示'));
