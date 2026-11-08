@@ -52,3 +52,4 @@ python3 ../moodiary-v3-w9-7-3/apply_w9_7_3.py .
 python3 ../moodiary-v3-w9-7-4/apply_w9_7_4.py .
 python3 ../moodiary-v3-w9-7-5/apply_w9_7_5.py .
 python3 ../moodiary-v3-w9-7-6/apply_w9_7_6.py .
+python3 ../moodiary-v3-w9-7-7/apply_w9_7_7.py .

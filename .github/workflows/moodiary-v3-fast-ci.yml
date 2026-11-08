@@ -55,7 +55,7 @@ jobs:
             echo 'editor_risk=true' >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          git cat-file -e "$base^{commit}" 2>/dev/null || git fetch --no-tags --depth=1 origin "$base"
+          git cat-file -e "$base^{commit}" 2>/dev/null || git fetch --no-tags --depth=1 origin "$base" || true
           if ! git cat-file -e "$base^{commit}" 2>/dev/null; then
             echo 'data_risk=true' >> "$GITHUB_OUTPUT"
             echo 'editor_risk=true' >> "$GITHUB_OUTPUT"
@@ -132,7 +132,7 @@ jobs:
       - name: Focused SQLite and WebDAV safety regressions on sensitive changes
         if: ${{ steps.changed.outputs.data_risk == 'true' }}
         working-directory: upstream/packages/feature/moodiary_sync
-        run: flutter test test/sync/data/mod_month_archive_gate_test.dart test/sync/data/mod_month_recovery_slot_v1_test.dart test/sync/data/mod_month_isolated_restore_v1_test.dart --reporter compact
+        run: flutter test test/sync/data/mod_month_archive_gate_test.dart test/sync/data/mod_month_recovery_slot_v1_test.dart test/sync/data/mod_month_isolated_restore_v1_test.dart test/sync/data/mod_month_orphan_inspector_v1_test.dart --reporter compact
       - name: Focused older-database migration regression on sensitive changes
         if: ${{ steps.changed.outputs.data_risk == 'true' }}
         working-directory: upstream/packages/feature_base/moodiary_data
