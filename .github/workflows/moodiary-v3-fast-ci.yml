@@ -1,0 +1,152 @@
+name: Moodiary V3 Fast CI
+on:
+  push:
+    branches:
+      - 'moodiary-v3-*'
+  pull_request:
+    branches:
+      - main
+      - integration
+  workflow_dispatch:
+    inputs:
+      tier:
+        description: 'Choose fast feedback, complete regression, or APK delivery'
+        type: choice
+        required: true
+        default: fast
+        options:
+          - fast
+          - full
+          - apk
+permissions:
+  contents: read
+concurrency:
+  group: moodiary-fast-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: ${{ github.event_name == 'push' }}
+jobs:
+  fast:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    outputs:
+      data_risk: ${{ steps.changed.outputs.data_risk }}
+      editor_risk: ${{ steps.changed.outputs.editor_risk }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - name: Classify changed paths (fail CLOSED for unknown history)
+        id: changed
+        shell: bash
+        env:
+          EVENT_KIND: ${{ github.event_name }}
+          BEFORE_SHA: ${{ github.event.before }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          base="$BEFORE_SHA"
+          if [[ "$EVENT_KIND" == pull_request ]]; then base="$PR_BASE_SHA"; fi
+          if [[ ! "$base" =~ ^[0-9a-f]{40}$ || "$base" == "0000000000000000000000000000000000000000" ]]; then
+            base="$(git rev-parse HEAD^ 2>/dev/null || true)"
+          fi
+          if [[ ! "$base" =~ ^[0-9a-f]{40}$ ]]; then
+            echo 'data_risk=true' >> "$GITHUB_OUTPUT"
+            echo 'editor_risk=true' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          git cat-file -e "$base^{commit}" 2>/dev/null || git fetch --no-tags --depth=1 origin "$base"
+          if ! git cat-file -e "$base^{commit}" 2>/dev/null; then
+            echo 'data_risk=true' >> "$GITHUB_OUTPUT"
+            echo 'editor_risk=true' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          git diff --name-only "$base" HEAD > /tmp/moodiary-paths
+          cat /tmp/moodiary-paths
+          # Every storage/sync/backup/restore change runs focused safety tests.
+          if grep -Eiq '(db|database|migration|diary_repository|archive|backup|restore|recovery|sync|webdav|mod_month|ledger|media|write|security|apply_w9)' /tmp/moodiary-paths; then
+            echo 'data_risk=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'data_risk=false' >> "$GITHUB_OUTPUT"
+          fi
+          if grep -Eiq '(moodiary_editor|editor/|tiptap|moodiary-v3-w9-3/|moodiary-v3-w9-4/|lan/.*\\.(ts|tsx))' /tmp/moodiary-paths; then
+            echo 'editor_risk=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'editor_risk=false' >> "$GITHUB_OUTPUT"
+          fi
+      - name: Prepare exact pinned upstream and V3 sources
+        shell: bash
+        run: bash moodiary-ci/prepare-workspace.sh
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Quick PC browser JS syntax, write and concurrency checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          data = Path('upstream/mobile/lib/app/home/mod_lan_service.dart').read_text()
+          source = data.split("const _script = r'''", 1)[1].split("'''", 1)[0]
+          Path('/tmp/moodiary-ci-quick-browser.js').write_text(source)
+          PY
+          node --check /tmp/moodiary-ci-quick-browser.js
+          node /tmp/moodiary-v3-w4/scripts/browser-write.test.cjs /tmp/moodiary-ci-quick-browser.js
+          node moodiary-v3-w5/browser_race.test.cjs /tmp/moodiary-ci-quick-browser.js
+      - name: Targeted Tiptap tests when editor code changes
+        if: ${{ steps.changed.outputs.editor_risk == 'true' }}
+        working-directory: upstream/packages/feature_base/moodiary_editor/editor
+        shell: bash
+        run: |
+          set -euo pipefail
+          corepack enable
+          corepack pnpm install --frozen-lockfile
+          corepack pnpm exec vitest run src/core/editor/commands.test.ts lan/src/month_api.test.ts
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.2'
+          channel: stable
+          cache: true
+      - name: Resolve Flutter dependencies
+        working-directory: upstream
+        run: flutter pub get
+      - name: Turn off unused Rust assets ONLY for Dart tests
+        working-directory: upstream
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('pubspec.yaml')
+          contents=p.read_text()
+          assert contents.count('build_assets: true')==6
+          p.write_text(contents.replace('build_assets: true','build_assets: false'))
+          PY
+      - name: Basic native editor and LAN safety tests
+        working-directory: upstream/packages/feature_base/moodiary_editor
+        run: flutter test test/editor_snapshot_test.dart test/editor_activation_test.dart --reporter compact
+      - name: Basic mobile autosave and LAN policy smoke tests
+        working-directory: upstream/mobile
+        run: flutter test test/mod_lan_policy_test.dart test/mod_continuous_safety_test.dart test/mod_month_store_test.dart --reporter compact
+      - name: Focused SQLite and WebDAV safety regressions on sensitive changes
+        if: ${{ steps.changed.outputs.data_risk == 'true' }}
+        working-directory: upstream/packages/feature/moodiary_sync
+        run: flutter test test/sync/data/mod_month_archive_gate_test.dart test/sync/data/mod_month_recovery_slot_v1_test.dart test/sync/data/mod_month_isolated_restore_v1_test.dart --reporter compact
+      - name: Focused older-database migration regression on sensitive changes
+        if: ${{ steps.changed.outputs.data_risk == 'true' }}
+        working-directory: upstream/packages/feature_base/moodiary_data
+        run: flutter test test/mod_month_migration_test.dart test/mod_month_graph_archive_v1_test.dart --reporter compact
+  full-after-fast:
+    needs: fast
+    if: >-
+      ${{ github.event_name == 'pull_request'
+       || (github.event_name == 'workflow_dispatch' && inputs.tier == 'full')
+       || (github.event_name == 'push' && contains(github.event.head_commit.message, '[full-ci]')) }}
+    uses: ./.github/workflows/moodiary-v3-full-ci.yml
+    with:
+      build_apk: false
+  apk-after-fast:
+    needs: fast
+    if: >-
+      ${{ (github.event_name == 'workflow_dispatch' && inputs.tier == 'apk')
+       || (github.event_name == 'push' && contains(github.event.head_commit.message, '[apk-ci]')) }}
+    uses: ./.github/workflows/moodiary-v3-full-ci.yml
+    with:
+      build_apk: true

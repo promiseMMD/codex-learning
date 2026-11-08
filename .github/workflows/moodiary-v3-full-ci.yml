@@ -1,0 +1,232 @@
+name: Moodiary V3 Full Regression (Reusable)
+on:
+  workflow_call:
+    inputs:
+      build_apk:
+        description: "Run full Android arm64 APK build and retain artifact"
+        type: boolean
+        required: false
+        default: false
+  workflow_dispatch:
+    inputs:
+      build_apk:
+        description: "Also build and archive arm64 APK"
+        type: boolean
+        required: false
+        default: false
+permissions:
+  contents: read
+concurrency:
+  group: moodiary-full-${{ github.ref }}-${{ inputs.build_apk }}
+  cancel-in-progress: false
+jobs:
+  full-acceptance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 110
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare pinned upstream and apply ALL V3 overlays
+        shell: bash
+        run: bash moodiary-ci/prepare-workspace.sh
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Verify deployed browser JavaScript syntax
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          data = Path('upstream/mobile/lib/app/home/mod_lan_service.dart').read_text()
+          source = data.split("const _script = r'''", 1)[1].split("'''", 1)[0]
+          Path('/tmp/moodiary-v3-w3-app.js').write_text(source)
+          PY
+          node --check /tmp/moodiary-v3-w3-app.js
+          node /tmp/moodiary-v3-w4/scripts/browser-write.test.cjs /tmp/moodiary-v3-w3-app.js
+          node moodiary-v3-w5/browser_race.test.cjs /tmp/moodiary-v3-w3-app.js
+      - name: Build and test actual PC Tiptap editor
+        working-directory: upstream/packages/feature_base/moodiary_editor/editor
+        shell: bash
+        run: |
+          set -euo pipefail
+          corepack enable
+          corepack pnpm install --frozen-lockfile
+          corepack pnpm exec tsc --noEmit
+          corepack pnpm exec vitest run src
+          corepack pnpm exec vite build
+          corepack pnpm exec tsc --project lan/tsconfig.json --noEmit
+          corepack pnpm exec vitest run lan/src/w7.test.ts lan/src/month_api.test.ts lan/src/month_workspace.test.tsx
+          corepack pnpm exec vite build --config lan/vite.config.ts
+          test -s ../../../../mobile/assets/lan/index.html
+          test -s ../../../../mobile/assets/lan/lan.js
+          test -s ../../../../mobile/assets/lan/lan.css
+          grep -q 'lan.js' ../../../../mobile/assets/lan/index.html
+      - name: Actual Chromium PC and mobile-width editor acceptance
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y fonts-noto-cjk
+          npm install --prefix /tmp/moodiary-lan-browser --no-save --package-lock=false --ignore-scripts playwright@1.62.1
+          export MOODIARY_PLAYWRIGHT_MODULE=/tmp/moodiary-lan-browser/node_modules/playwright
+          export MOODIARY_CHROME="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          node moodiary-v3-w9-3/browser_acceptance.cjs upstream/mobile/assets/lan /tmp/moodiary-w93-browser-qa
+          node moodiary-v3-w9-4/native_browser_acceptance.cjs upstream/packages/feature_base/moodiary_editor/assets/editor/index.html /tmp/moodiary-w93-browser-qa
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Moodiary-W9-3-Browser-QA
+          path: /tmp/moodiary-w93-browser-qa
+          retention-days: 7
+          if-no-files-found: warn
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.2'
+          channel: stable
+          cache: true
+      - uses: nttld/setup-ndk@v1
+        if: ${{ inputs.build_apk }}
+        id: ndk
+        with:
+          ndk-version: r28c
+          link-to-sdk: true
+      - name: Rust 1.95
+        if: ${{ inputs.build_apk }}
+        run: rustup toolchain install 1.95.0 --profile minimal
+      - uses: taiki-e/install-action@v2
+        if: ${{ inputs.build_apk }}
+        with:
+          tool: cargo-about@0.9.2
+      - name: Flutter workspace dependencies
+        working-directory: upstream
+        run: |
+          corepack enable
+          flutter pub get
+      - name: Generate and retain native monthly translations
+        working-directory: upstream/packages/foundation/moodiary_i18n
+        run: |
+          if test -f ../../../../moodiary-v3-w9-5-2/generated-i18n.b64; then
+            sha256sum lib/i18n/*.dart > /tmp/moodiary-w952-generated.sha256
+          fi
+          dart run slang
+          if test -f /tmp/moodiary-w952-generated.sha256; then
+            sha256sum --check /tmp/moodiary-w952-generated.sha256
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Moodiary-W9-5-2-Generated-I18n
+          path: upstream/packages/foundation/moodiary_i18n/lib/i18n
+          retention-days: 30
+      - name: Native month source formatting
+        working-directory: upstream
+        run: |
+          dart format packages/feature/moodiary_sync/lib/src/data/mod_month_recovery_slot_v1.dart packages/feature/moodiary_sync/test/sync/data/mod_month_recovery_slot_v1_test.dart
+          dart format packages/feature/moodiary_sync/lib/src/data/mod_month_isolated_restore_v1.dart packages/feature/moodiary_sync/test/sync/data/mod_month_isolated_restore_v1_test.dart
+          dart format packages/feature/moodiary_sync/lib/src/data/mod_month_zip_preflight_v1.dart packages/feature/moodiary_sync/lib/src/data/mod_month_zip_bundle_v1.dart packages/feature/moodiary_sync/test/sync/data/mod_month_zip_bundle_v1_test.dart
+          dart format packages/feature/moodiary_sync/lib/src/data/mod_month_stream_stage_v1.dart packages/feature/moodiary_sync/test/sync/data/mod_month_stream_stage_v1_test.dart
+          dart format packages/feature/moodiary_sync/lib/src/data/mod_month_verified_manifest_v1.dart packages/feature/moodiary_sync/test/sync/data/mod_month_verified_manifest_v1_test.dart
+          dart format packages/feature_base/moodiary_data/lib/src/mod_month_graph_archive_v1.dart packages/feature_base/moodiary_data/test/mod_month_graph_archive_v1_test.dart
+          dart format packages/feature_base/moodiary_data/lib/src/mod_month_archive_gate.dart packages/feature_base/moodiary_data/test/mod_month_archive_gate_test.dart
+          dart format packages/feature/moodiary_sync/test/sync/data/mod_month_archive_gate_test.dart
+          dart format packages/feature/moodiary_sync/lib/src/data/incremental_engine.dart packages/feature/moodiary_sync/lib/src/data/archive_apply.dart packages/feature/moodiary_sync/lib/src/data/impl/local_archive.dart
+          dart format mobile/test/mod_home_quick_entry_test.dart
+          dart format mobile/lib/app/home/mod_month_order.dart mobile/test/mod_month_order_test.dart mobile/test/mod_month_day_page_test.dart
+          dart format mobile/lib/app/home/mod_month_day_preview.dart mobile/test/mod_month_day_preview_test.dart
+          dart format mobile/lib/app/home/mod_month_native.dart mobile/lib/app/home/mod_month_page.dart mobile/lib/app/home/mod_month_composer.dart mobile/lib/app/home/mod_month_updates.dart
+          dart format mobile/test/mod_month_native_test.dart mobile/test/mod_month_page_test.dart mobile/test/mod_month_composer_test.dart packages/feature_base/moodiary_editor/lib/src/transport/editor_snapshot.dart packages/feature_base/moodiary_editor/lib/src/moodiary_editor.dart packages/feature_base/moodiary_editor/test/editor_snapshot_test.dart
+      - name: Disable unused Rust asset hooks for Dart-only tests
+        working-directory: upstream
+        run: |
+          cp pubspec.yaml /tmp/moodiary-w9-test-pubspec.yaml
+          python3 - <<'PYHOOK'
+          from pathlib import Path
+          p = Path('pubspec.yaml')
+          source = p.read_text()
+          assert source.count('build_assets: true') == 6
+          p.write_text(source.replace('build_assets: true', 'build_assets: false'))
+          PYHOOK
+      - name: Native editor acknowledgement and ordinary editor regression
+        working-directory: upstream/packages/feature_base/moodiary_editor
+        run: flutter test test/editor_snapshot_test.dart test/editor_activation_test.dart test/edit_controller_test.dart --reporter expanded
+      - name: Dart formatting
+        working-directory: upstream
+        run: |
+          dart format mobile/lib/app/home/mod_continuous.dart
+          dart format mobile/lib/app/home/mod_monthly_index.dart
+          dart format mobile/lib/app/home/mod_monthly_ledger.dart
+          dart format mobile/test/mod_monthly_ledger_test.dart
+          dart format mobile/lib/app/home/mod_lan_image_policy.dart
+          dart format mobile/lib/app/home/mod_lan_image_staging.dart
+          dart format mobile/lib/app/home/mod_lan_image_decoder.dart
+          dart format packages/feature_base/moodiary_data/lib/src/mod_month_schema.dart
+          dart format mobile/lib/app/home/mod_month_store.dart
+          dart format mobile/lib/app/home/mod_lan_month_http.dart
+          dart format mobile/test/mod_lan_month_http_test.dart
+          dart format mobile/test/mod_month_disk_test.dart
+          dart format mobile/test/mod_month_store_test.dart
+          dart format mobile/lib/app/home/mod_lan_image_attach.dart
+          dart format mobile/test/mod_lan_image_attach_test.dart
+          dart format mobile/test/mod_lan_image_decoder_test.dart
+          dart format mobile/lib/app/home/mod_lan_rich.dart
+          dart format mobile/test/mod_lan_rich_test.dart
+          dart format mobile/lib/app/home/mod_lan_write.dart
+          dart format mobile/test/mod_lan_write_test.dart
+          dart format mobile/test/mod_lan_database_cas_test.dart
+          dart format packages/feature_base/moodiary_data/lib/src/diary_repository.dart
+          dart format packages/feature_base/moodiary_editor/lib/src/application/edit_controller.dart
+          dart format mobile/lib/app/home/mod_lan_events.dart
+          dart format mobile/test/mod_lan_events_test.dart
+          dart format mobile/lib/app/home/mod_lan_service.dart
+          dart format mobile/lib/app/home/mod_lan_page.dart
+          dart format mobile/test/mod_monthly_index_test.dart
+          dart format mobile/test/mod_lan_policy_test.dart
+      - name: W9 migration from older v2 and v3 database preserves user diaries
+        working-directory: upstream/packages/feature_base/moodiary_data
+        run: flutter test test/mod_month_migration_test.dart test/mod_month_archive_gate_test.dart test/mod_month_graph_archive_v1_test.dart --reporter expanded
+      - name: "Unit tests: W7 assets + W6 rich CAS + W5 autosave + W4 editor + W3 realtime + W2 ledger + LAN policy"
+        working-directory: upstream/mobile
+        run: |
+          flutter test test/mod_home_quick_entry_test.dart test/mod_month_order_test.dart test/mod_month_day_page_test.dart test/mod_month_day_preview_test.dart test/mod_month_native_test.dart test/mod_month_page_test.dart test/mod_month_composer_test.dart test/mod_month_disk_test.dart test/mod_lan_month_http_test.dart test/mod_month_store_test.dart test/mod_lan_image_attach_test.dart test/mod_lan_image_decoder_test.dart test/mod_lan_rich_test.dart test/mod_lan_write_test.dart test/mod_lan_database_cas_test.dart test/mod_lan_events_test.dart test/mod_monthly_ledger_test.dart test/mod_monthly_index_test.dart test/mod_lan_policy_test.dart test/mod_continuous_safety_test.dart --reporter expanded
+      - name: "Regression: WebDAV partial download aborts push"
+        working-directory: upstream/packages/feature/moodiary_sync
+        run: flutter test test/sync/data/incremental_engine_test.dart test/sync/data/mod_month_archive_gate_test.dart test/sync/data/mod_month_verified_manifest_v1_test.dart test/sync/data/mod_month_stream_stage_v1_test.dart test/sync/data/mod_month_zip_bundle_v1_test.dart test/sync/data/mod_month_isolated_restore_v1_test.dart test/sync/data/mod_month_recovery_slot_v1_test.dart --reporter expanded
+      - name: Restore native build hooks for Android
+        if: ${{ inputs.build_apk }}
+        working-directory: upstream
+        run: cp /tmp/moodiary-w9-test-pubspec.yaml pubspec.yaml
+      - name: Build validated V3 arm64 APK
+        if: ${{ inputs.build_apk }}
+        env:
+          ANDROID_NDK_HOME: ${{ steps.ndk.outputs.ndk-path }}
+        working-directory: upstream/mobile
+        run: flutter build apk --flavor v3dev --release --target-platform android-arm64
+      - name: Validate APK and record provenance
+        if: ${{ inputs.build_apk }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          apk=upstream/mobile/build/app/outputs/flutter-apk/app-v3dev-release.apk
+          test -s "$apk"
+          mkdir -p /tmp/moodiary-ci-delivery
+          cp "$apk" /tmp/moodiary-ci-delivery/
+          cd /tmp/moodiary-ci-delivery
+          sha256sum app-v3dev-release.apk > app-v3dev-release.apk.sha256
+          {
+            echo "source_commit=${{ github.sha }}"
+            echo "upstream_commit=2c552ddd7939a054122380397fb914cf000824b0"
+            echo "workflow_run=${{ github.run_id }}"
+            echo "workflow_ref=${{ github.ref }}"
+            echo "generated_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            grep '^version:' "$GITHUB_WORKSPACE/upstream/mobile/pubspec.yaml"
+          } > BUILD-PROVENANCE.txt
+          sha256sum --check app-v3dev-release.apk.sha256
+      - uses: actions/upload-artifact@v4
+        if: ${{ inputs.build_apk }}
+        with:
+          name: Moodiary-V3-${{ github.sha }}-arm64
+          path: /tmp/moodiary-ci-delivery/
+          retention-days: 90
+          if-no-files-found: error

@@ -1,0 +1,68 @@
+name: Moodiary V3 Manual Android Release QA Gate
+on:
+  workflow_dispatch:
+    inputs:
+      tested_sha:
+        description: 'Exact 40-character Git commit SHA tested on Android'
+        type: string
+        required: true
+      tested_apk_sha256:
+        description: 'SHA-256 of the APK actually installed on the Android device'
+        type: string
+        required: true
+      qa_evidence:
+        description: 'Link to actual device test results: device/OS, upgrade, LAN, media, offline and interrupted restore'
+        type: string
+        required: true
+      device_model:
+        description: 'Device model and Android/HyperOS version'
+        type: string
+        required: true
+permissions:
+  contents: read
+jobs:
+  release-candidate-build:
+    if: ${{ github.ref == 'refs/heads/main' }}
+    uses: ./.github/workflows/moodiary-v3-full-ci.yml
+    with:
+      build_apk: true
+  verify-device-evidence:
+    needs: release-candidate-build
+    runs-on: ubuntu-latest
+    environment: android-device-qa
+    timeout-minutes: 10
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: Moodiary-V3-${{ github.sha }}-arm64
+          path: /tmp/moodiary-qa
+      - name: Fail closed unless the SAME APK bytes passed real-device QA
+        shell: bash
+        env:
+          TESTED_SHA: ${{ inputs.tested_sha }}
+          TESTED_APK_SHA256: ${{ inputs.tested_apk_sha256 }}
+          QA_EVIDENCE: ${{ inputs.qa_evidence }}
+          DEVICE_MODEL: ${{ inputs.device_model }}
+        run: |
+          set -euo pipefail
+          cd /tmp/moodiary-qa
+          sha256sum --check app-v3dev-release.apk.sha256
+          actual_sha="$(sha256sum app-v3dev-release.apk | awk '{print $1}')"
+          test "$TESTED_SHA" = "$GITHUB_SHA" || { echo 'Tested Git SHA mismatch'; exit 1; }
+          test "$TESTED_APK_SHA256" = "$actual_sha" || { echo 'Tested APK bytes differ from this build'; exit 1; }
+          [[ "$QA_EVIDENCE" =~ ^https:// ]] || { echo 'Real-device QA evidence URL required'; exit 1; }
+          test -n "$DEVICE_MODEL"
+          {
+            echo "tested_commit=$TESTED_SHA"
+            echo "tested_apk_sha256=$actual_sha"
+            echo "device_model=$DEVICE_MODEL"
+            echo "qa_evidence=$QA_EVIDENCE"
+            echo "qa_gate_run=$GITHUB_RUN_ID"
+            echo "validated_utc=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          } > android-qa-gate.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Moodiary-Android-QA-Gate-${{ github.sha }}
+          path: /tmp/moodiary-qa/android-qa-gate.txt
+          retention-days: 180
+          if-no-files-found: error
