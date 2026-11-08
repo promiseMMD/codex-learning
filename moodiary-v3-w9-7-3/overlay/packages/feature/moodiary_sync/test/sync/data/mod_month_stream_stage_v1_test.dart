@@ -89,7 +89,7 @@ void main() {
     }
     expect(await receipt.readAsString(),
       ModMonthVerifiedManifestV1.seal(staged:staging,isTopic:isTopic));
-    expect(()=>archive.addBytes('manifest.json',utf('again')),
+    await expectLater(archive.addBytes('manifest.json',utf('again')),
       throwsA(isA<ModBundleInvalid>()));
   });
 
