@@ -99,8 +99,18 @@ for needle in ("git checkout 2c552ddd7939a054122380397fb914cf000824b0",
   "moodiary-v3-w9-8-4-1/apply_w9_8_4_1.py",
   "moodiary-v3-w9-8-4-2/apply_w9_8_4_2.py",
   "moodiary-v3-w9-8-4-3/apply_w9_8_4_3.py",
-  "moodiary-v3-w9-8-4-4/apply_w9_8_4_4.py"):
+  "moodiary-v3-w9-8-4-4/apply_w9_8_4_4.py",
+  "moodiary-v3-w9-8-4-5/apply_w9_8_4_5.py"):
     require(prepare,needle,"pinned source assembly")
+w9845=(ROOT/"moodiary-v3-w9-8-4-5/apply_w9_8_4_5.py").read_text()
+for needle in (
+  "ZIP-to-generation refuses an existing preview without modifying it",
+  "ZIP-to-generation removes preview when restore checkpoint fails before promotion",
+  "ZIP-to-generation rolls back an interrupted copy and preserves the previous generation",
+  "ZIP-to-generation commits after pointer-write interruption and retains the previous generation",
+  "ZIP-to-generation refuses duplicate generation IDs without overwriting existing data"):
+    require(w9845,needle,"W9.8.4.5 ZIP-to-generation failure-path coverage")
+
 # Changes to CI workflows or their gate scripts must exercise sensitive
 # tests as well; otherwise a workflow-only commit can appear green while
 # skipping the actual real-SIGKILL recovery test.
