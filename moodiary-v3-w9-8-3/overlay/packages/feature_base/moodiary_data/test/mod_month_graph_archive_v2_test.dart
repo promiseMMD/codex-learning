@@ -119,9 +119,9 @@ void main() {
     expect(await ModMonthGraphArchiveV2.exportGraph(source),before);
     final json=jsonDecode(before) as Map<String,dynamic>;
     final days=json['dayPages'] as List<dynamic>;
-    expect(days.map((r)=>r['day_key']).toList(),[decDay,novDay],
+    expect(days.map((r)=>r['day_key']).toList(),[novDay,decDay],
       reason:'canonical day ascending ordering');
-    expect(days.map((r)=>r['visible_local']).toList(),[1,0]);
+    expect(days.map((r)=>r['visible_local']).toList(),[0,1]);
     final graph=(json['monthGraph'] as Map<String,dynamic>)['tables']
       as Map<String,dynamic>;
     expect((graph['mod_month_revisions'] as List<dynamic>).length,3);
@@ -162,8 +162,8 @@ void main() {
     expect(()=>ModMonthGraphArchiveV2.verify(forge(first)),
       throwsA(isA<ModGraphV2Exception>().having(
         (e)=>e.code,'code','invalid_day_metadata')));
-    (first['dayPages'] as List<dynamic>).first['visible_local']=1;
-    (first['dayPages'] as List<dynamic>).first['day_key']='2026-12-02';
+    (first['dayPages'] as List<dynamic>).first['visible_local']=0;
+    (first['dayPages'] as List<dynamic>).last['day_key']='2026-12-02';
     expect(()=>ModMonthGraphArchiveV2.verify(forge(first)),
       throwsA(isA<ModGraphV2Exception>().having(
         (e)=>e.code,'code','orphan_day_mapping')));
@@ -225,7 +225,7 @@ void main() {
       throwsA(isA<ModGraphV2Exception>().having(
         (e)=>e.code,'code','native_day_binding_requires_full_archive')));
     final unchanged=await source.customSelect(
-      'SELECT content FROM diaries WHERE id=?',
+      'SELECT content FROM diaries',
       // No app-level Diary API is called, and nothing writes its content.
     ).get();
     expect(unchanged.single.read<String>('content'),'original bytes');
