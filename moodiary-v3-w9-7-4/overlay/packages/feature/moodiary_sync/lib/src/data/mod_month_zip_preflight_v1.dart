@@ -87,6 +87,7 @@ final class ModMonthZipPreflightV1 {
       final seen = <String>{};
       var at = 0;
       var expanded = 0;
+      var metadataExpanded = 0;
       for (var i = 0; i < entryCount; i++) {
         if (at + 46 > central.length ||
             _u32(data, at) != 0x02014b50) {
@@ -161,6 +162,12 @@ final class ModMonthZipPreflightV1 {
                 plain > maxManifestBytes) ||
             (isMedia && (method != 0 || compressed != plain))) {
           _fail('zip_payload_quota_or_media_compression');
+        }
+        if (!isMedia) {
+          metadataExpanded += plain;
+          if (metadataExpanded > maxMetadataEntryBytes) {
+            _fail('zip_total_metadata_limit');
+          }
         }
         expanded += plain;
         if (expanded > maxExpandedBytes) _fail('zip_expansion_limit');
