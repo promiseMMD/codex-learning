@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:drift/native.dart';
-import 'package:drift/drift.dart' show Variable;
 import 'package:crypto/crypto.dart';
 import 'package:moodiary_sync/src/data/mod_month_recovery_slot_v1.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -127,9 +126,8 @@ void main() {
       expect(n.read<int>('n'),1);
       expect(await ModMonthGraphArchiveV2.exportGraph(db),contains('2026-11'));
       final daily=await db.customSelect(
-        'SELECT visible_local FROM mod_day_pages WHERE topic_id=?'
-        ' AND day_key=?',[Variable.withString(topicId),
-                        Variable.withString('2026-11-07')]).getSingle();
+        'SELECT day_key,visible_local FROM mod_day_pages').getSingle();
+      expect(daily.read<String>('day_key'),'2026-11-07');
       expect(daily.read<int>('visible_local'),0);
     } finally { await db.close(); }
     expect(await File(ready+'/database/restored.sqlite').exists(),true);
