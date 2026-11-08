@@ -3,6 +3,8 @@ on:
   push:
     branches:
       - 'moodiary-v3-*'
+      - main
+      - integration
   pull_request:
     branches:
       - main
@@ -72,6 +74,8 @@ jobs:
           else
             echo 'editor_risk=false' >> "$GITHUB_OUTPUT"
           fi
+      - name: Verify shared CI contracts and security-test inventory
+        run: python3 moodiary-ci/check-gates.py
       - name: Prepare exact pinned upstream and V3 sources
         shell: bash
         run: bash moodiary-ci/prepare-workspace.sh
@@ -138,7 +142,9 @@ jobs:
     if: >-
       ${{ github.event_name == 'pull_request'
        || (github.event_name == 'workflow_dispatch' && inputs.tier == 'full')
-       || (github.event_name == 'push' && contains(github.event.head_commit.message, '[full-ci]')) }}
+       || (github.event_name == 'push' &&
+           (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/integration'
+            || contains(github.event.head_commit.message, '[full-ci]'))) }}
     uses: ./.github/workflows/moodiary-v3-full-ci.yml
     with:
       build_apk: false

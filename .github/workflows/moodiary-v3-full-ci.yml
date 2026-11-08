@@ -25,6 +25,8 @@ jobs:
     timeout-minutes: 110
     steps:
       - uses: actions/checkout@v4
+      - name: Validate CI safety contract before full regression
+        run: python3 moodiary-ci/check-gates.py
       - name: Prepare pinned upstream and apply ALL V3 overlays
         shell: bash
         run: bash moodiary-ci/prepare-workspace.sh

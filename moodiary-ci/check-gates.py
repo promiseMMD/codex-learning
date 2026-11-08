@@ -1,0 +1,58 @@
+#!/usr/bin/env python3
+"""CI tiering contract (stdlib only); regression tests remain immutable gates."""
+from pathlib import Path
+ROOT=Path(__file__).resolve().parents[1]
+fast=(ROOT/".github/workflows/moodiary-v3-fast-ci.yml").read_text()
+full=(ROOT/".github/workflows/moodiary-v3-full-ci.yml").read_text()
+release=(ROOT/".github/workflows/moodiary-v3-release.yml").read_text()
+prepare=(ROOT/"moodiary-ci/prepare-workspace.sh").read_text()
+
+def require(source, value, label):
+    if value not in source:
+        raise SystemExit("CI contract missing "+label+": "+value)
+
+for needle in ("flutter build apk","setup-ndk@","rustup toolchain install",
+               "cargo-about@","Actual Chromium PC and mobile-width editor acceptance"):
+    if needle in fast:
+        raise SystemExit("Fast CI must remain lightweight: "+needle)
+
+for needle in ("moodiary-ci/prepare-workspace.sh",
+  "test/mod_lan_policy_test.dart","test/mod_continuous_safety_test.dart",
+  "test/editor_snapshot_test.dart","test/sync/data/mod_month_recovery_slot_v1_test.dart",
+  "test/sync/data/mod_month_isolated_restore_v1_test.dart",
+  "test/mod_month_migration_test.dart",
+  "steps.changed.outputs.data_risk == 'true'",
+  "github.event_name == 'pull_request'","refs/heads/main","refs/heads/integration",
+  "[full-ci]","[apk-ci]","build_apk: false","build_apk: true"):
+    require(fast,needle,"quick routing")
+
+for needle in ("workflow_call:","build_apk:","moodiary-ci/prepare-workspace.sh",
+  "Actual Chromium PC and mobile-width editor acceptance",
+  "test/mod_month_migration_test.dart","test/mod_month_graph_archive_v1_test.dart",
+  "test/sync/data/mod_month_archive_gate_test.dart",
+  "test/sync/data/mod_month_verified_manifest_v1_test.dart",
+  "test/sync/data/mod_month_stream_stage_v1_test.dart",
+  "test/sync/data/mod_month_zip_bundle_v1_test.dart",
+  "test/sync/data/mod_month_isolated_restore_v1_test.dart",
+  "test/sync/data/mod_month_recovery_slot_v1_test.dart",
+  "test/mod_lan_database_cas_test.dart","test/mod_lan_month_http_test.dart",
+  "test/mod_month_store_test.dart","test/editor_snapshot_test.dart",
+  "test/mod_continuous_safety_test.dart","if: $" + "{{ inputs.build_apk }}",
+  "sha256sum --check app-v3dev-release.apk.sha256",
+  "BUILD-PROVENANCE.txt","retention-days: 90"):
+    require(full,needle,"complete regression")
+
+for needle in ("refs/heads/main","environment: android-device-qa",
+  "tested_sha","tested_apk_sha256","qa_evidence",
+  "sha256sum --check app-v3dev-release.apk.sha256",
+  'test "$TESTED_SHA" = "$GITHUB_SHA"',
+  'test "$TESTED_APK_SHA256" = "$actual_sha"'):
+    require(release,needle,"Android release gate")
+
+for needle in ("git checkout 2c552ddd7939a054122380397fb914cf000824b0",
+  "modkit/verify_patch.py","modkit/apply_v3_patch.py",
+  "moodiary-v3-w9-7-4/apply_w9_7_4.py",
+  "moodiary-v3-w9-7-5/apply_w9_7_5.py",
+  "moodiary-v3-w9-7-6/apply_w9_7_6.py"):
+    require(prepare,needle,"pinned source assembly")
+print("All CI contracts verified: quick, full coverage, APK SHA and device QA")

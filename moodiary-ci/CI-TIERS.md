@@ -23,3 +23,7 @@ Recent successful complete W7 runs were approximately **24–30 minutes**. Frequ
 
 ## Next
 Run first fast commit, address actual failures. Run a parity full acceptance on a commit containing `[full-ci]`; require green before switching main integration gate. Resume W9.7.7 real-device restoration fault work only after green CI tiering.
+
+## Live acceptance
+- Fast CI run `42452907014`: **success** in 4.1 min (2026-11-08 05:59:54–06:04:02 UTC). Historic full W7 run `42450432090`: ~29 min; different test suites.
+- Fast now verifies a regression contract for mandatory database/restore tests; direct pushes to main/integration require complete regression too. One-time `[full-ci]` parity run required before retirement of old W7 workflow.
