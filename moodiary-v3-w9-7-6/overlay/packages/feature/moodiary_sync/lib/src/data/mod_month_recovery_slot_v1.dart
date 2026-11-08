@@ -131,13 +131,11 @@ final class ModMonthRecoverySlotV1 {
   static Future<String> _fingerprint(File file) async {
     final before=await file.stat();
     if (before.type!=FileSystemEntityType.file) _fail('not_a_regular_file');
-    final checksum=_sha([]); // keep local checksums strictly SHA-256.
     // Keep the file stream outside the Dart heap even for large videos.
     final digest=await sha256.bind(file.openRead()).first;
     final after=await file.stat();
     if (before.size!=after.size || before.modified!=after.modified ||
         before.changed!=after.changed) _fail('file_changed_while_hashing');
-    if (checksum.length!=64) _fail('bad_hash_algorithm');
     return digest.toString();
   }
 
@@ -147,7 +145,8 @@ final class ModMonthRecoverySlotV1 {
       (relative.startsWith('media/') &&
           ModMonthVerifiedManifestV1.allowsEntryPath(relative));
 
-  static Future<List<Map<String,Object>>> _inventory(String directory) async {
+  static Future<List<Map<String,Object>>> _inventory(String directory,
+      {bool skipProof=false}) async {
     if (await FileSystemEntity.type(directory,followLinks:false)!=
         FileSystemEntityType.directory) _fail('payload_not_directory');
     final rows=<Map<String,Object>>[];
@@ -160,6 +159,7 @@ final class ModMonthRecoverySlotV1 {
       if (type!=FileSystemEntityType.file) _fail('unsafe_restore_symlink');
       final name=p.relative(entry.path,from:directory).replaceAll(
         p.separator,'/');
+      if (name==_proofName && skipProof) continue;
       if (!_allowedPayload(name)) _fail('unrecognized_restore_payload');
       if (rows.length>=ModMonthVerifiedManifestV1.maxStagedFiles+2) {
         _fail('restore_too_many_files');
@@ -242,7 +242,7 @@ final class ModMonthRecoverySlotV1 {
     await _verifyState(dir.path);
     final graph=await _verifySqlite(dir.path);
     if (graph!=proof['graphSha256']) _fail('generation_graph_changed');
-    final files=await _inventory(dir.path);
+    final files=await _inventory(dir.path,skipProof:true);
     if (jsonEncode(files)!=jsonEncode(proof['files'])) {
       _fail('generation_files_changed');
     }
