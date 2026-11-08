@@ -21,7 +21,7 @@ anchor='  fast_crypto: 0.0.1'
 if sync_src.count(anchor)!=1:
     raise SystemExit('W9.7.2 crypto dependency anchor drift')
 sync_pubspec.write_text(sync_src.replace(anchor,
-    '  crypto: 3.0.7\\n'+anchor,1),encoding='utf-8')
+    '  crypto: 3.0.7\n'+anchor,1),encoding='utf-8')
 
 p=root/'mobile/pubspec.yaml'
 old='version: 2.9.2+103'
