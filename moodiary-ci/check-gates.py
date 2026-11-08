@@ -21,6 +21,7 @@ for needle in ("moodiary-ci/prepare-workspace.sh",
   "test/editor_snapshot_test.dart","test/sync/data/mod_month_recovery_slot_v1_test.dart",
   "test/sync/data/mod_month_isolated_restore_v1_test.dart",
   "test/sync/data/mod_month_orphan_inspector_v1_test.dart",
+  "test/sync/data/mod_nutstore_webdav_policy_test.dart",
   "test/sync/data/harness/real_sigkill_orchestrator.dart",
   "test/mod_month_migration_test.dart",
   "steps.changed.outputs.data_risk == 'true'",
@@ -38,6 +39,7 @@ for needle in ("workflow_call:","build_apk:","moodiary-ci/prepare-workspace.sh",
   "test/sync/data/mod_month_isolated_restore_v1_test.dart",
   "test/sync/data/mod_month_recovery_slot_v1_test.dart",
   "test/sync/data/mod_month_orphan_inspector_v1_test.dart",
+  "test/sync/data/mod_nutstore_webdav_policy_test.dart",
   "test/sync/data/harness/real_sigkill_orchestrator.dart",
   "MOODIARY_CRASH_MATRIX: full",
   "test/mod_lan_database_cas_test.dart","test/mod_lan_month_http_test.dart",
@@ -61,7 +63,8 @@ for needle in ("git checkout 2c552ddd7939a054122380397fb914cf000824b0",
   "moodiary-v3-w9-7-6/apply_w9_7_6.py",
   "moodiary-v3-w9-7-7/apply_w9_7_7.py",
   "moodiary-v3-w9-7-7-2/apply_w9_7_7_2.py",
-  "moodiary-v3-w9-7-7-4/apply_w9_7_7_4.py"):
+  "moodiary-v3-w9-7-7-4/apply_w9_7_7_4.py",
+  "moodiary-v3-w9-7-8/apply_w9_7_8.py"):
     require(prepare,needle,"pinned source assembly")
 # Changes to CI workflows or their gate scripts must exercise sensitive
 # tests as well; otherwise a workflow-only commit can appear green while
