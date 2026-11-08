@@ -83,11 +83,13 @@ void main() {
     ...args,
   ];
 
+  // Never use Platform.resolvedExecutable here: inside flutter test it is
+  // flutter_tester, not the independent Dart CLI process we must SIGKILL.
   Future<String> killAtPhase(
       String config,String root,String from,String phase,String signal) async {
     final output=StringBuffer();
     final errors=StringBuffer();
-    final process=await Process.start(Platform.resolvedExecutable,
+    final process=await Process.start('dart',
       childArgs(config,'install',[root,from,_incomingId,phase,signal]),
       workingDirectory:Directory.current.path,
     );
@@ -96,7 +98,7 @@ void main() {
     int? exited;
     process.exitCode.then((code) => exited=code);
     try {
-      final until=DateTime.now().add(const Duration(seconds:45));
+      final until=DateTime.now().add(const Duration(seconds:30));
       while (!await File(signal).exists() &&
           exited==null && DateTime.now().isBefore(until)) {
         await Future<void>.delayed(const Duration(milliseconds:50));
@@ -124,9 +126,9 @@ void main() {
   Future<Map<String,dynamic>> coldRestart(
       String config,String root) async {
     final result=await Process.run(
-      Platform.resolvedExecutable,childArgs(config,'recover',[root]),
+      'dart',childArgs(config,'recover',[root]),
       workingDirectory:Directory.current.path,
-    ).timeout(const Duration(seconds:45));
+    ).timeout(const Duration(seconds:30));
     expect(result.exitCode,0,
       reason:'real restarted process stderr: '+result.stderr.toString());
     final output=result.stdout.toString().trim().split('\n').last;
