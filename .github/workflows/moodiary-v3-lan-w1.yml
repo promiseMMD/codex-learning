@@ -1,4 +1,4 @@
-name: Moodiary V3 W9.6 Archive Safety Gate Acceptance
+name: Moodiary V3 W9.7.1 Structured Graph Archive Acceptance
 on:
   push:
     branches:
@@ -13,6 +13,7 @@ on:
       - moodiary-v3-w9-5-daily-preview-20261107
       - moodiary-v3-w9-5-2-day-timeline-20261108
       - moodiary-v3-w9-6-archive-gate-20261108
+      - moodiary-v3-w9-7-1-graph-archive-20261108
   workflow_dispatch:
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -71,6 +72,7 @@ jobs:
           python3 ../moodiary-v3-w9-5/apply_w9_5.py .
           python3 ../moodiary-v3-w9-5-2/apply_w9_5_2.py .
           python3 ../moodiary-v3-w9-6/apply_w9_6.py .
+          python3 ../moodiary-v3-w9-7-1/apply_w9_7_1.py .
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -162,6 +164,7 @@ jobs:
       - name: Native month source formatting
         working-directory: upstream
         run: |
+          dart format packages/feature_base/moodiary_data/lib/src/mod_month_graph_archive_v1.dart packages/feature_base/moodiary_data/test/mod_month_graph_archive_v1_test.dart
           dart format packages/feature_base/moodiary_data/lib/src/mod_month_archive_gate.dart packages/feature_base/moodiary_data/test/mod_month_archive_gate_test.dart
           dart format packages/feature/moodiary_sync/test/sync/data/mod_month_archive_gate_test.dart
           dart format packages/feature/moodiary_sync/lib/src/data/incremental_engine.dart packages/feature/moodiary_sync/lib/src/data/archive_apply.dart packages/feature/moodiary_sync/lib/src/data/impl/local_archive.dart
@@ -218,7 +221,7 @@ jobs:
           dart format mobile/test/mod_lan_policy_test.dart
       - name: W9 migration from older v2 and v3 database preserves user diaries
         working-directory: upstream/packages/feature_base/moodiary_data
-        run: flutter test test/mod_month_migration_test.dart test/mod_month_archive_gate_test.dart --reporter expanded
+        run: flutter test test/mod_month_migration_test.dart test/mod_month_archive_gate_test.dart test/mod_month_graph_archive_v1_test.dart --reporter expanded
       - name: "Unit tests: W7 assets + W6 rich CAS + W5 autosave + W4 editor + W3 realtime + W2 ledger + LAN policy"
         working-directory: upstream/mobile
         run: |
@@ -229,7 +232,7 @@ jobs:
       - name: Restore native build hooks for Android
         working-directory: upstream
         run: cp /tmp/moodiary-w9-test-pubspec.yaml pubspec.yaml
-      - name: Build V3 W9.6 arm64 APK
+      - name: Build V3 W9.7.1 arm64 APK
         env:
           ANDROID_NDK_HOME: ${{ steps.ndk.outputs.ndk-path }}
         working-directory: upstream/mobile
@@ -240,7 +243,7 @@ jobs:
           sha256sum upstream/mobile/build/app/outputs/flutter-apk/app-v3dev-release.apk
       - uses: actions/upload-artifact@v4
         with:
-          name: Moodiary-V3-W9-6-Archive-Gate-arm64
+          name: Moodiary-V3-W9-7-1-Graph-Archive-arm64
           path: upstream/mobile/build/app/outputs/flutter-apk/app-v3dev-release.apk
           retention-days: 30
           if-no-files-found: error
