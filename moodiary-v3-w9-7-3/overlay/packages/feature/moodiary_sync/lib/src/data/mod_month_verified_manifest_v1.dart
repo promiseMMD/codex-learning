@@ -63,6 +63,9 @@ final class ModMonthVerifiedManifestV1 {
     return false;
   }
 
+  /// Shared strict staging path rule, including traversal rejection.
+  static bool allowsEntryPath(String path) => _safePath(path);
+
   static String _mediaPath(String kind, String name) {
     if (!_safeName(name)) _error('invalid_media_name');
     return 'media/$kind/$name';
