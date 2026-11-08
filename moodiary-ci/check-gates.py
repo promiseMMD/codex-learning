@@ -100,7 +100,8 @@ for needle in ("git checkout 2c552ddd7939a054122380397fb914cf000824b0",
   "moodiary-v3-w9-8-4-2/apply_w9_8_4_2.py",
   "moodiary-v3-w9-8-4-3/apply_w9_8_4_3.py",
   "moodiary-v3-w9-8-4-4/apply_w9_8_4_4.py",
-  "moodiary-v3-w9-8-4-5/apply_w9_8_4_5.py"):
+  "moodiary-v3-w9-8-4-5/apply_w9_8_4_5.py",
+  "moodiary-v3-w9-8-4-6/apply_w9_8_4_6.py"):
     require(prepare,needle,"pinned source assembly")
 w9845=(ROOT/"moodiary-v3-w9-8-4-5/apply_w9_8_4_5.py").read_text()
 for needle in (
@@ -110,6 +111,16 @@ for needle in (
   "ZIP-to-generation commits after pointer-write interruption and retains the previous generation",
   "ZIP-to-generation refuses duplicate generation IDs without overwriting existing data"):
     require(w9845,needle,"W9.8.4.5 ZIP-to-generation failure-path coverage")
+
+w9846=(ROOT/"moodiary-v3-w9-8-4-6/apply_w9_8_4_6.py").read_text()
+for needle in (
+  "ZIP-to-generation protects foreign files added during the handoff",
+  "ZIP-to-generation rejects replaced symlink preview without deleting user data",
+  "ZIP-to-generation rejects modified media before cleanup"):
+    require(w9846,needle,"W9.8.4.6 preview ownership regression")
+preview_source=(ROOT/"moodiary-v3-w9-8-4-6/overlay/packages/feature/moodiary_sync/lib/src/data/mod_month_zip_generation_install_v2.dart").read_text()
+for needle in ("preview_cleanup_unsafe","followLinks:false","_receipt(","_discard("):
+    require(preview_source,needle,"W9.8.4.6 preview ownership guard")
 
 # Changes to CI workflows or their gate scripts must exercise sensitive
 # tests as well; otherwise a workflow-only commit can appear green while
