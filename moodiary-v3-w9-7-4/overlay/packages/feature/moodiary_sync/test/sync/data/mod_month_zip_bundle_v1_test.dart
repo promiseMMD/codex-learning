@@ -251,6 +251,23 @@ with zipfile.ZipFile(sys.argv[1],'w') as z:
         (e)=>e.code,'code','zip_special_file_not_allowed')));
   });
 
+  test('cumulative metadata expansion limit blocks multi-entry ZIP bombs',
+      () async {
+    final zip=scratch.path+'/many-metadata.zip';
+    await _PythonZipTransport.execute(['-c',r'''
+import sys,zipfile
+with zipfile.ZipFile(sys.argv[1],'w',compression=zipfile.ZIP_DEFLATED) as z:
+    z.writestr('verified-bundle.json','{}')
+    z.writestr('structured/month-graph.json','{}')
+    z.writestr('manifest.json','{}')
+    z.writestr('diary/12345678.json',b'0'*(36*1024*1024))
+    z.writestr('diary/87654321.json',b'0'*(36*1024*1024))
+''',zip]);
+    await expectLater(ModMonthZipPreflightV1.inspect(zip),
+      throwsA(isA<ModBundleInvalid>().having(
+        (e)=>e.code,'code','zip_total_metadata_limit')));
+  });
+
   test('compressed oversized metadata detected before any unzip',() async {
     final zip=scratch.path+'/bomb.zip';
     await _PythonZipTransport.execute(['-c',r'''
