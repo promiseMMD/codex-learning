@@ -273,7 +273,7 @@ final class ModMonthIsolatedRestoreV1 {
       final to=File(p.join(target.path,path));
       await to.parent.create(recursive:true);
       final before=await File(item.path).stat();
-      await item.openRead().pipe(to.openWrite());
+      await File(item.path).openRead().pipe(to.openWrite());
       final after=await File(item.path).stat();
       if (before.size!=after.size || before.modified!=after.modified ||
           await _digest(File(item.path))!=await _digest(to)) {
