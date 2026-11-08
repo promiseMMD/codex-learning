@@ -141,7 +141,7 @@ jobs:
         env:
           MOODIARY_CRASH_MATRIX: smoke
         working-directory: upstream/packages/feature/moodiary_sync
-        run: flutter test test/sync/data/mod_month_archive_gate_test.dart test/sync/data/mod_month_recovery_slot_v1_test.dart test/sync/data/mod_month_isolated_restore_v1_test.dart test/sync/data/mod_month_orphan_inspector_v1_test.dart test/sync/data/mod_nutstore_webdav_policy_test.dart test/sync/data/mod_month_verified_manifest_v2_test.dart test/sync/data/mod_month_stream_stage_v2_test.dart --reporter compact
+        run: flutter test test/sync/data/mod_month_archive_gate_test.dart test/sync/data/mod_month_recovery_slot_v1_test.dart test/sync/data/mod_month_isolated_restore_v1_test.dart test/sync/data/mod_month_orphan_inspector_v1_test.dart test/sync/data/mod_nutstore_webdav_policy_test.dart test/sync/data/mod_month_verified_manifest_v2_test.dart test/sync/data/mod_month_stream_stage_v2_test.dart test/sync/data/mod_month_isolated_restore_v2_test.dart --reporter compact
       - name: Real SIGKILL cross-process recovery (fast key boundaries)
         if: ${{ steps.changed.outputs.data_risk == 'true' }}
         env:

@@ -45,6 +45,7 @@ for source in (fast, full):
 
 for source in (fast, full):
     require(source, "test/mod_month_graph_archive_v2_test.dart", "V2 graph and isolated recovery regression")
+    require(source, "test/sync/data/mod_month_isolated_restore_v2_test.dart", "V2 ZIP cold recovery and media integrity")
     for file in ("test/sync/data/mod_month_verified_manifest_v2_test.dart", "test/sync/data/mod_month_stream_stage_v2_test.dart"):
         require(source, file, "V2 native+media backed staging and streaming integrity tests")
 
@@ -92,7 +93,8 @@ for needle in ("git checkout 2c552ddd7939a054122380397fb914cf000824b0",
   "moodiary-v3-w9-8-1/apply_w9_8_1.py",
   "moodiary-v3-w9-8-2/apply_w9_8_2.py",
   "moodiary-v3-w9-8-3/apply_w9_8_3.py",
-  "moodiary-v3-w9-8-4-1/apply_w9_8_4_1.py"):
+  "moodiary-v3-w9-8-4-1/apply_w9_8_4_1.py",
+  "moodiary-v3-w9-8-4-2/apply_w9_8_4_2.py"):
     require(prepare,needle,"pinned source assembly")
 # Changes to CI workflows or their gate scripts must exercise sensitive
 # tests as well; otherwise a workflow-only commit can appear green while
