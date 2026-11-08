@@ -62,4 +62,10 @@ for needle in ("git checkout 2c552ddd7939a054122380397fb914cf000824b0",
   "moodiary-v3-w9-7-7/apply_w9_7_7.py",
   "moodiary-v3-w9-7-7-2/apply_w9_7_7_2.py"):
     require(prepare,needle,"pinned source assembly")
+# Changes to CI workflows or their gate scripts must exercise sensitive
+# tests as well; otherwise a workflow-only commit can appear green while
+# skipping the actual real-SIGKILL recovery test.
+for needle in (r"^\.github/workflows/", r"^moodiary-ci/"):
+    require(fast,needle,"CI self-modification risk routing")
+
 print("All CI contracts verified: quick, full coverage, APK SHA and device QA")

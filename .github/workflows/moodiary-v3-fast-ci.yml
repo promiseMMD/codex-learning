@@ -64,12 +64,13 @@ jobs:
           git diff --name-only "$base" HEAD > /tmp/moodiary-paths
           cat /tmp/moodiary-paths
           # Every storage/sync/backup/restore change runs focused safety tests.
-          if grep -Eiq '(db|database|migration|diary_repository|archive|backup|restore|recovery|sync|webdav|mod_month|ledger|media|write|security|apply_w9)' /tmp/moodiary-paths; then
+          # CI routing edits can disable recovery gates: treat them as data-sensitive.
+          if grep -Eiq '(^\.github/workflows/|^moodiary-ci/|db|database|migration|diary_repository|archive|backup|restore|recovery|sync|webdav|mod_month|ledger|media|write|security|apply_w9)' /tmp/moodiary-paths; then
             echo 'data_risk=true' >> "$GITHUB_OUTPUT"
           else
             echo 'data_risk=false' >> "$GITHUB_OUTPUT"
           fi
-          if grep -Eiq '(moodiary_editor|editor/|tiptap|moodiary-v3-w9-3/|moodiary-v3-w9-4/|lan/.*\\.(ts|tsx))' /tmp/moodiary-paths; then
+          if grep -Eiq '(^\.github/workflows/|^moodiary-ci/|moodiary_editor|editor/|tiptap|moodiary-v3-w9-3/|moodiary-v3-w9-4/|lan/.*\\.(ts|tsx))' /tmp/moodiary-paths; then
             echo 'editor_risk=true' >> "$GITHUB_OUTPUT"
           else
             echo 'editor_risk=false' >> "$GITHUB_OUTPUT"
