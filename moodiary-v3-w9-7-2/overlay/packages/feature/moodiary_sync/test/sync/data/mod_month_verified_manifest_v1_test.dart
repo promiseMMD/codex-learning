@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
@@ -7,6 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:moodiary_data/moodiary_data.dart';
 import 'package:moodiary_models/moodiary_models.dart';
 import 'package:moodiary_sync/src/data/mod_month_verified_manifest_v1.dart';
+import 'package:moodiary_sync/src/data/impl/local_archive.dart';
 import 'package:moodiary_sync/src/data/model/manifest.dart';
 
 import '../sync_test_harness.dart';
@@ -19,6 +21,24 @@ const revision='revision-00000001';
 Uint8List bytes(String value) => Uint8List.fromList(utf8.encode(value));
 String digest(Object item) => sha256.convert(
     utf8.encode(jsonEncode(item))).toString();
+
+final class _CaptureArchive implements ArchiveSink {
+  final Map<String,Uint8List> files={};
+  bool completed=false;
+
+  @override
+  Future<void> addBytes(String path,Uint8List data) async {
+    files[path]=Uint8List.fromList(data);
+  }
+
+  @override
+  Future<void> addLocalFile(String path,String local) async {
+    files[path]=await File(local).readAsBytes();
+  }
+
+  @override
+  Future<void> finish() async { completed=true; }
+}
 
 void main() {
   late MoodiaryDatabase db;
@@ -248,4 +268,46 @@ void main() {
       expect(entries[k],orderedEquals(before[k]!));
     }
   });
+  test('real legacy LocalArchive writer + staged W9 graph passes closure',() async {
+    final dir=await Directory.systemTemp.createTemp('w972-native-media-');
+    try {
+      final image=File('${dir.path}/image/topic.png');
+      await image.parent.create(recursive:true);
+      await image.writeAsBytes([137,80,78,71,0,1,2,3]);
+      final sink=_CaptureArchive();
+      final topic=buildDiary(id:topicId,title:'长期主题',
+        images:['topic.png']).copyWith(tags:['test-long-topic']);
+      await LocalArchive.writeArchive(
+        sink:sink,diaries:[topic],categories:const [],
+        tombstones:const [],mediaBaseDir:dir.path);
+      expect(sink.completed,isTrue);
+      sink.files[ModMonthVerifiedManifestV1.graphPath]=
+          bytes(await ModMonthGraphArchiveV1.exportGraph(db));
+      final sealed=ModMonthVerifiedManifestV1.seal(
+        staged:sink.files,isTopic:isTopic);
+      ModMonthVerifiedManifestV1.verify(
+        manifest:sealed,staged:sink.files,isTopic:isTopic);
+      expect(sink.files['media/image/topic.png'],
+          orderedEquals([137,80,78,71,0,1,2,3]));
+    } finally {
+      await dir.delete(recursive:true);
+    }
+  });
+
+  test('Tiptap embedded native image absent from media arrays cannot be lost',() async {
+    final entries=await staged(image:false);
+    final native=jsonDecode(utf8.decode(entries['diary/$topicId.json']!))
+        as Map<String,dynamic>;
+    native['content']=jsonEncode({
+      'type':'doc','attrs':{'v':2},
+      'content':[{'type':'image','attrs':{'src':'undocumented.png'}}],
+    });
+    entries['diary/$topicId.json']=bytes(jsonEncode(native));
+    expect(()=>ModMonthVerifiedManifestV1.seal(
+      staged:entries,isTopic:isTopic),
+      throwsA(isA<ModBundleInvalid>().having(
+        (e)=>e.code,'code','missing_native_media_manifest_reference')));
+  });
+
+
 }
