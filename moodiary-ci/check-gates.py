@@ -11,6 +11,13 @@ def require(source, value, label):
     if value not in source:
         raise SystemExit("CI contract missing "+label+": "+value)
 
+# Do not disable sqlite3's supply-chain SHA check on release builds.
+# Only the temporary test pubspec opts into the OS SQLite installation.
+for source in (fast, full):
+    require(source, "sqlite3: {source: system}", "Linux-test SQLite hook")
+require(full, "cp /tmp/moodiary-w9-test-pubspec.yaml pubspec.yaml",
+        "restore signed APK hook settings")
+
 for needle in ("flutter build apk","setup-ndk@","rustup toolchain install",
                "cargo-about@","Actual Chromium PC and mobile-width editor acceptance"):
     if needle in fast:

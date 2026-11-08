@@ -122,7 +122,13 @@ jobs:
           p=Path('pubspec.yaml')
           contents=p.read_text()
           assert contents.count('build_assets: true')==6
-          p.write_text(contents.replace('build_assets: true','build_assets: false'))
+          native = contents.replace('build_assets: true','build_assets: false')
+                    # Linux tests use distro SQLite; do NOT disable vendor hash checking
+                    # for production APK builds. The original pubspec remains untouched.
+                    anchor = '    fast_zip: {build_assets: false}'
+                    assert native.count(anchor) == 1
+                    native = native.replace(anchor, anchor + '\n    sqlite3: {source: system}')
+                    p.write_text(native)
           PY
       - name: Basic native editor and LAN safety tests
         working-directory: upstream/packages/feature_base/moodiary_editor
