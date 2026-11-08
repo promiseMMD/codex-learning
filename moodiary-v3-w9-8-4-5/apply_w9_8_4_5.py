@@ -50,7 +50,7 @@ else:
         generationId:'generation_preview_conflict_2026',
         isTopic:isTopic,transport:transport),
       throwsA(isA<ModBundleInvalid>().having(
-        (e)=>e.code,'code','restore_destination_exists')));
+        (e)=>e.code,'code','preview_destination_exists')));
     expect(await keep.readAsString(),'keep-existing-data');
     expect(await slot.currentDirectory(),isNull);
   });
