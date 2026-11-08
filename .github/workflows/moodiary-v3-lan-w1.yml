@@ -1,4 +1,4 @@
-name: Moodiary V3 W9.7.4 ZIP Isolation Acceptance
+name: Moodiary V3 W9.7.5 Full Isolated Restore Acceptance
 on:
   push:
     branches:
@@ -17,6 +17,7 @@ on:
       - moodiary-v3-w9-7-2-manifest-20261108
       - moodiary-v3-w9-7-3-stream-stage-20261108
       - moodiary-v3-w9-7-4-zip-isolation-20261108
+      - moodiary-v3-w9-7-5-isolated-full-restore-20261108
   workflow_dispatch:
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -79,6 +80,7 @@ jobs:
           python3 ../moodiary-v3-w9-7-2/apply_w9_7_2.py .
           python3 ../moodiary-v3-w9-7-3/apply_w9_7_3.py .
           python3 ../moodiary-v3-w9-7-4/apply_w9_7_4.py .
+          python3 ../moodiary-v3-w9-7-5/apply_w9_7_5.py .
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -170,6 +172,7 @@ jobs:
       - name: Native month source formatting
         working-directory: upstream
         run: |
+          dart format packages/feature/moodiary_sync/lib/src/data/mod_month_isolated_restore_v1.dart packages/feature/moodiary_sync/test/sync/data/mod_month_isolated_restore_v1_test.dart
           dart format packages/feature/moodiary_sync/lib/src/data/mod_month_zip_preflight_v1.dart packages/feature/moodiary_sync/lib/src/data/mod_month_zip_bundle_v1.dart packages/feature/moodiary_sync/test/sync/data/mod_month_zip_bundle_v1_test.dart
           dart format packages/feature/moodiary_sync/lib/src/data/mod_month_stream_stage_v1.dart packages/feature/moodiary_sync/test/sync/data/mod_month_stream_stage_v1_test.dart
           dart format packages/feature/moodiary_sync/lib/src/data/mod_month_verified_manifest_v1.dart packages/feature/moodiary_sync/test/sync/data/mod_month_verified_manifest_v1_test.dart
@@ -237,11 +240,11 @@ jobs:
           flutter test test/mod_home_quick_entry_test.dart test/mod_month_order_test.dart test/mod_month_day_page_test.dart test/mod_month_day_preview_test.dart test/mod_month_native_test.dart test/mod_month_page_test.dart test/mod_month_composer_test.dart test/mod_month_disk_test.dart test/mod_lan_month_http_test.dart test/mod_month_store_test.dart test/mod_lan_image_attach_test.dart test/mod_lan_image_decoder_test.dart test/mod_lan_rich_test.dart test/mod_lan_write_test.dart test/mod_lan_database_cas_test.dart test/mod_lan_events_test.dart test/mod_monthly_ledger_test.dart test/mod_monthly_index_test.dart test/mod_lan_policy_test.dart test/mod_continuous_safety_test.dart --reporter expanded
       - name: "Regression: WebDAV partial download aborts push"
         working-directory: upstream/packages/feature/moodiary_sync
-        run: flutter test test/sync/data/incremental_engine_test.dart test/sync/data/mod_month_archive_gate_test.dart test/sync/data/mod_month_verified_manifest_v1_test.dart test/sync/data/mod_month_stream_stage_v1_test.dart test/sync/data/mod_month_zip_bundle_v1_test.dart --reporter expanded
+        run: flutter test test/sync/data/incremental_engine_test.dart test/sync/data/mod_month_archive_gate_test.dart test/sync/data/mod_month_verified_manifest_v1_test.dart test/sync/data/mod_month_stream_stage_v1_test.dart test/sync/data/mod_month_zip_bundle_v1_test.dart test/sync/data/mod_month_isolated_restore_v1_test.dart --reporter expanded
       - name: Restore native build hooks for Android
         working-directory: upstream
         run: cp /tmp/moodiary-w9-test-pubspec.yaml pubspec.yaml
-      - name: Build V3 W9.7.4 arm64 APK
+      - name: Build V3 W9.7.5 arm64 APK
         env:
           ANDROID_NDK_HOME: ${{ steps.ndk.outputs.ndk-path }}
         working-directory: upstream/mobile
@@ -252,7 +255,7 @@ jobs:
           sha256sum upstream/mobile/build/app/outputs/flutter-apk/app-v3dev-release.apk
       - uses: actions/upload-artifact@v4
         with:
-          name: Moodiary-V3-W9-7-4-ZIP-Isolation-arm64
+          name: Moodiary-V3-W9-7-5-Isolated-Restore-arm64
           path: upstream/mobile/build/app/outputs/flutter-apk/app-v3dev-release.apk
           retention-days: 30
           if-no-files-found: error
