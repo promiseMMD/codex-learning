@@ -101,7 +101,8 @@ for needle in ("git checkout 2c552ddd7939a054122380397fb914cf000824b0",
   "moodiary-v3-w9-8-4-3/apply_w9_8_4_3.py",
   "moodiary-v3-w9-8-4-4/apply_w9_8_4_4.py",
   "moodiary-v3-w9-8-4-5/apply_w9_8_4_5.py",
-  "moodiary-v3-w9-8-4-6/apply_w9_8_4_6.py"):
+  "moodiary-v3-w9-8-4-6/apply_w9_8_4_6.py",
+  "moodiary-v3-w9-8-4-7/apply_w9_8_4_7.py"):
     require(prepare,needle,"pinned source assembly")
 w9845=(ROOT/"moodiary-v3-w9-8-4-5/apply_w9_8_4_5.py").read_text()
 for needle in (
@@ -121,6 +122,17 @@ for needle in (
 preview_source=(ROOT/"moodiary-v3-w9-8-4-6/overlay/packages/feature/moodiary_sync/lib/src/data/mod_month_zip_generation_install_v2.dart").read_text()
 for needle in ("preview_cleanup_unsafe","followLinks:false","_receipt(","_discard("):
     require(preview_source,needle,"W9.8.4.6 preview ownership guard")
+
+w9847=(ROOT/"moodiary-v3-w9-8-4-7/apply_w9_8_4_7.py").read_text()
+for needle in (
+  "ZIP-to-generation refuses a preview nested inside the isolated slot root",
+  "ZIP-to-generation refuses an alias through a symbolic-link parent",
+  "ZIP-to-generation refuses a preview whose parent cannot be resolved"):
+    require(w9847,needle,"W9.8.4.7 preview/slot path isolation tests")
+preview_fence=(ROOT/"moodiary-v3-w9-8-4-7/overlay/packages/feature/moodiary_sync/lib/src/data/mod_month_zip_generation_install_v2.dart").read_text()
+for needle in ("_checkPreviewIsolation(", "resolveSymbolicLinks()",
+  "preview_slot_path_overlap", "preview_isolation_unverifiable"):
+    require(preview_fence,needle,"W9.8.4.7 canonical preview path preflight")
 
 # Changes to CI workflows or their gate scripts must exercise sensitive
 # tests as well; otherwise a workflow-only commit can appear green while
