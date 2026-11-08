@@ -95,6 +95,90 @@ test = test.replace("expect(uv.read<int>('user_version'), 4);",
                     "expect(uv.read<int>('user_version'), 5);")
 test = test.replace("upgrade v3 to v4", "upgrade v3 to v5")
 test = test.replace("additive v4", "additive v5")
+# A production v4 upgrade is distinct from fresh v5 and v2/v3 migrations.
+# Seed the existing v4 custom tables before reopening with the v5 engine.
+import_anchor = "import 'package:moodiary_data/moodiary_data.dart';"
+if test.count(import_anchor) != 1 or not test.endswith("}\n"):
+    raise SystemExit("Unexpected migration fixture source")
+test = test.replace(import_anchor, import_anchor +
+    "\nimport 'package:moodiary_data/src/mod_month_schema.dart';", 1)
+v4_case = r'''
+  test('W9.8 existing v4 to v5 keeps native Diary and immutable block graph', () async {
+    final schema = await verifier.schemaAt(3);
+    final previous = v3.DatabaseAtV3(schema.newConnection());
+    await createModMonthSchema((sql) => previous.customStatement(sql));
+    const id = '1c042158-916c-458e-8921-63e8529f6eb0';
+    const topic = 'topic-2026-learning';
+    const block = 'block-v4-legacy-0001';
+    const revision = 'revision-v4-legacy-0001';
+    const original = '{"type":"doc","attrs":{"v":2},"content":[]}';
+    await previous.into(previous.diaries).insert(v3.DiariesCompanion.insert(
+      id: id, title: 'old v4 native Diary', content: original,
+      contentText: 'preserve', time: 1730950123456,
+      lastModified: 1730950999888, show: 1, type: 'tiptap',
+    ));
+    await previous.customStatement(
+      'INSERT INTO mod_month_pages'
+      '(topic_id,month_key,diary_id,created_ms) VALUES(?,?,NULL,?)',
+      [topic,'2026-11',42],
+    );
+    await previous.customStatement(
+      'INSERT INTO mod_month_blocks'
+      '(block_id,topic_id,month_key,kind,created_ms) VALUES(?,?,?,?,?)',
+      [block,topic,'2026-11','entry',43],
+    );
+    await previous.customStatement(
+      'INSERT INTO mod_month_revisions'
+      '(revision_id,block_id,parent_revision_id,month_key,day_key,'
+      'occurred_at_ms,body_json,deleted,edited_at_ms)'
+      ' VALUES(?,?,NULL,?,?,?,?,?,?)',
+      [revision,block,'2026-11','2026-11-07',44,original,0,45],
+    );
+    await previous.customStatement(
+      'INSERT INTO mod_month_heads(block_id,revision_id) VALUES(?,?)',
+      [block,revision],
+    );
+    await previous.customStatement('PRAGMA user_version = 4');
+    await previous.close();
+
+    final upgraded = MoodiaryDatabase.forTesting(schema.newConnection());
+    final version = await upgraded.customSelect('PRAGMA user_version').getSingle();
+    expect(version.read<int>('user_version'), 5);
+    final diary = await upgraded.customSelect(
+      'SELECT title,content,content_text,time,last_modified,show '
+      'FROM diaries WHERE id=?',
+      variables:[Variable.withString(id)],
+    ).getSingle();
+    expect(diary.read<String>('title'),'old v4 native Diary');
+    expect(diary.read<String>('content'), original);
+    expect(diary.read<String>('content_text'),'preserve');
+    expect(diary.read<int>('time'),1730950123456);
+    expect(diary.read<int>('last_modified'),1730950999888);
+    expect(diary.read<int>('show'),1);
+    final oldBlock = await upgraded.customSelect(
+      'SELECT b.topic_id,b.month_key,b.created_ms,'
+      'r.revision_id,r.day_key,r.body_json,r.occurred_at_ms,r.edited_at_ms '
+      'FROM mod_month_blocks b JOIN mod_month_heads h ON h.block_id=b.block_id '
+      'JOIN mod_month_revisions r ON r.revision_id=h.revision_id '
+      'WHERE b.block_id=?',
+      variables:[Variable.withString(block)],
+    ).getSingle();
+    expect(oldBlock.read<String>('topic_id'),topic);
+    expect(oldBlock.read<String>('month_key'),'2026-11');
+    expect(oldBlock.read<int>('created_ms'),43);
+    expect(oldBlock.read<String>('revision_id'),revision);
+    expect(oldBlock.read<String>('day_key'),'2026-11-07');
+    expect(oldBlock.read<String>('body_json'),original);
+    expect(oldBlock.read<int>('occurred_at_ms'),44);
+    expect(oldBlock.read<int>('edited_at_ms'),45);
+    final newTable = await upgraded.customSelect(
+      'SELECT COUNT(*) AS n FROM mod_day_pages',
+    ).getSingle();
+    expect(newTable.read<int>('n'),0);
+    await upgraded.close();
+  });
+'''
+test = test[:-2] + v4_case + "\n}\n"
 (root / migration).write_text(test, encoding="utf-8")
 
 mobile_test = "mobile/test/mod_month_store_test.dart"
