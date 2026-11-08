@@ -57,9 +57,20 @@ patch(archive, 'class LocalArchive {\n  LocalArchive._();',
 
   static Future<void> _assertCompleteArchiveSupported() =>
       ModMonthArchiveGate.requireLegacyOnly(getIt<MoodiaryDatabase>());""")
-for _ in range(2):
-    patch(archive, '    return IncrementalSyncEngine.runExclusive(() async {\n      final diaries',
-      '    return IncrementalSyncEngine.runExclusive(() async {\n      await _assertCompleteArchiveSupported();\n      final diaries')
+# Both ZIP export and delta-export have the same stable entry point.
+# Replace both atomically; never accidentally leave one unsafe.
+archive_path = root / archive
+archive_text = archive_path.read_text(encoding='utf-8')
+archive_needle = '    return IncrementalSyncEngine.runExclusive(() async {\n      final diaries'
+archive_replacement = (
+    '    return IncrementalSyncEngine.runExclusive(() async {\n'
+    '      await _assertCompleteArchiveSupported();\n      final diaries'
+)
+assert archive_text.count(archive_needle) == 2, 'ZIP export anchors drifted'
+archive_path.write_text(
+    archive_text.replace(archive_needle, archive_replacement),
+    encoding='utf-8'
+)
 patch(archive,
       """  static Future<SyncManifest> buildLocalManifest() async => buildManifest(
     diaries: await RepoSyncDiaryStore().getAllDiaries(),
