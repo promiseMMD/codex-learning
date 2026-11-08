@@ -102,6 +102,13 @@ jobs:
         if: ${{ inputs.build_apk }}
         with:
           tool: cargo-about@0.9.2
+      - name: Rust Nutstore PROPFIND per-directory safety regression
+        working-directory: upstream/packages/foundation/fast_core/rust
+        shell: bash
+        run: |
+          set -euo pipefail
+          rustup toolchain install 1.95.0 --profile minimal
+          cargo +1.95.0 test nutstore_directory_page_boundary_is_checked_per_propfind --lib
       - name: Flutter workspace dependencies
         working-directory: upstream
         run: |
