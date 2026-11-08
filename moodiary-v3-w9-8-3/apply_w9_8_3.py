@@ -39,7 +39,7 @@ patch(file,
       '  ) async {\n'
       '    await _schema(db);',
       'static Future<Map<String,List<Map<String,Object?>>>> _snapshot(\n'
-      '    MoodiaryDatabase db, {bool allowMappedDays = false},\n'
+      '    MoodiaryDatabase db, {bool allowMappedDays = false}\n'
       '  ) async {\n'
       '    await _schema(db, allowMappedDays: allowMappedDays);')
 patch(file,
