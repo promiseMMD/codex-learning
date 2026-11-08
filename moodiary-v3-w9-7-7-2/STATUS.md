@@ -30,3 +30,6 @@ The existing W9.7.7.1 orphan inspector remains read-only, with no automatic clea
 - Obtain a green sensitive fast CI run and confirm real child PID is killed (no exception injection).
 - Explicit `[full-ci]` integration regression on the exact commit before merging.
 - After this, implement durable fsync API with explicit platform support checks and real Android process kill/restart harness, staged before any live user restore.
+
+## Test-runner isolation correction
+The first two harness attempts started a child from within `flutter test` and hung before Dart `main()`; the startup executable caused an error initially, then no output in the Flutter test runtime. **Do not claim they proved SIGKILL safety.** The new harness is a **standalone Dart CI command** outside the Flutter test runner. Fast CI runs two kill boundaries, complete CI all seven. This avoids Flutter tool startup-lock interference. The Flutter unit tests remain unchanged and separately run. A green latest CI run is required before making any Linux process-recovery claim.

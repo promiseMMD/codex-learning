@@ -134,7 +134,13 @@ jobs:
         env:
           MOODIARY_CRASH_MATRIX: smoke
         working-directory: upstream/packages/feature/moodiary_sync
-        run: flutter test test/sync/data/mod_month_archive_gate_test.dart test/sync/data/mod_month_recovery_slot_v1_test.dart test/sync/data/mod_month_isolated_restore_v1_test.dart test/sync/data/mod_month_orphan_inspector_v1_test.dart test/sync/data/mod_month_real_sigkill_recovery_test.dart --reporter compact
+        run: flutter test test/sync/data/mod_month_archive_gate_test.dart test/sync/data/mod_month_recovery_slot_v1_test.dart test/sync/data/mod_month_isolated_restore_v1_test.dart test/sync/data/mod_month_orphan_inspector_v1_test.dart --reporter compact
+      - name: Real SIGKILL cross-process recovery (fast key boundaries)
+        if: ${{ steps.changed.outputs.data_risk == 'true' }}
+        env:
+          MOODIARY_CRASH_MATRIX: smoke
+        working-directory: upstream/packages/feature/moodiary_sync
+        run: dart run test/sync/data/harness/real_sigkill_orchestrator.dart
       - name: Focused older-database migration regression on sensitive changes
         if: ${{ steps.changed.outputs.data_risk == 'true' }}
         working-directory: upstream/packages/feature_base/moodiary_data
