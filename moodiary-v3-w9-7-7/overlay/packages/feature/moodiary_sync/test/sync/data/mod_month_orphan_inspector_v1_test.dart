@@ -65,7 +65,7 @@ void main() {
     await existing.writeAsBytes([0x50,0x4b,0x03,0x04]);
     final report=await ModMonthOrphanInspectorV1
       .scanPrivateParent(sandbox.path);
-    expect(report,singleElement);
+    expect(report,hasLength(1));
     expect(report.single.kind,ModMonthOrphanTypeV1.archiveZip);
     expect(report.single.condition,
       ModMonthOrphanConditionV1.unknownArchiveStage);
