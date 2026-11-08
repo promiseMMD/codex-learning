@@ -11,6 +11,7 @@ import 'package:path/path.dart' as p;
 
 import 'impl/local_archive.dart' show ArchiveSink;
 import 'mod_month_verified_manifest_v2.dart';
+import 'mod_month_verified_manifest_v1.dart' show ModBundleInvalid;
 
 final class ModMonthStreamStageV2 implements ArchiveSink {
   ModMonthStreamStageV2._(this._staging,this.destinationPath);
