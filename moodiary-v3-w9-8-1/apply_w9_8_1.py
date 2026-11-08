@@ -29,7 +29,9 @@ patch(database, "import '../mod_month_schema.dart';",
     "import '../mod_month_schema.dart';\nimport '../mod_day_schema.dart';")
 patch(database, "int get schemaVersion => 4;", "int get schemaVersion => 5;")
 patch(database,
+    "      await m.createAll();\n"
     "      await createModMonthSchema((sql) => customStatement(sql));",
+    "      await m.createAll();\n"
     "      await createModMonthSchema((sql) => customStatement(sql));\n"
     "      await createModDaySchema((sql) => customStatement(sql));")
 patch(database,
