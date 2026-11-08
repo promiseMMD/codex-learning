@@ -13,6 +13,16 @@ for source in (here/'overlay').rglob('*'):
         destination.parent.mkdir(parents=True,exist_ok=True)
         shutil.copy2(source,destination)
 
+# The new manifest code imports crypto directly; declare it in the sync
+# package rather than relying on a transitive workspace dependency.
+sync_pubspec=root/'packages/feature/moodiary_sync/pubspec.yaml'
+sync_src=sync_pubspec.read_text(encoding='utf-8')
+anchor='  fast_crypto: 0.0.1'
+if sync_src.count(anchor)!=1:
+    raise SystemExit('W9.7.2 crypto dependency anchor drift')
+sync_pubspec.write_text(sync_src.replace(anchor,
+    '  crypto: 3.0.7\\n'+anchor,1),encoding='utf-8')
+
 p=root/'mobile/pubspec.yaml'
 old='version: 2.9.2+103'
 text=p.read_text(encoding='utf-8')
