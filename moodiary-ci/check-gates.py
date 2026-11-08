@@ -38,8 +38,8 @@ for needle in ("moodiary-ci/prepare-workspace.sh",
   "[full-ci]","[apk-ci]","build_apk: false","build_apk: true"):
     require(fast,needle,"quick routing")
 
-require(full, "nutstore_directory_page_boundary_is_checked_per_propfind",
-        "Rust per-directory Nutstore pagination-risk regression")
+require(full, "cargo +1.95.0 test sync::webdav::tests --lib",
+        "all Rust WebDAV tests, including Nutstore pagination-risk regression")
 
 for needle in ("workflow_call:","build_apk:","moodiary-ci/prepare-workspace.sh",
   "Actual Chromium PC and mobile-width editor acceptance",
@@ -77,7 +77,8 @@ for needle in ("git checkout 2c552ddd7939a054122380397fb914cf000824b0",
   "moodiary-v3-w9-7-7-2/apply_w9_7_7_2.py",
   "moodiary-v3-w9-7-7-4/apply_w9_7_7_4.py",
   "moodiary-v3-w9-7-8/apply_w9_7_8.py",
-  "moodiary-v3-w9-7-8-3/apply_w9_7_8_3.py"):
+  "moodiary-v3-w9-7-8-3/apply_w9_7_8_3.py",
+  "moodiary-v3-w9-7-8-4/apply_w9_7_8_4.py"):
     require(prepare,needle,"pinned source assembly")
 # Changes to CI workflows or their gate scripts must exercise sensitive
 # tests as well; otherwise a workflow-only commit can appear green while
