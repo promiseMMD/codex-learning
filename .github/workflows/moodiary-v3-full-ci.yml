@@ -140,6 +140,7 @@ jobs:
           dart format packages/feature/moodiary_sync/lib/src/data/mod_month_stream_stage_v1.dart packages/feature/moodiary_sync/test/sync/data/mod_month_stream_stage_v1_test.dart
           dart format packages/feature/moodiary_sync/lib/src/data/mod_month_verified_manifest_v1.dart packages/feature/moodiary_sync/test/sync/data/mod_month_verified_manifest_v1_test.dart
           dart format packages/feature_base/moodiary_data/lib/src/mod_month_graph_archive_v1.dart packages/feature_base/moodiary_data/test/mod_month_graph_archive_v1_test.dart
+          dart format packages/feature_base/moodiary_data/lib/src/mod_month_graph_archive_v2.dart packages/feature_base/moodiary_data/test/mod_month_graph_archive_v2_test.dart
           dart format packages/feature_base/moodiary_data/lib/src/mod_day_schema.dart packages/feature_base/moodiary_data/lib/src/mod_day_map.dart packages/feature_base/moodiary_data/test/mod_day_map_test.dart
           dart format packages/feature_base/moodiary_data/lib/src/mod_month_archive_gate.dart packages/feature_base/moodiary_data/test/mod_month_archive_gate_test.dart
           dart format packages/feature/moodiary_sync/test/sync/data/mod_month_archive_gate_test.dart
@@ -202,7 +203,7 @@ jobs:
           dart format mobile/test/mod_lan_policy_test.dart
       - name: W9 migration from older v2 and v3 database preserves user diaries
         working-directory: upstream/packages/feature_base/moodiary_data
-        run: flutter test test/mod_month_migration_test.dart test/mod_month_archive_gate_test.dart test/mod_month_graph_archive_v1_test.dart test/mod_day_map_test.dart --reporter expanded
+        run: flutter test test/mod_month_migration_test.dart test/mod_month_archive_gate_test.dart test/mod_month_graph_archive_v1_test.dart test/mod_month_graph_archive_v2_test.dart test/mod_day_map_test.dart --reporter expanded
       - name: "Unit tests: W7 assets + W6 rich CAS + W5 autosave + W4 editor + W3 realtime + W2 ledger + LAN policy"
         working-directory: upstream/mobile
         run: |

@@ -151,7 +151,7 @@ jobs:
       - name: Focused older-database migration regression on sensitive changes
         if: ${{ steps.changed.outputs.data_risk == 'true' }}
         working-directory: upstream/packages/feature_base/moodiary_data
-        run: flutter test test/mod_month_migration_test.dart test/mod_month_graph_archive_v1_test.dart test/mod_day_map_test.dart --reporter compact
+        run: flutter test test/mod_month_migration_test.dart test/mod_month_graph_archive_v1_test.dart test/mod_month_graph_archive_v2_test.dart test/mod_day_map_test.dart --reporter compact
   full-after-fast:
     needs: fast
     if: >-
