@@ -108,7 +108,7 @@ jobs:
         run: |
           set -euo pipefail
           rustup toolchain install 1.95.0 --profile minimal
-          cargo +1.95.0 test nutstore_directory_page_boundary_is_checked_per_propfind --lib
+          cargo +1.95.0 test sync::webdav::tests --lib
       - name: Flutter workspace dependencies
         working-directory: upstream
         run: |
