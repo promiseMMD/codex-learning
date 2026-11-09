@@ -234,7 +234,7 @@ jobs:
           ANDROID_NDK_HOME: ${{ steps.ndk.outputs.ndk-path }}
         working-directory: upstream/mobile
         run: flutter build apk --flavor v3dev --release --target-platform android-arm64
-      - name: Validate APK and record provenance
+      - name: Verify APK package, version, assets, ABI and signer
         if: ${{ inputs.build_apk }}
         shell: bash
         run: |
@@ -242,15 +242,42 @@ jobs:
           apk=upstream/mobile/build/app/outputs/flutter-apk/app-v3dev-release.apk
           test -s "$apk"
           mkdir -p /tmp/moodiary-ci-delivery
+          python3 moodiary-v3-w9-8-4-12/verify_apk.py "$apk" | tee /tmp/moodiary-ci-delivery/APK-VERIFICATION.json
+          apksigner="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner -print | sort -V | tail -n 1)"
+          test -x "$apksigner"
+          aapt="$(dirname "$apksigner")/aapt"
+          test -x "$aapt"
+          "$apksigner" verify --verbose --print-certs "$apk" | tee /tmp/moodiary-ci-delivery/SIGNATURE.txt
+          grep -F "Verified using v2 scheme (APK Signature Scheme v2): true" /tmp/moodiary-ci-delivery/SIGNATURE.txt
+          "$aapt" dump badging "$apk" | tee /tmp/moodiary-ci-delivery/MANIFEST.txt
+          grep -F "package: name='cn.yooss.moodiary.v3dev' versionCode='124' versionName='2.9.2'" /tmp/moodiary-ci-delivery/MANIFEST.txt
+          grep -F "sdkVersion:'28'" /tmp/moodiary-ci-delivery/MANIFEST.txt
+          grep -F "targetSdkVersion:'36'" /tmp/moodiary-ci-delivery/MANIFEST.txt
           cp "$apk" /tmp/moodiary-ci-delivery/
           cd /tmp/moodiary-ci-delivery
           sha256sum app-v3dev-release.apk > app-v3dev-release.apk.sha256
+          actual_signer="$(sed -n 's/.*V2 Signer: certificate SHA-256 digest: //p' SIGNATURE.txt | head -n 1 | tr '[:upper:]' '[:lower:]')"
+          test -n "$actual_signer"
+          previous_signer="19a9a5816297abfac1daaba0fbeeeedfd5bc8a67aa42e479aa60a3534c880b3a"
+          if [[ "$actual_signer" == "$previous_signer" ]]; then
+            signer_compatibility="same-as-previous-W9.5.2-dev-build"
+          else
+            signer_compatibility="DIFFERENT-DO-NOT-UPDATE-INSTALL-OVER-EXISTING-APP"
+            echo "::warning::APK signer differs from W9.5.2. Do not uninstall or update-install over an existing app; preserve existing app data."
+          fi
           {
             echo "source_commit=${{ github.sha }}"
             echo "upstream_commit=2c552ddd7939a054122380397fb914cf000824b0"
             echo "workflow_run=${{ github.run_id }}"
             echo "workflow_ref=${{ github.ref }}"
             echo "generated_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo "application_id=cn.yooss.moodiary.v3dev"
+            echo "version_name=2.9.2"
+            echo "version_code=124"
+            echo "abi=arm64-v8a"
+            echo "signer_certificate_sha256=$actual_signer"
+            echo "previous_dev_signer_sha256=$previous_signer"
+            echo "signer_compatibility=$signer_compatibility"
             grep '^version:' "$GITHUB_WORKSPACE/upstream/mobile/pubspec.yaml"
           } > BUILD-PROVENANCE.txt
           sha256sum --check app-v3dev-release.apk.sha256

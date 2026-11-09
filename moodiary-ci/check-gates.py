@@ -61,6 +61,16 @@ for source in (fast, full):
 
 require(full, "cargo +1.95.0 test sync::webdav::tests --lib",
         "all Rust WebDAV tests, including Nutstore pagination-risk regression")
+require(full, "moodiary-v3-w9-8-4-12/verify_apk.py", "W9.8.4.12 APK structural verification")
+require(full, "apksigner verify --verbose --print-certs", "W9.8.4.12 cryptographic APK signature verification")
+require(full, "aapt dump badging", "W9.8.4.12 Android package manifest verification")
+require(full, "versionCode='124' versionName='2.9.2'", "W9.8.4.12 exact app version")
+require(full, "DIFFERENT-DO-NOT-UPDATE-INSTALL-OVER-EXISTING-APP", "W9.8.4.12 signer mismatch safety warning")
+w98412=(ROOT/"moodiary-v3-w9-8-4-12/verify_apk.py").read_text()
+for needle in ("cn.yooss.moodiary.v3dev", "2.9.2", "124", "arm64-v8a",
+  "APK Sig Block 42", "0x7109871a", "assets/flutter_assets/assets/lan/lan.js",
+  "/api/v3/topics", "bodyOnly", "snapshot", "minSdkVersion", "targetSdkVersion"):
+    require(w98412,needle,"W9.8.4.12 APK identity, asset and ABI verifier")
 
 for needle in ("workflow_call:","build_apk:","moodiary-ci/prepare-workspace.sh",
   "Actual Chromium PC and mobile-width editor acceptance",

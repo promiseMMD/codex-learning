@@ -22,8 +22,17 @@ Recent successful complete W7 runs were approximately **24–30 minutes**. Frequ
 - If future app source changes require new historical overlays, update the shared prepare script and full test list together. Future branches should use fast workflow automatically, full on merge, APK on explicit delivery.
 - CI timing targets are hypotheses, not measured. Check actual GitHub run times and step failures before claiming a speed-up.
 
+## W9.8.4.12 — APK device-test build
+- Baseline: W9.8.4.11 `facad28a0fd09cd55efde9a0e797e8af8c2bf89e`.
+- Build only from the exact commit that passed Fast CI and Full Acceptance, using `[apk-ci]`.
+- Produce the `v3dev` ARM64 release-mode test APK (`cn.yooss.moodiary.v3dev`, version `2.9.2+124`). This is a device-test artifact, not a production release.
+- Verify ZIP CRC, APK signing block, v2 cryptographic signature, package/version, min/target SDK, ARM64-only native libraries, LAN JavaScript and native editor assets; retain SHA-256, signature report, manifest and source provenance.
+- Compare the signer certificate with the previous W9.5.2 development APK (`19a9a5816297abfac1daaba0fbeeeedfd5bc8a67aa42e479aa60a3534c880b3a`). A mismatch is a hard warning: do not update-install over the existing app, uninstall it, or clear data.
+- Physical Xiaomi 14 Pro / HyperOS 3 acceptance remains a separate user-device gate. Do not claim CI proves device behavior.
+- Formal release remains blocked until stable signing, exact-artifact device QA evidence and the main-only release gate are satisfied.
+
 ## Next
-Run first fast commit, address actual failures. Run a parity full acceptance on a commit containing `[full-ci]`; require green before switching main integration gate. Resume W9.7.7 real-device restoration fault work only after green CI tiering.
+Run the `[apk-ci]` pipeline on one immutable commit. Review the exact artifact SHA and signer comparison before any device installation. Then complete device acceptance without uninstalling or clearing existing app data.
 
 ## Live acceptance
 - Fast CI run `42452907014`: **success** in 4.1 min (2026-11-08 05:59:54–06:04:02 UTC). Historic full W7 run `42450432090`: ~29 min; different test suites.
