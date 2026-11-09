@@ -48,7 +48,7 @@ No delete, purge, prune, repair, journal reconciliation, restore activation, liv
 | Regression | existing storage and recovery suites | remain green |
 
 ## 8. CI
-- Fast CI: format, root-path safety tests, recovery panel widget tests, existing data-sensitive recovery suite.
-- Full CI: same tests plus complete migration, archive, WebDAV, SIGKILL and browser regressions.
+- Fast CI: format, root-path safety tests, recovery panel widget tests, the existing `StoragePage` integration regression, and the existing data-sensitive recovery suite.
+- Full CI: the same integration coverage plus complete migration, archive, WebDAV, SIGKILL and browser regressions.
 - APK build is not part of this feature commit. A later explicit APK tier is required for delivery.
 - Physical Android/HyperOS 3 verification remains a separate human/device acceptance gate.

@@ -25,6 +25,7 @@
 - Read-only details expose no delete, repair or live-restore controls.
 - Refresh replaces the prior provider result; failures can be retried.
 - Existing storage cleanup, sync, migration, V1/V2 archive, SIGKILL and WebDAV tests remain mandatory.
+- The upstream `StoragePage` widget regression runs in Fast and Full CI to compile the integration and protect existing cleanup behavior.
 - Run Fast CI and Full Acceptance on the exact final commit SHA.
 
 ## Explicitly deferred

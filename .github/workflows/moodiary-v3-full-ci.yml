@@ -204,14 +204,14 @@ jobs:
           dart format mobile/lib/app/home/mod_lan_page.dart
           dart format mobile/test/mod_monthly_index_test.dart
           dart format mobile/test/mod_lan_policy_test.dart
-          dart format mobile/lib/app/settings/storage/recovery_inventory_controller.dart mobile/lib/app/settings/storage/recovery_inventory_panel.dart mobile/test/app/settings/recovery_inventory_panel_test.dart
+          dart format mobile/lib/app/settings/storage/recovery_inventory_controller.dart mobile/lib/app/settings/storage/recovery_inventory_panel.dart mobile/lib/app/settings/storage/storage_page.dart mobile/test/app/settings/recovery_inventory_panel_test.dart mobile/test/app/settings/storage_page_test.dart
       - name: W9 migration from older v2 and v3 database preserves user diaries
         working-directory: upstream/packages/feature_base/moodiary_data
         run: flutter test test/mod_month_migration_test.dart test/mod_month_archive_gate_test.dart test/mod_month_graph_archive_v1_test.dart test/mod_month_graph_archive_v2_test.dart test/mod_day_map_test.dart --reporter expanded
       - name: "Unit tests: W7 assets + W6 rich CAS + W5 autosave + W4 editor + W3 realtime + W2 ledger + LAN policy"
         working-directory: upstream/mobile
         run: |
-          flutter test test/mod_day_home_index_test.dart test/mod_day_home_panel_test.dart test/mod_home_quick_entry_test.dart test/mod_month_order_test.dart test/mod_month_day_page_test.dart test/mod_month_day_preview_test.dart test/mod_month_native_test.dart test/mod_month_page_test.dart test/mod_month_composer_test.dart test/mod_month_disk_test.dart test/mod_lan_month_http_test.dart test/mod_month_store_test.dart test/mod_lan_image_attach_test.dart test/mod_lan_image_decoder_test.dart test/mod_lan_rich_test.dart test/mod_lan_write_test.dart test/mod_lan_database_cas_test.dart test/mod_lan_events_test.dart test/mod_monthly_ledger_test.dart test/mod_monthly_index_test.dart test/mod_lan_policy_test.dart test/mod_continuous_safety_test.dart test/app/settings/recovery_inventory_panel_test.dart --reporter expanded
+          flutter test test/mod_day_home_index_test.dart test/mod_day_home_panel_test.dart test/mod_home_quick_entry_test.dart test/mod_month_order_test.dart test/mod_month_day_page_test.dart test/mod_month_day_preview_test.dart test/mod_month_native_test.dart test/mod_month_page_test.dart test/mod_month_composer_test.dart test/mod_month_disk_test.dart test/mod_lan_month_http_test.dart test/mod_month_store_test.dart test/mod_lan_image_attach_test.dart test/mod_lan_image_decoder_test.dart test/mod_lan_rich_test.dart test/mod_lan_write_test.dart test/mod_lan_database_cas_test.dart test/mod_lan_events_test.dart test/mod_monthly_ledger_test.dart test/mod_monthly_index_test.dart test/mod_lan_policy_test.dart test/mod_continuous_safety_test.dart test/app/settings/recovery_inventory_panel_test.dart test/app/settings/storage_page_test.dart --reporter expanded
       - name: "Regression: WebDAV partial download aborts push"
         env:
           MOODIARY_CRASH_MATRIX: full

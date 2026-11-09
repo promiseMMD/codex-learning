@@ -214,11 +214,14 @@ for workflow in (fast,full):
     for path in (
       "mod_month_android_restore_root_v2_test.dart",
       "recovery_inventory_panel_test.dart",
-      "recovery_inventory_panel.dart"):
-        require(workflow,path,"W9.8.4.11 read-only inventory UI coverage")
+      "recovery_inventory_panel.dart",
+      "storage_page_test.dart"):
+        require(workflow,path,"W9.8.4.11 read-only inventory UI and StoragePage integration coverage")
 root_ui=(ROOT/"moodiary-v3-w9-8-4-11/overlay/mobile/lib/app/settings/storage/recovery_inventory_controller.dart").read_text()
 panel_ui=(ROOT/"moodiary-v3-w9-8-4-11/overlay/mobile/lib/app/settings/storage/recovery_inventory_panel.dart").read_text()
 require(root_ui,"openExistingRootIfPresent()","W9.8.4.11 non-creating Android root access")
+require(w98411,"import 'recovery_inventory_panel.dart';","W9.8.4.11 StoragePage panel import")
+require(w98411,"if (Platform.isAndroid) const RecoveryInventoryPanel(),","W9.8.4.11 Android-only StoragePage integration")
 for forbidden in ("createOrOpenForSupport(", "createNewWorkspace(", ".recover(", ".delete(",
                   "restoreZipToNewIsolatedDirectory("):
     if forbidden in root_ui or forbidden in panel_ui:

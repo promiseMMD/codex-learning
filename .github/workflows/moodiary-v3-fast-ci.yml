@@ -118,7 +118,7 @@ jobs:
         run: dart format packages/feature/moodiary_sync/lib/src/data/mod_month_zip_generation_install_v2.dart packages/feature/moodiary_sync/lib/src/data/mod_month_private_restore_workspace_v2.dart packages/feature/moodiary_sync/lib/src/data/mod_month_android_restore_root_v2.dart packages/feature/moodiary_sync/lib/src/data/mod_month_restore_inventory_v2.dart packages/feature/moodiary_sync/test/sync/data/mod_month_isolated_restore_v2_test.dart packages/feature/moodiary_sync/test/sync/data/mod_month_android_restore_root_v2_test.dart
       - name: Format W9.8.4.11 read-only recovery inventory UI
         working-directory: upstream
-        run: dart format mobile/lib/app/settings/storage/recovery_inventory_controller.dart mobile/lib/app/settings/storage/recovery_inventory_panel.dart mobile/test/app/settings/recovery_inventory_panel_test.dart packages/feature/moodiary_sync/test/sync/data/mod_month_android_restore_root_v2_test.dart
+        run: dart format mobile/lib/app/settings/storage/recovery_inventory_controller.dart mobile/lib/app/settings/storage/recovery_inventory_panel.dart mobile/lib/app/settings/storage/storage_page.dart mobile/test/app/settings/recovery_inventory_panel_test.dart mobile/test/app/settings/storage_page_test.dart packages/feature/moodiary_sync/test/sync/data/mod_month_android_restore_root_v2_test.dart
       - name: Turn off unused Rust assets ONLY for Dart tests
         working-directory: upstream
         shell: bash
@@ -141,7 +141,7 @@ jobs:
         run: flutter test test/editor_snapshot_test.dart test/editor_activation_test.dart --reporter compact
       - name: Basic mobile autosave and LAN policy smoke tests
         working-directory: upstream/mobile
-        run: flutter test test/mod_lan_policy_test.dart test/mod_continuous_safety_test.dart test/mod_month_store_test.dart test/mod_day_home_index_test.dart test/mod_day_home_panel_test.dart test/app/settings/recovery_inventory_panel_test.dart --reporter compact
+        run: flutter test test/mod_lan_policy_test.dart test/mod_continuous_safety_test.dart test/mod_month_store_test.dart test/mod_day_home_index_test.dart test/mod_day_home_panel_test.dart test/app/settings/recovery_inventory_panel_test.dart test/app/settings/storage_page_test.dart --reporter compact
       - name: Focused SQLite and WebDAV safety regressions on sensitive changes
         if: ${{ steps.changed.outputs.data_risk == 'true' }}
         env:
