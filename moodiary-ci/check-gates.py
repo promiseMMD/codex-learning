@@ -62,18 +62,20 @@ for source in (fast, full):
 
 require(full, "cargo +1.95.0 test sync::webdav::tests --lib",
         "all Rust WebDAV tests, including Nutstore pagination-risk regression")
-require(full, "moodiary-v3-w9-8-4-12/verify_apk.py", "W9.8.4.12 APK structural verification")
-require(full, "verify --verbose --print-certs", "W9.8.4.12 cryptographic APK signature verification")
-require(full, '"$apksigner"', "W9.8.4.12 Android apksigner binary")
-require(full, "dump badging", "W9.8.4.12 Android package manifest verification")
-require(full, '"$aapt"', "W9.8.4.12 Android aapt binary")
-require(full, "versionCode='124' versionName='2.9.2'", "W9.8.4.12 exact app version")
-require(full, "DIFFERENT-DO-NOT-UPDATE-INSTALL-OVER-EXISTING-APP", "W9.8.4.12 signer mismatch safety warning")
-w98412=(ROOT/"moodiary-v3-w9-8-4-12/verify_apk.py").read_text()
-for needle in ("cn.yooss.moodiary.v3dev", "2.9.2", "124", "arm64-v8a",
-  "APK Sig Block 42", "0x7109871a", "assets/flutter_assets/assets/lan/lan.js",
-  "/api/v3/topics", "bodyOnly", "snapshot", "minSdkVersion", "targetSdkVersion"):
-    require(w98412,needle,"W9.8.4.12 APK identity, asset and ABI verifier")
+require(full, "moodiary-v3-w9-8-4-12/verify_apk.py", "W9.8.4.13 safe APK structural verification")
+require(full, "verify --verbose --print-certs", "W9.8.4.13 cryptographic APK signature verification")
+require(full, '"$apksigner"', "W9.8.4.13 Android apksigner binary")
+require(full, "dump badging", "W9.8.4.13 Android package manifest verification")
+require(full, '"$aapt"', "W9.8.4.13 Android aapt binary")
+require(full, "versionCode='125' versionName='2.9.3'", "W9.8.4.13 exact safe app version")
+require(full, "MOODIARY_SAFE_CERT_SHA256", "W9.8.4.13 pinned persistent signer")
+require(full, "cn.yooss.moodiary.v3safe", "W9.8.4.13 parallel package identity")
+w98413=(ROOT/"moodiary-v3-w9-8-4-12/verify_apk.py").read_text()
+for needle in ("cn.yooss.moodiary.v3safe", "cn.yooss.moodiary.v3dev",
+  "2.9.3", "125", "arm64-v8a", "APK Sig Block 42", "0x7109871a",
+  "assets/flutter_assets/assets/lan/lan.js", "/api/v3/topics", "bodyOnly",
+  "snapshot", "minSdkVersion", "targetSdkVersion", "MOODIARY_SAFE_CERT_SHA256"):
+    require(w98413,needle,"W9.8.4.13 safe APK identity, signer, asset and ABI verifier")
 
 for needle in ("workflow_call:","build_apk:","moodiary-ci/prepare-workspace.sh",
   "Actual Chromium PC and mobile-width editor acceptance",
@@ -91,7 +93,7 @@ for needle in ("workflow_call:","build_apk:","moodiary-ci/prepare-workspace.sh",
   "test/mod_lan_database_cas_test.dart","test/mod_lan_month_http_test.dart",
   "test/mod_month_store_test.dart","test/editor_snapshot_test.dart",
   "test/mod_continuous_safety_test.dart","if: $" + "{{ inputs.build_apk }}",
-  "sha256sum --check app-v3dev-release.apk.sha256",
+  "sha256sum --check app-v3safe-release.apk.sha256",
   "BUILD-PROVENANCE.txt","retention-days: 90"):
     require(full,needle,"complete regression")
 
