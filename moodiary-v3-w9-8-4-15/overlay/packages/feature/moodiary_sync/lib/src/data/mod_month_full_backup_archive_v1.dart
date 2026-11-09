@@ -165,6 +165,92 @@ final class ModMonthFullBackupArchiveV1 {
     }
   }
 
+  /// Validate the current destination BEFORE replaying a recorded migration.
+  ///
+  /// A journal is proof of a selected source archive, not permission to merge
+  /// arbitrary records into a nonempty target. A crash can leave a subset of
+  /// native rows, but every such row must belong to that exact archive.
+  static Future<void> validateResumeTarget({
+    required MoodiaryDatabase db,
+    required SyncManifest manifest,
+    required String graph,
+    required String phase,
+  }) async {
+    if (!const {'verified', 'native_imported', 'graph_imported'}
+        .contains(phase)) {
+      _fail('migration_resume_phase_invalid');
+    }
+    final allowPartial = phase == 'verified';
+
+    Future<void> verifyTable(String table, String prefix) async {
+      final expected = <String, int>{
+        for (final entry in manifest.entries.entries)
+          if (!entry.value.deleted && entry.key.startsWith(prefix))
+            entry.key.substring(prefix.length): entry.value.timeMs,
+      };
+      final rows = await db.customSelect(
+        'SELECT id,last_modified FROM $table',
+      ).get();
+      if (!allowPartial && rows.length != expected.length) {
+        _fail('migration_resume_native_mismatch');
+      }
+      for (final row in rows) {
+        final id = row.read<String>('id');
+        if (expected[id] != row.read<int>('last_modified')) {
+          _fail('migration_resume_native_mismatch');
+        }
+      }
+    }
+
+    await verifyTable('diaries', SyncKeys.diaryPrefix);
+    await verifyTable('categories', SyncKeys.categoryPrefix);
+    await verifyTable('places', SyncKeys.placePrefix);
+
+    final expectedDeleted = <String, int>{
+      for (final entry in manifest.entries.entries)
+        if (entry.value.deleted) entry.key: entry.value.timeMs,
+    };
+    final actualDeleted = await TombstoneRepository(db).getAll();
+    if (!allowPartial && actualDeleted.length != expectedDeleted.length) {
+      _fail('migration_resume_tombstone_mismatch');
+    }
+    for (final row in actualDeleted) {
+      if (expectedDeleted[row.key] != row.timeMs) {
+        _fail('migration_resume_tombstone_mismatch');
+      }
+    }
+
+    const graphTables = [
+      'mod_month_pages', 'mod_month_blocks', 'mod_month_revisions',
+      'mod_month_heads', 'mod_month_ops', 'mod_day_pages',
+    ];
+    var occupied = false;
+    for (final table in graphTables) {
+      final count = await db.customSelect(
+        'SELECT COUNT(*) AS n FROM $table',
+      ).getSingle();
+      if (count.read<int>('n') != 0) occupied = true;
+    }
+    if (!occupied) {
+      if (phase == 'graph_imported') {
+        // An empty graph is valid only when the archive's graph is empty too.
+        final actual = await ModMonthGraphArchiveV2.exportGraph(db);
+        if (actual != graph) _fail('migration_resume_graph_mismatch');
+      }
+      return;
+    }
+    // The W9 graph is written atomically. A mixed/partial graph is NEVER
+    // considered a recoverable state, even when the source SHA matches.
+    try {
+      final actual = await ModMonthGraphArchiveV2.exportGraph(db);
+      if (actual != graph) _fail('migration_resume_graph_mismatch');
+    } on ModMonthFullBackupException {
+      rethrow;
+    } catch (_) {
+      _fail('migration_resume_graph_mismatch');
+    }
+  }
+
   /// Build a user-facing ZIP containing native records, every W9 revision,
   /// operation, day mapping and all media used by current or historical data.
   static Future<String> export({required MoodiaryDatabase db}) =>
@@ -280,6 +366,18 @@ final class ModMonthFullBackupArchiveV1 {
       final nativeManifest=SyncManifest.fromJson(manifestRaw);
       if(previous==null) {
         await _requireEmptyTarget(db);
+      } else {
+        await validateResumeTarget(
+          db: db,
+          manifest: nativeManifest,
+          graph: graph,
+          phase: previous['phase'] as String,
+        );
+      }
+      // A source file may be replaced while an expensive ZIP verification
+      // runs. Never bind an earlier SHA to bytes verified later.
+      if(await _hashFile(source)!=sourceSha) {
+        _fail('source_changed_during_verification');
       }
       // Bind the source only after the ZIP and all full-history receipts verify;
       // a malformed ZIP must not lock the target to an unusable source file.
