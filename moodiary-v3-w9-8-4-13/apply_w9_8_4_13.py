@@ -138,9 +138,38 @@ def main(root: Path) -> None:
         if needle not in archive_source:
             raise SystemExit("Backup payload does not prove diary/media coverage: " + needle)
 
+    # Do not overstate the upstream ZIP: it omits the custom W9 graph.
+    graph = root / "packages/feature_base/moodiary_data/lib/src/mod_month_graph_archive_v2.dart"
+    stage = root / "packages/feature/moodiary_sync/lib/src/data/mod_month_stream_stage_v2.dart"
+    bundle = root / "packages/feature/moodiary_sync/lib/src/data/mod_month_zip_bundle_v2.dart"
+    isolated = root / "packages/feature/moodiary_sync/lib/src/data/mod_month_isolated_restore_v2.dart"
+    for path in (graph, stage, bundle, isolated):
+        if not path.is_file():
+            raise SystemExit("W9 custom archive implementation missing: " + str(path))
+    for source, needles, label in (
+        (graph, (
+            "This is NOT a user backup, ZIP, WebDAV, native Diary or media archive.",
+            "restoreIntoIsolatedEmptyDatabaseForTest",
+        ), "W9 graph archive test-only contract"),
+        (stage, (
+            "NO production restore, ZIP export, WebDAV integration or ordinary Diary projection.",
+        ), "W9 streaming stage production-integration boundary"),
+        (bundle, (
+            "No live database writes, no WebDAV transport and no production backup UI.",
+            "It is NOT a native Diary restore, nor is it wired to the backup UI.",
+        ), "W9 ZIP bundle production-integration boundary"),
+        (isolated, (
+            "NEVER opens the app's live SQLite or media path.",
+        ), "W9 isolated restore safety boundary"),
+    ):
+        text = source.read_text(encoding="utf-8")
+        for needle in needles:
+            if needle not in text:
+                raise SystemExit("W9 migration readiness contract changed: " + label + ": " + needle)
+
     print("W9.8.4.13 applied: cn.yooss.moodiary.v3safe is a parallel-install package")
-    print("Migration path verified: built-in full backup ZIP export/import; old app remains untouched")
-    print("No old signing key, uninstall, app-data wipe, or live database copy is required")
+    print("Standard native Diary ZIP export/import contract verified; old app remains untouched")
+    print("IMPORTANT: W9 custom monthly/day graph migration is NOT production-wired; do not claim full migration readiness")
 
 
 if __name__ == "__main__":
