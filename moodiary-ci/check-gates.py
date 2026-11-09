@@ -197,11 +197,19 @@ for needle in ("requiresExplicitRetentionDecision","recoveryRequired",
     require(inventory_code,needle,"W9.8.4.10 non-destructive inventory gate")
 
 w98411=(ROOT/"moodiary-v3-w9-8-4-11/apply_w9_8_4_11.py").read_text()
+root_tests=(ROOT/"moodiary-v3-w9-8-4-11/overlay/packages/feature/moodiary_sync/test/sync/data/mod_month_android_restore_root_v2_test.dart").read_text()
 for needle in (
   "Android private root inspection returns null without creating a missing root",
   "Android private root inspection opens an existing verified root only",
   "Android private root inspection rejects a symlink without following it"):
-    require(w98411,needle,"W9.8.4.11 non-creating root inspection")
+    require(root_tests,needle,"W9.8.4.11 non-creating root inspection")
+panel_tests=(ROOT/"moodiary-v3-w9-8-4-11/overlay/mobile/test/app/settings/recovery_inventory_panel_test.dart").read_text()
+for needle in (
+  "empty inventory is explicit and read-only",
+  "verified copy shows measured size and opens inspection details",
+  "unverified states are visible and never become cleanup actions",
+  "failed inspection can be retried without changing files"):
+    require(panel_tests,needle,"W9.8.4.11 recovery inventory UI acceptance")
 for workflow in (fast,full):
     for path in (
       "mod_month_android_restore_root_v2_test.dart",
