@@ -67,12 +67,12 @@ require(full, "verify --verbose --print-certs", "W9.8.4.13 cryptographic APK sig
 require(full, '"$apksigner"', "W9.8.4.13 Android apksigner binary")
 require(full, "dump badging", "W9.8.4.13 Android package manifest verification")
 require(full, '"$aapt"', "W9.8.4.13 Android aapt binary")
-require(full, "versionCode='125' versionName='2.9.3'", "W9.8.4.13 exact safe app version")
+require(full, "versionCode='126' versionName='2.9.4'", "W9.8.4.13 exact safe app version")
 require(full, "MOODIARY_SAFE_CERT_SHA256", "W9.8.4.13 pinned persistent signer")
 require(full, "cn.yooss.moodiary.v3safe", "W9.8.4.13 parallel package identity")
 w98413=(ROOT/"moodiary-v3-w9-8-4-12/verify_apk.py").read_text()
 for needle in ("cn.yooss.moodiary.v3safe", "cn.yooss.moodiary.v3dev",
-  "2.9.3", "125", "arm64-v8a", "APK Sig Block 42", "0x7109871a",
+  "2.9.4", "126", "arm64-v8a", "APK Sig Block 42", "0x7109871a",
   "assets/flutter_assets/assets/lan/lan.js", "/api/v3/topics", "bodyOnly",
   "snapshot", "minSdkVersion", "targetSdkVersion", "MOODIARY_SAFE_CERT_SHA256"):
     require(w98413,needle,"W9.8.4.13 safe APK identity, signer, asset and ABI verifier")
@@ -330,8 +330,8 @@ for needle in (
     require(safe_keygen,needle,"W9.8.4.13 persistent signing-key generator")
 for needle in (
   'EXPECTED_PACKAGE = "cn.yooss.moodiary.v3safe"',
-  'EXPECTED_VERSION_CODE = 125',
-  'EXPECTED_VERSION_NAME = "2.9.3"',
+  'EXPECTED_VERSION_CODE = 126',
+  'EXPECTED_VERSION_NAME = "2.9.4"',
   "MOODIARY_SAFE_CERT_SHA256",
   "signer_matches_persistent_safe_key",
   "parallel_install_is_safe",
