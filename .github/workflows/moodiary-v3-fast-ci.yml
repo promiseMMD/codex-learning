@@ -115,7 +115,7 @@ jobs:
         run: flutter pub get
       - name: Format V2 ZIP-to-generation integration and regression test
         working-directory: upstream
-        run: dart format packages/feature/moodiary_sync/lib/src/data/mod_month_zip_generation_install_v2.dart packages/feature/moodiary_sync/test/sync/data/mod_month_isolated_restore_v2_test.dart
+        run: dart format packages/feature/moodiary_sync/lib/src/data/mod_month_zip_generation_install_v2.dart packages/feature/moodiary_sync/lib/src/data/mod_month_private_restore_workspace_v2.dart packages/feature/moodiary_sync/test/sync/data/mod_month_isolated_restore_v2_test.dart
       - name: Turn off unused Rust assets ONLY for Dart tests
         working-directory: upstream
         shell: bash
