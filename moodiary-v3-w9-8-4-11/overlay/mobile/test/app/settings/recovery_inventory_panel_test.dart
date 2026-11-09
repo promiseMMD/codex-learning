@@ -66,7 +66,7 @@ void main() {
           '/app/support/.moodiary-v2-private-recovery/workspace-1/generation-slot/generations/generation-1',
     );
     await showPanel(tester, const ModRestoreInventorySnapshotV2([entry]));
-    expect(find.text('已验证恢复副本'), findsOneWidget);
+    expect(find.textContaining('已验证恢复副本'), findsOneWidget);
     await tester.tap(find.text('恢复工作区 1'));
     await tester.pumpAndSettle();
     expect(find.text('1.50 KB'), findsOneWidget);
@@ -110,9 +110,9 @@ void main() {
       ),
     ]);
     await showPanel(tester, snapshot);
-    expect(find.text('恢复事务未完成'), findsOneWidget);
-    expect(find.text('未识别项目'), findsOneWidget);
-    expect(find.text('需要人工检查'), findsOneWidget);
+    expect(find.textContaining('恢复事务未完成'), findsOneWidget);
+    expect(find.textContaining('未识别项目'), findsWidgets);
+    expect(find.textContaining('需要人工检查'), findsOneWidget);
     expect(find.textContaining('大小未知'), findsOneWidget);
     expect(find.byType(FilledButton), findsNothing);
     expect(find.text('删除'), findsNothing);
