@@ -9,6 +9,7 @@ fi
 set -euo pipefail
 base64 --decode moodiary-longrecord/build-payload.b64 > /tmp/moodiary-v3-w1.zip
 unzip -q /tmp/moodiary-v3-w1.zip
+python3 moodiary-ci/inspect-w1-topic-classifier.py
 python3 modkit/verify_patch.py
 set -euo pipefail
 git clone --no-checkout https://github.com/ZhuJHua/moodiary.git upstream
