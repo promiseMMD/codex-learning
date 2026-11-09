@@ -164,7 +164,9 @@ final class ModMonthAndroidPrivateRestoreV2 {
     // Do not initialize it a second time or accept a path from user input.
     try {
       return PlatformService.get().applicationSupportPath;
-    } on LateInitializationError {
+    } on Error {
+      // Access to the single late-final field is the only operation above.
+      // A missing platform bootstrap must fail closed with a typed code.
       _fail('android_restore_platform_not_initialized');
     }
   }
