@@ -67,6 +67,7 @@ void main() {
     );
     await showPanel(tester, const ModRestoreInventorySnapshotV2([entry]));
     expect(find.textContaining('已验证恢复副本'), findsOneWidget);
+    expect(find.textContaining('重置应用数据前'), findsOneWidget);
     await tester.tap(find.text('恢复工作区 1'));
     await tester.pumpAndSettle();
     expect(find.text('1.50 KB'), findsOneWidget);

@@ -165,6 +165,14 @@ class RecoveryInventoryPanel extends ConsumerWidget {
           trailing: const Icon(Icons.chevron_right),
           onTap: () => _showDetails(context, snapshot.entries[i], i),
         ),
+      if (snapshot.requiresExplicitRetentionDecision)
+        MNoticeItem(
+          icon: LucideIcons.info,
+          title: _recoveryText(
+            '检测到隔离恢复副本。重置应用数据前，必须人工确认其保留安排。',
+            'Isolated recovery copies exist. Confirm their retention before resetting app data.',
+          ),
+        ),
       if (snapshot.hasUnverifiedItems)
         MNoticeItem(
           icon: LucideIcons.triangleAlert,
