@@ -104,7 +104,7 @@ for needle in ("refs/heads/main","environment: android-device-qa",
   'test "$TESTED_APK_SHA256" = "$actual_sha"'):
     require(release,needle,"Android release gate")
 
-for needle in ("git checkout 2c552ddd7939a054122380397fb914cf000824b0",
+for needle in ("git checkout 570ff99cd150fb2d45eb0949344f7bda22e32bde",
   "modkit/verify_patch.py","modkit/apply_v3_patch.py",
   "moodiary-v3-w9-7-4/apply_w9_7_4.py",
   "moodiary-v3-w9-7-5/apply_w9_7_5.py",
@@ -341,4 +341,5 @@ if full.count("MOODIARY_SAFE_KEYSTORE_BASE64") < 2:
     raise SystemExit("APK workflow must both provision and validate persistent signing material")
 subprocess.run(["python3", str(ROOT/"moodiary-v3-w9-8-4-13/test_safe_install.py")], check=True)
 
+require(full, "upstream_commit=570ff99cd150fb2d45eb0949344f7bda22e32bde", "W9.8.4.14 latest upstream provenance")
 print("All CI contracts verified: quick, full coverage, APK SHA and device QA")
