@@ -30,10 +30,10 @@ expected_root = root_source.read_text(encoding="utf-8")
 current_root = root_target.read_text(encoding="utf-8")
 if current_root != expected_root:
     root_method = """  /// Returns the already-existing, identity-verified Android private root.
-    ///
-    /// Unlike createOrOpenForSupport(), this method never creates the root.
-    /// A missing root is a normal empty-state result for read-only inventory UI.
-    static Future<ModMonthPrivateRestoreRootV2?> openExistingIfPresentForSupport({
+  ///
+  /// Unlike createOrOpenForSupport(), this method never creates the root.
+  /// A missing root is a normal empty-state result for read-only inventory UI.
+  static Future<ModMonthPrivateRestoreRootV2?> openExistingIfPresentForSupport({
     required String applicationSupportDirectory,
   }) async {
     final support=await _supportDirectory(applicationSupportDirectory);
@@ -47,8 +47,8 @@ if current_root != expected_root:
 
 """
     root_facade = """  /// Opens an existing private root for read-only inspection, or returns null.
-    /// It never creates the root or a workspace.
-    static Future<ModMonthPrivateRestoreRootV2?> openExistingRootIfPresent() async {
+  /// It never creates the root or a workspace.
+  static Future<ModMonthPrivateRestoreRootV2?> openExistingRootIfPresent() async {
     return ModMonthPrivateRestoreRootV2.openExistingIfPresentForSupport(
       applicationSupportDirectory:_supportRoot(),
     );
