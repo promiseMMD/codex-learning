@@ -136,7 +136,8 @@ final class ModMonthFullBackupArchiveV1 {
        value['format']!=_journalFormat ||
        value['version']!=_journalVersion ||
        value['sourceSha256'] is! String ||
-       value['phase'] is! String) {
+       !const {'verified','native_imported','graph_imported','completed'}
+           .contains(value['phase'])) {
       _fail('migration_journal_invalid');
     }
     return value;
@@ -254,10 +255,7 @@ final class ModMonthFullBackupArchiveV1 {
     final sourceSha=await _hashFile(source);
     final journal=await _journalFile();
     final previous=await _readJournal(journal);
-    if(previous==null) {
-      await _requireEmptyTarget(db);
-      await _writeJournal(journal,sourceSha,'started');
-    } else {
+    if(previous!=null) {
       if(previous['sourceSha256']!=sourceSha) {
         _fail('different_source_for_incomplete_migration');
       }
@@ -280,6 +278,11 @@ final class ModMonthFullBackupArchiveV1 {
       );
       if(manifestRaw is! Map<String,dynamic>)_fail('native_manifest_invalid');
       final nativeManifest=SyncManifest.fromJson(manifestRaw);
+      if(previous==null) {
+        await _requireEmptyTarget(db);
+      }
+      // Bind the source only after the ZIP and all full-history receipts verify;
+      // a malformed ZIP must not lock the target to an unusable source file.
       await _writeJournal(journal,sourceSha,'verified');
 
       final report=await LocalArchive.importDirectory(
