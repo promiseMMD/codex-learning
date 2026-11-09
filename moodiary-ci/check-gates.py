@@ -104,7 +104,8 @@ for needle in ("git checkout 2c552ddd7939a054122380397fb914cf000824b0",
   "moodiary-v3-w9-8-4-6/apply_w9_8_4_6.py",
   "moodiary-v3-w9-8-4-7/apply_w9_8_4_7.py",
   "moodiary-v3-w9-8-4-8/apply_w9_8_4_8.py",
-  "moodiary-v3-w9-8-4-9/apply_w9_8_4_9.py"):
+  "moodiary-v3-w9-8-4-9/apply_w9_8_4_9.py",
+  "moodiary-v3-w9-8-4-10/apply_w9_8_4_10.py"):
     require(prepare,needle,"pinned source assembly")
 w9845=(ROOT/"moodiary-v3-w9-8-4-5/apply_w9_8_4_5.py").read_text()
 for needle in (
@@ -174,6 +175,25 @@ for needle in ("PlatformService.get().applicationSupportPath",
   "android_restore_private_root_identity_invalid","createNewWorkspace()",
   "openExistingWorkspace(","_verifyDirectory()"):
     require(app_root_code,needle,"W9.8.4.9 trusted Android app-support root")
+
+w98410=(ROOT/"moodiary-v3-w9-8-4-10/apply_w9_8_4_10.py").read_text()
+for needle in (
+  "V2 inventory is empty without any restore workspaces",
+  "V2 inventory recognizes verified immutable generation without mutation",
+  "V2 inventory keeps an interrupted journal without repairing it",
+  "V2 inventory refuses to own unknown user files",
+  "V2 inventory preserves a symlink replacing a workspace",
+  "V2 inventory flags a replaced workspace identity and preserves bytes",
+  "V2 inventory marks an unexpected preview for manual review",
+  "V2 inventory preserves an unexpected file inside an owned workspace"):
+    require(w98410,needle,"W9.8.4.10 recovery copy retention regressions")
+for workflow in (fast,full):
+    require(workflow,"mod_month_restore_inventory_v2.dart",
+            "W9.8.4.10 restore inventory source checks")
+inventory_code=(ROOT/"moodiary-v3-w9-8-4-10/overlay/packages/feature/moodiary_sync/lib/src/data/mod_month_restore_inventory_v2.dart").read_text()
+for needle in ("requiresExplicitRetentionDecision","recoveryRequired",
+  "unrecognized","maxEntries","followLinks:false","openExistingWorkspace("):
+    require(inventory_code,needle,"W9.8.4.10 non-destructive inventory gate")
 
 # Changes to CI workflows or their gate scripts must exercise sensitive
 # tests as well; otherwise a workflow-only commit can appear green while
