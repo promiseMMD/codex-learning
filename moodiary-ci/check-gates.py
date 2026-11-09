@@ -99,7 +99,7 @@ for needle in ("workflow_call:","build_apk:","moodiary-ci/prepare-workspace.sh",
 
 for needle in ("refs/heads/main","environment: android-device-qa",
   "tested_sha","tested_apk_sha256","qa_evidence",
-  "sha256sum --check app-v3dev-release.apk.sha256",
+  "sha256sum --check app-v3safe-release.apk.sha256",
   'test "$TESTED_SHA" = "$GITHUB_SHA"',
   'test "$TESTED_APK_SHA256" = "$actual_sha"'):
     require(release,needle,"Android release gate")
