@@ -285,6 +285,7 @@ safe_tests=(ROOT/"moodiary-v3-w9-8-4-13/test_safe_install.py").read_text()
 safe_docs=(ROOT/"moodiary-v3-w9-8-4-13/SAFE-INSTALL-MIGRATION.md").read_text()
 safe_keygen=(ROOT/"moodiary-v3-w9-8-4-13/generate-safe-signing-key.ps1").read_text()
 safe_verifier=(ROOT/"moodiary-v3-w9-8-4-12/verify_apk.py").read_text()
+release_gate=(ROOT/"moodiary-ci/check-release-readiness.py").read_text()
 safe_bundle=(ROOT/"moodiary-v3-w9-8-4-2/overlay/packages/feature/moodiary_sync/lib/src/data/mod_month_zip_bundle_v2.dart").read_text()
 for needle in (
   'create("v3safe")',
@@ -333,8 +334,9 @@ for needle in (
   'EXPECTED_VERSION_NAME = "2.9.3"',
   "MOODIARY_SAFE_CERT_SHA256",
   "signer_matches_persistent_safe_key",
-  "parallel_install_is_safe"):
-    require(safe_verifier,needle,"W9.8.4.13 APK identity and signer verifier")
+  "parallel_install_is_safe",
+  '"full_custom_migration_ready": False'):
+    require(safe_verifier,needle,"W9.8.4.14 APK identity and migration readiness report")
 for needle in (
   "MOODIARY_SAFE_KEYSTORE_BASE64",
   "MOODIARY_SAFE_STORE_PASSWORD",
@@ -344,6 +346,10 @@ for needle in (
   "flutter build apk --flavor v3safe",
   "app-v3safe-release.apk"):
     require(full,needle,"W9.8.4.13 fail-closed APK signing workflow")
+require(full,"check-release-readiness.py","W9.8.4.14 APK migration release gate")
+require(full,'signer_certificate_sha256',"W9.8.4.14 signer parsed from verifier JSON")
+require(release_gate,"MIGRATION_READY = False","W9.8.4.14 APK blocked until full migration")
+require(release_gate,"mod_month_revisions","W9.8.4.14 release gate covers revision-history migration")
 require(full,"secrets:","W9.8.4.13 reusable workflow signing secret contract")
 require(fast,"secrets: inherit","W9.8.4.13 safe signing secret inheritance")
 if full.count("MOODIARY_SAFE_KEYSTORE_BASE64") < 2:
