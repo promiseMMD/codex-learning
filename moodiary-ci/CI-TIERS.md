@@ -14,6 +14,7 @@ Recent successful complete W7 runs were approximately **24–30 minutes**. Frequ
 
 ## Maintainability
 - Source assembly is moved to `moodiary-ci/prepare-workspace.sh` and reused verbatim by fast/full, eliminating duplicated patch order.
+- Push cancellation is scoped to the `fast` job only. A newer push may replace a still-running fast check, but cannot cancel a Full Acceptance run that has already started; the reusable full workflow retains `cancel-in-progress: false`.
 - Original `moodiary-v3-lan-w1.yml` remains unchanged for **transition parity**, but newly created feature branches are not added to its old hard-coded list. Remove its automatic push triggers only after parity and integration branch adoption.
 - Full CI is a single reusable job, `build_apk=false` normally. Native NDK/Rust setup and APK upload require `build_apk=true`. Flutter action pub cache enabled.
 - Sensitivity rules may over-trigger, never intentionally under-trigger on unknown Git state. The PR merge check runs full irrespective of file pattern to prevent data-risk escapes.

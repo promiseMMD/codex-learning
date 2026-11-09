@@ -22,11 +22,11 @@ on:
           - apk
 permissions:
   contents: read
-concurrency:
-  group: moodiary-fast-${{ github.ref }}-${{ github.event_name }}
-  cancel-in-progress: ${{ github.event_name == 'push' }}
 jobs:
   fast:
+    concurrency:
+      group: moodiary-fast-${{ github.ref }}-${{ github.event_name }}
+      cancel-in-progress: ${{ github.event_name == 'push' }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     outputs:
