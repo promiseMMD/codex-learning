@@ -102,7 +102,8 @@ for needle in ("git checkout 2c552ddd7939a054122380397fb914cf000824b0",
   "moodiary-v3-w9-8-4-4/apply_w9_8_4_4.py",
   "moodiary-v3-w9-8-4-5/apply_w9_8_4_5.py",
   "moodiary-v3-w9-8-4-6/apply_w9_8_4_6.py",
-  "moodiary-v3-w9-8-4-7/apply_w9_8_4_7.py"):
+  "moodiary-v3-w9-8-4-7/apply_w9_8_4_7.py",
+  "moodiary-v3-w9-8-4-8/apply_w9_8_4_8.py"):
     require(prepare,needle,"pinned source assembly")
 w9845=(ROOT/"moodiary-v3-w9-8-4-5/apply_w9_8_4_5.py").read_text()
 for needle in (
@@ -133,6 +134,24 @@ preview_fence=(ROOT/"moodiary-v3-w9-8-4-7/overlay/packages/feature/moodiary_sync
 for needle in ("_checkPreviewIsolation(", "resolveSymbolicLinks()",
   "preview_slot_path_overlap", "preview_isolation_unverifiable"):
     require(preview_fence,needle,"W9.8.4.7 canonical preview path preflight")
+
+w9848=(ROOT/"moodiary-v3-w9-8-4-8/apply_w9_8_4_8.py").read_text()
+for needle in (
+  "private workspace installs a verified isolated ZIP and reopens cleanly",
+  "private workspace refuses a symlinked caller-provided root",
+  "private workspace refuses forged identity before reading data",
+  "private workspace never overwrites a foreign preview directory",
+  "private workspace refuses archives located inside its own directory",
+  "private workspace cannot reopen an unrelated path"):
+    require(w9848,needle,"W9.8.4.8 private workspace acceptance")
+for workflow in (fast,full):
+    require(workflow,"mod_month_private_restore_workspace_v2.dart",
+            "W9.8.4.8 isolated workspace source formatting")
+workspace_code=(ROOT/"moodiary-v3-w9-8-4-8/overlay/packages/feature/moodiary_sync/lib/src/data/mod_month_private_restore_workspace_v2.dart").read_text()
+for needle in ("createTemp(_prefix)","private_root_not_regular_directory",
+   "private_workspace_identity_invalid","private_restore_archive_inside_workspace",
+   "ModMonthZipGenerationInstallV2.install"):
+    require(workspace_code,needle,"W9.8.4.8 private path ownership fence")
 
 # Changes to CI workflows or their gate scripts must exercise sensitive
 # tests as well; otherwise a workflow-only commit can appear green while
