@@ -39,7 +39,28 @@ final class ModMonthZipPreflightV2 {
 
   /// Only examines ZIP structure. No archive extraction and no user data
   /// mutation occurs here. Actual file SHA-256 checks happen after extraction.
-  static Future<List<String>> inspect(String zipPath) async {
+  static Future<List<String>> inspect(String zipPath) =>
+      _inspect(zipPath, requireV2: true);
+
+  /// Inspect filenames without requiring the new W9 history markers.
+  /// This is used only to route existing ordinary backup ZIPs back to the
+  /// original LocalArchive restore policy; no extraction or DB write occurs.
+  static Future<List<String>> inspectForBackupRouting(String zipPath) =>
+      _inspect(zipPath, requireV2: false);
+
+  /// An archive with exactly one W9 marker is an incomplete full backup:
+  /// never silently downgrade its import to a normal/snapshot restore.
+  static bool hasCompleteFullHistoryMarkers(Iterable<String> names) {
+    final paths=names.toSet();
+    final manifest=paths.contains('verified-day-bundle-v2.json');
+    final graph=paths.contains(ModMonthVerifiedManifestV2.graphPath);
+    if(manifest!=graph) _fail('incomplete_full_history_markers');
+    return manifest && graph;
+  }
+
+  static Future<List<String>> _inspect(
+    String zipPath, {required bool requireV2},
+  ) async {
     if (await FileSystemEntity.type(zipPath, followLinks: false) !=
         FileSystemEntityType.file) {
       _fail('zip_not_regular_file');
@@ -71,7 +92,7 @@ final class ModMonthZipPreflightV2 {
       if (disk != 0 || directoryDisk != 0 || diskCount != entryCount) {
         _fail('multidisk_zip_not_supported');
       }
-      if (entryCount < 3 || entryCount > maxEntries ||
+      if (entryCount < (requireV2 ? 3 : 1) || entryCount > maxEntries ||
           entryCount == 0xffff || directoryBytes == 0xffffffff ||
           directoryOffset == 0xffffffff) {
         _fail('zip_directory_unsupported');
@@ -176,9 +197,10 @@ final class ModMonthZipPreflightV2 {
         at = end;
       }
       if (at != central.length ||
-          !seen.contains('verified-day-bundle-v2.json') ||
-          !seen.contains('manifest.json') ||
-          !seen.contains(ModMonthVerifiedManifestV2.graphPath)) {
+          (requireV2 &&
+            (!seen.contains('verified-day-bundle-v2.json') ||
+             !seen.contains('manifest.json') ||
+             !seen.contains(ModMonthVerifiedManifestV2.graphPath)))) {
         _fail('zip_required_entries_missing');
       }
       return names;
