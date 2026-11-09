@@ -59,21 +59,34 @@ Future<void> seed(MoodiaryDatabase db) async {
 Future<Map<String,Uint8List>> payload(MoodiaryDatabase db) async {
   final d=buildDiary(id:topic,title:'正常的长期主题',
     images:['native.png']).copyWith(tags:['test-long-topic']);
+  final graph=await ModMonthGraphArchiveV2.exportGraph(db);
+  final dayBindings=await db.customSelect(
+    'SELECT diary_id FROM mod_day_pages WHERE diary_id IS NOT NULL').get();
+  final boundIds={
+    for(final row in dayBindings) row.read<String>('diary_id'),
+  };
+  final boundDiaries={
+    for(final id in boundIds)
+      id:buildDiary(id:id,title:'日期映射原生日记',modifiedMs:111),
+  };
   final manifest=SyncManifest(
     version:SyncManifest.currentVersion,updatedAtMs:120,
     entries:{
       'd:$topic':const ManifestEntry(
         timeMs:110,media:['image/native.png']),
+      for(final id in boundIds)
+        'd:$id':const ManifestEntry(timeMs:111),
       'd:deleted-00000001':const ManifestEntry(timeMs:90,deleted:true),
     },
   );
   return {
     'manifest.json':bytes(jsonEncode(manifest.toJson())),
     'diary/$topic.json':bytes(jsonEncode(d.toJson())),
+    for(final e in boundDiaries.entries)
+      'diary/${e.key}.json':bytes(jsonEncode(e.value.toJson())),
     'media/image/native.png':Uint8List.fromList([1,2,3]),
     'media/image/history.png':Uint8List.fromList([4,5,6]),
-    ModMonthVerifiedManifestV2.graphPath:
-      bytes(await ModMonthGraphArchiveV2.exportGraph(db)),
+    ModMonthVerifiedManifestV2.graphPath:bytes(graph),
   };
 }
 
@@ -112,6 +125,30 @@ void main(){
     final envelope=jsonDecode(utf8.decode(
       files[ModMonthVerifiedManifestV2.graphPath]!)) as Map<String,dynamic>;
     expect((envelope['dayPages'] as List<dynamic>).single['visible_local'],0);
+  });
+
+  test('day Diary binding must be present in the same native archive',() async {
+    await db.customStatement(
+      'INSERT INTO diaries'
+      '(id,title,content,content_text,time,last_modified,show,type)'
+      ' VALUES(?,?,?,?,?,?,?,?)',
+      ['native-day-0001','日期映射原生日记','原始内容','原始内容',1,111,1,'tiptap']);
+    await db.customStatement(
+      'UPDATE mod_day_pages SET diary_id=? WHERE topic_id=? AND day_key=?',
+      ['native-day-0001',topic,day]);
+    final files=await payload(db);
+    final sealed=ModMonthVerifiedManifestV2.seal(
+      staged:files,isTopic:isTopic);
+    ModMonthVerifiedManifestV2.verify(
+      manifest:sealed,staged:files,isTopic:isTopic);
+    final native=SyncManifest.fromJson(
+      jsonDecode(utf8.decode(files['manifest.json']!)) as Map<String,dynamic>);
+    native.entries.remove(SyncKeys.diary('native-day-0001'));
+    files['manifest.json']=bytes(jsonEncode(native.toJson()));
+    expect(()=>ModMonthVerifiedManifestV2.seal(
+      staged:files,isTopic:isTopic),
+      throwsA(isA<ModBundleInvalid>().having(
+        (e)=>e.code,'code','bound_day_diary_not_backed_up')));
   });
 
   test('missing historical media aborts even if native media is complete',() async {
