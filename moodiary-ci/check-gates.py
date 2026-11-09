@@ -318,7 +318,7 @@ for needle in (
   "NO production restore, ZIP export",
   "No live database writes"):
     require(safe_patch,needle,"W9.8.4.14 explicit custom-data migration blocker")
-require(safe_bundle,"not wired to the backup UI","W9.8.4.14 offline-only ZIP boundary")
+require(safe_bundle,"nor is it wired to the backup UI","W9.8.4.14 offline-only ZIP boundary")
 for needle in (
   "MOODIARY_SAFE_KEYSTORE_BASE64",
   "MOODIARY_SAFE_STORE_PASSWORD",
