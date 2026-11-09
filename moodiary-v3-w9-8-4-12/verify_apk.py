@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fail-closed structural verifier for the Moodiary W9.8.4.12 ARM64 test APK."""
+"""Fail-closed structural verifier for the Moodiary W9.8.4.13 safe parallel-install ARM64 APK."""
 from __future__ import annotations
 import hashlib
 import json
@@ -216,7 +216,6 @@ def main() -> None:
         "native_editor_snapshot_assets": True,
         "signing_block_ids": signing_ids,
         "signer_certificate_sha256": signer_sha256,
-        "previous_w9_5_2_dev_signer_sha256": PREVIOUS_DEV_SIGNER_SHA256,
         "expected_safe_signer_sha256": expected_signer,
         "signer_matches_persistent_safe_key": True,
         "previous_dev_signer_sha256": PREVIOUS_DEV_SIGNER_SHA256,
