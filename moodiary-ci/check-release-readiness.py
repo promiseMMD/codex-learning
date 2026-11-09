@@ -8,6 +8,7 @@ MIGRATION_READY = False
 
 BLOCKERS = (
     "ordinary LocalArchive ZIP omits custom W9 month/day tables",
+    "mod_month_revisions, mod_month_heads, mod_month_ops and mod_day_pages are not in the ordinary ZIP",
     "W9 graph export/ZIP/restore is not wired to the production backup UI",
     "the old installed APK cannot be updated with a new exporter because its signing key is unavailable",
     "the current LAN month API returns latest heads, not full revision/operation history",
