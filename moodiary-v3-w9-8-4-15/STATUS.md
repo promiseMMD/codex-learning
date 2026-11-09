@@ -48,3 +48,18 @@ database copy is obtained. No partial snapshot will be presented as complete.
   or confirms that it contains no W9 data requiring historical recovery.
 - Persistent signing key and Actions secrets configured.
 - Signed ARM64 APK and Xiaomi 14 Pro / HyperOS 3 device acceptance pass.
+
+
+## 2026-11-09 repair verification
+
+- Commit 26efbfe repaired the corrupted duplicated Dart source
+  mod_month_graph_archive_v2.dart by rebuilding it from the previously
+  passing W9.8.4.14 baseline, retaining the production migration method.
+- Commit 88b5b10 fixed the brittle LocalArchive.importDirectory Python
+  patch anchor, so it adapts safely to the prepared method signature.
+- Fast CI run 42589617826 passed all steps on 88b5b10, including exact
+  source preparation, editor/LAN tests, SQLite/WebDAV regressions,
+  SIGKILL cross-process recovery and older-database migration checks.
+- This does not certify the new full archive export/import end-to-end.
+  Full CI is required next. Signing and release remain fail-closed.
+- Old v3dev package and user data were not accessed or modified.
