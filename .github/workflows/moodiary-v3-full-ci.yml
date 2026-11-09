@@ -297,7 +297,7 @@ jobs:
           "$apksigner" verify --verbose --print-certs "$apk" | tee /tmp/moodiary-ci-delivery/SIGNATURE.txt
           grep -F "Verified using v2 scheme (APK Signature Scheme v2): true" /tmp/moodiary-ci-delivery/SIGNATURE.txt
           "$aapt" dump badging "$apk" | tee /tmp/moodiary-ci-delivery/MANIFEST.txt
-          grep -F "package: name='cn.yooss.moodiary.v3safe' versionCode='125' versionName='2.9.3'" /tmp/moodiary-ci-delivery/MANIFEST.txt
+          grep -F "package: name='cn.yooss.moodiary.v3safe' versionCode='126' versionName='2.9.4'" /tmp/moodiary-ci-delivery/MANIFEST.txt
           grep -F "sdkVersion:'28'" /tmp/moodiary-ci-delivery/MANIFEST.txt
           grep -F "targetSdkVersion:'36'" /tmp/moodiary-ci-delivery/MANIFEST.txt
           cp "$apk" /tmp/moodiary-ci-delivery/app-v3safe-release.apk
@@ -318,8 +318,8 @@ jobs:
             echo "parallel_install=true"
             echo "full_custom_migration_ready=false"
             echo "migration_method=ordinary native ZIP only; W9 custom migration pending"
-            echo "version_name=2.9.3"
-            echo "version_code=125"
+            echo "version_name=2.9.4"
+            echo "version_code=126"
             echo "abi=arm64-v8a"
             echo "signer_certificate_sha256=$actual_signer"
             echo "signer_compatibility=stable-persistent-v3safe-key"
