@@ -63,3 +63,19 @@ database copy is obtained. No partial snapshot will be presented as complete.
 - This does not certify the new full archive export/import end-to-end.
   Full CI is required next. Signing and release remain fail-closed.
 - Old v3dev package and user data were not accessed or modified.
+
+## Stabilization-only phase (2026-11-09)
+
+Scope frozen. No new diary, LAN, WebDAV, recovery-inventory, or editor features.
+The original `cn.yooss.moodiary.v3dev` installation and all user data remain untouched.
+
+- Restore legacy ordinary ZIP import to its original `LocalArchive.import`
+  and `RestorePolicy` branch.
+- Route archives containing both full-history markers to the strict V2
+  importer; reject incomplete marker pairs instead of silently downgrading.
+- Add an explicit test importing the production W9.8.4.15 backup service so
+  Full CI must compile that code, rather than skipping it.
+- Follow-up tests still required: real legacy ZIP, full V2 ZIP, full-fidelity
+  round-trip of six tables, hashes, tombstones and interrupted import.
+- This is a test candidate, not a release or an approved migration of the
+  previously installed old app. The release-readiness gate stays closed.
