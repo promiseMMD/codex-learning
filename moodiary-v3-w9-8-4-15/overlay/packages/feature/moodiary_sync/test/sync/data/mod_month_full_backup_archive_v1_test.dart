@@ -1,5 +1,9 @@
 import 'dart:io';
 
+import 'package:drift/drift.dart';
+import 'package:drift/native.dart';
+import 'package:moodiary_data/moodiary_data.dart';
+import '../../../lib/src/data/model/manifest.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../../lib/src/data/mod_month_full_backup_archive_v1.dart';
@@ -148,6 +152,107 @@ with zipfile.ZipFile(sys.argv[1], 'w', compression=zipfile.ZIP_STORED) as archiv
         (e) => e.code, 'code', 'zip_truncated',
       )),
     );
+  });
+
+  test('resume: only source-owned native rows can survive an interrupted import', () async {
+    final db = MoodiaryDatabase.forTesting(NativeDatabase.memory());
+    try {
+      await db.customSelect('SELECT 1').get();
+      final graph = await ModMonthGraphArchiveV2.exportGraph(db);
+      final manifest = SyncManifest(
+        version: SyncManifest.currentVersion,
+        updatedAtMs: 10,
+        entries: {
+          SyncKeys.diary('expected-diary'): const ManifestEntry(timeMs: 200),
+        },
+      );
+      Future<void> check(String phase) =>
+          ModMonthFullBackupArchiveV1.validateResumeTarget(
+            db: db, manifest: manifest, graph: graph, phase: phase,
+          );
+      // A crash directly after creating the journal can leave an empty DB.
+      await check('verified');
+      await expectLater(check('native_imported'),
+          throwsA(isA<ModMonthFullBackupException>().having(
+            (e) => e.code, 'code', 'migration_resume_native_mismatch')));
+      await db.customStatement(
+        'INSERT INTO diaries '
+        '(id,title,content,content_text,time,last_modified,show,type) '
+        'VALUES(?,?,?,?,?,?,?,?)',
+        ['expected-diary', 'safe', 'safe', 'safe', 100, 200, 1, 'tiptap'],
+      );
+      // A crash mid-native-import is recoverable only for source-owned rows.
+      await check('verified');
+      await check('native_imported');
+      await check('graph_imported');
+      await db.customStatement(
+        'INSERT INTO diaries '
+        '(id,title,content,content_text,time,last_modified,show,type) '
+        'VALUES(?,?,?,?,?,?,?,?)',
+        ['unrelated-diary', 'keep', 'keep', 'keep', 100, 200, 1, 'tiptap'],
+      );
+      await expectLater(check('verified'),
+          throwsA(isA<ModMonthFullBackupException>().having(
+            (e) => e.code, 'code', 'migration_resume_native_mismatch')));
+      // The failed guard must not modify an unrelated diary.
+      final retained = await db.customSelect(
+        'SELECT content FROM diaries WHERE id=?',
+        variables: [Variable.withString('unrelated-diary')],
+      ).getSingle();
+      expect(retained.read<String>('content'), 'keep');
+    } finally {
+      await db.close();
+    }
+  });
+
+  test('resume refuses timestamp mismatch, alien tombstone, and partial W9 graph', () async {
+    final db = MoodiaryDatabase.forTesting(NativeDatabase.memory());
+    try {
+      await db.customSelect('SELECT 1').get();
+      final graph = await ModMonthGraphArchiveV2.exportGraph(db);
+      final manifest = SyncManifest(
+        version: SyncManifest.currentVersion,
+        updatedAtMs: 10,
+        entries: {
+          SyncKeys.diary('expected-diary'): const ManifestEntry(timeMs: 200),
+        },
+      );
+      Future<void> check() =>
+          ModMonthFullBackupArchiveV1.validateResumeTarget(
+            db: db, manifest: manifest, graph: graph, phase: 'verified',
+          );
+      await db.customStatement(
+        'INSERT INTO diaries '
+        '(id,title,content,content_text,time,last_modified,show,type) '
+        'VALUES(?,?,?,?,?,?,?,?)',
+        ['expected-diary', 'same-id', 'different', 'different', 100, 201, 1, 'tiptap'],
+      );
+      await expectLater(check(), throwsA(isA<ModMonthFullBackupException>()
+          .having((e) => e.code, 'code', 'migration_resume_native_mismatch')));
+      await db.customStatement(
+        'UPDATE diaries SET last_modified=? WHERE id=?',
+        [200, 'expected-diary'],
+      );
+      await check();
+      await TombstoneRepository(db).putAll([
+        SyncTombstone(
+          key: SyncKeys.diary('alien-deleted'),
+          timeMs: 300, pushedBackends: const [],
+        ),
+      ]);
+      await expectLater(check(), throwsA(isA<ModMonthFullBackupException>()
+          .having((e) => e.code, 'code', 'migration_resume_tombstone_mismatch')));
+      await db.customStatement('DELETE FROM tombstones');
+      await db.customStatement(
+        'INSERT INTO mod_month_pages '
+        '(topic_id,month_key,diary_id,created_ms) VALUES(?,?,NULL,?)',
+        ['expected-diary', '2026-11', 10],
+      );
+      await expectLater(check(), throwsA(isA<ModMonthFullBackupException>()
+          .having((e) => e.code, 'code', 'migration_resume_graph_mismatch')));
+    } finally {
+      await db.close();
+    }
   });
 
 }
