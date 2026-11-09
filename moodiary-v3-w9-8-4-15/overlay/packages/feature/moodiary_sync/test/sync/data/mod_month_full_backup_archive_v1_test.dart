@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:moodiary_data/moodiary_data.dart';
+import 'package:moodiary_models/moodiary_models.dart';
 import '../../../lib/src/data/model/manifest.dart';
 import 'package:flutter_test/flutter_test.dart';
 
