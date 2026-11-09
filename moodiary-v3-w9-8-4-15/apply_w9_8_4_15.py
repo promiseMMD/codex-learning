@@ -1,0 +1,210 @@
+"""W9.8.4.15: production full-history backup and safe resumable migration."""
+from pathlib import Path
+import shutil
+import sys
+
+root = Path(sys.argv[1]).resolve()
+here = Path(__file__).resolve().parent
+
+# New production service and its tests are additive overlays.
+for source in (here / "overlay").rglob("*"):
+    if source.is_file():
+        target = root / source.relative_to(here / "overlay")
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source, target)
+
+def patch(relative: str, old: str, new: str) -> None:
+    path = root / relative
+    source = path.read_text(encoding="utf-8")
+    if new in source:
+        return
+    count = source.count(old)
+    if count != 1:
+        raise SystemExit(f"W9.8.4.15 patch anchor mismatch: {relative}: {count}")
+    path.write_text(source.replace(old, new, 1), encoding="utf-8")
+
+archive_apply = "packages/feature/moodiary_sync/lib/src/data/archive_apply.dart"
+patch(
+    archive_apply,
+    """  bool get localTombstonesBlockWrite;
+}""",
+    """  bool get localTombstonesBlockWrite;
+
+  /// Preserve source timestamps for a full-fidelity local migration.
+  bool get preservesTimestamps => false;
+}""",
+)
+patch(
+    archive_apply,
+    """class RestorePolicy extends ArchiveApplyPolicy {
+  const RestorePolicy();
+
+  @override
+  bool get appliesTombstones => false;
+
+  @override
+  bool get localTombstonesBlockWrite => false;
+}""",
+    """class RestorePolicy extends ArchiveApplyPolicy {
+  const RestorePolicy();
+
+  @override
+  bool get appliesTombstones => false;
+
+  @override
+  bool get localTombstonesBlockWrite => false;
+}
+
+/// Used only by the new-app full migration path. Native tombstones are
+/// restored explicitly after object import; source timestamps are retained.
+class FullMigrationRestorePolicy extends ArchiveApplyPolicy {
+  const FullMigrationRestorePolicy();
+
+  @override
+  bool get appliesTombstones => false;
+
+  @override
+  bool get localTombstonesBlockWrite => false;
+
+  @override
+  bool get preservesTimestamps => true;
+}""",
+)
+patch(
+    archive_apply,
+    """            restoring && oldDiary == null
+                ? diary.copyWith(lastModified: DateTime.timestamp())
+                : diary,""",
+    """            restoring && oldDiary == null && !policy.preservesTimestamps
+                ? diary.copyWith(lastModified: DateTime.timestamp())
+                : diary,""",
+)
+patch(
+    archive_apply,
+    """            restoring && freshLocal == null
+                ? category.copyWith(lastModified: DateTime.timestamp())
+                : category,""",
+    """            restoring && freshLocal == null && !policy.preservesTimestamps
+                ? category.copyWith(lastModified: DateTime.timestamp())
+                : category,""",
+)
+patch(
+    archive_apply,
+    """            restoring && freshLocal == null
+                ? place.copyWith(lastModified: DateTime.timestamp())
+                : place,""",
+    """            restoring && freshLocal == null && !policy.preservesTimestamps
+                ? place.copyWith(lastModified: DateTime.timestamp())
+                : place,""",
+)
+
+local_archive = "packages/feature/moodiary_sync/lib/src/data/impl/local_archive.dart"
+patch(
+    local_archive,
+    """    ArchiveApplyPolicy policy = const SyncPullPolicy(),
+  }) async {
+    if (!await File(p.join(dir, SyncKeys.manifestPath)).exists()) {""",
+    """    ArchiveApplyPolicy policy = const SyncPullPolicy(),
+    Future<void> Function(SyncReport)? afterApply,
+  }) async {
+    if (!await File(p.join(dir, SyncKeys.manifestPath)).exists()) {""",
+)
+patch(
+    local_archive,
+    """    return runSyncExclusive(
+      () => ArchiveApplier(
+        backend,
+        policy: policy,
+        diaryStore: diaryStore,
+        categoryStore: categoryStore,
+        placeStore: placeStore,
+        tombstoneStore: tombstoneStore,
+        mediaFiles: mediaFiles,
+        cipherProvider: cipher,
+        concurrency: concurrency ?? 4,
+      ).apply(SyncManifest.fromJson(decoded)),
+    );""",
+    """    return runSyncExclusive(() async {
+      final report = await ArchiveApplier(
+        backend,
+        policy: policy,
+        diaryStore: diaryStore,
+        categoryStore: categoryStore,
+        placeStore: placeStore,
+        tombstoneStore: tombstoneStore,
+        mediaFiles: mediaFiles,
+        cipherProvider: cipher,
+        concurrency: concurrency ?? 4,
+      ).apply(SyncManifest.fromJson(decoded));
+      await afterApply?.call(report);
+      return report;
+    });""",
+)
+
+backup_impl = "packages/feature/moodiary_sync/lib/src/data/impl/backup_archive_impl.dart"
+patch(
+    backup_impl,
+    """import 'package:injectable/injectable.dart';
+import 'package:moodiary_data/moodiary_data.dart';
+
+import '../archive_apply.dart';
+import 'local_archive.dart';""",
+    """import 'package:injectable/injectable.dart';
+import 'package:moodiary_data/moodiary_data.dart';
+import 'package:moodiary_di/moodiary_di.dart';
+
+import '../mod_month_full_backup_archive_v1.dart';""",
+)
+patch(
+    backup_impl,
+    """  Future<String> export() => LocalArchive.export();
+
+  @override
+  Future<BackupImportResult> import(String zipPath) async {
+    final report = await LocalArchive.import(
+      zipPath,
+      policy: const RestorePolicy(),
+    );
+    return BackupImportResult(
+      diaryCount: report.diaryCount,
+      categoryCount: report.categoryCount,
+      mediaCount: report.pulled.mediaFiles,
+      failed: report.failed,
+      cancelled: report.cancelled,
+      skipped: report.skipped,
+    );
+  }""",
+    """  Future<String> export() => ModMonthFullBackupArchiveV1.export(
+    db: getIt<MoodiaryDatabase>(),
+  );
+
+  @override
+  Future<BackupImportResult> import(String zipPath) async {
+    final report = await ModMonthFullBackupArchiveV1.importZip(
+      zipPath: zipPath,
+      db: getIt<MoodiaryDatabase>(),
+    );
+    return BackupImportResult(
+      diaryCount: report.pulled.diaries,
+      categoryCount: report.pulled.categories,
+      mediaCount: report.pulled.mediaFiles,
+      failed: report.failed,
+      cancelled: report.cancelled,
+      skipped: report.skipped,
+    );
+  }""",
+)
+
+pubspec = root / "mobile/pubspec.yaml"
+source = pubspec.read_text(encoding="utf-8")
+if "version: 2.9.4+126" not in source:
+    if source.count("version: 2.9.3+125") != 1:
+        raise SystemExit("W9.8.4.15 version anchor mismatch")
+    pubspec.write_text(
+        source.replace("version: 2.9.3+125", "version: 2.9.4+126", 1),
+        encoding="utf-8",
+    )
+
+print("W9.8.4.15 applied: complete native + W9 history + media backup/import path")
+print("Migration requires a full V2 graph; legacy snapshot-only ZIPs fail closed")
+print("Native source timestamps and tombstones are preserved; old app is untouched")
