@@ -305,11 +305,19 @@ for needle in (
 for needle in (
   "cn.yooss.moodiary.v3dev",
   "cn.yooss.moodiary.v3safe",
-  "Backup → Export backup",
-  "Restore from backup",
-  "not encrypted",
-  "Keep the old app"):
-    require(safe_docs,needle,"W9.8.4.13 data-safe migration instructions")
+  "does NOT currently",
+  "mod_month_revisions",
+  "not yet connected to the production",
+  "Do not mark migration complete",
+  "read-only",
+  "keep the old app installed"):
+    require(safe_docs,needle,"W9.8.4.14 truthful migration readiness contract")
+for needle in (
+  "This is NOT a user backup",
+  "NO production restore, ZIP export",
+  "No live database writes",
+  "not wired to the backup UI"):
+    require(safe_patch,needle,"W9.8.4.14 explicit custom-data migration blocker")
 for needle in (
   "MOODIARY_SAFE_KEYSTORE_BASE64",
   "MOODIARY_SAFE_STORE_PASSWORD",
