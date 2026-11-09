@@ -79,3 +79,24 @@ The original `cn.yooss.moodiary.v3dev` installation and all user data remain unt
   round-trip of six tables, hashes, tombstones and interrupted import.
 - This is a test candidate, not a release or an approved migration of the
   previously installed old app. The release-readiness gate stays closed.
+
+## 2026-11-10 W9.8.4.16 — resume safety hardening (candidate)
+
+- Work is on a separate branch based on the last successful W9.8.4.15
+  stabilization commit (585f2c9); the successful baseline is unchanged.
+- Prior journal phases no longer authorize arbitrary writes into nonempty
+  databases. Before replaying the same verified ZIP, check the current
+  Diary/category/place IDs and timestamps against the source manifest,
+  tombstone IDs/timestamps, and atomic W9 graph state.
+- A recorded 'verified' phase may contain only source-owned native rows;
+  'native_imported' and 'graph_imported' require complete native readback.
+  A partially written or foreign W9 graph is rejected.
+- Re-hash the source ZIP after verification, before recording the journal,
+  to reject a source that changed while the verified copy was extracted.
+- Add regression tests for an empty interrupted target, same-source partial
+  resume, a different diary in the target, timestamp mismatch, foreign
+  tombstones and a partial W9 graph.
+
+No old installation/data touched. This is NOT a complete verified full-history
+migration yet. Exact-commit Fast/Full CI and a production full-archive end-to-end
+round-trip remain required. Signed APK delivery remains blocked.
