@@ -42,7 +42,7 @@ final class ModMonthGraphArchiveV2 {
     };
 
   /// One transaction snapshots revisions, heads, operations and day mappings.
-  /// It refuses any linked native Diary: that requires a future full bundle.
+  /// Native month/day Diary bindings require a verified full native archive.
   static Future<String> exportGraph(MoodiaryDatabase db) =>
       db.transaction(() async {
     final text=await ModMonthGraphArchiveV1
@@ -119,9 +119,8 @@ final class ModMonthGraphArchiveV2 {
     final months=<String>{};
     for(final v in pages) {
       final r=v as Map<String,dynamic>;
-      final diary=r['diary_id'];
-      if(diary!=null && (diary is! String ||
-          !RegExp(r'^[a-zA-Z0-9_-]{8,120}
+      // V1 validates the nullable native month Diary binding.
+      months.add((r['topic_id'] as String)+'|'+(r['month_key'] as String));
     }
     final topics=<String,String>{}, kinds=<String,String>{};
     for(final v in blocks) {
@@ -145,9 +144,11 @@ final class ModMonthGraphArchiveV2 {
       if(topic is! String ||
           !RegExp(r'^[a-zA-Z0-9_-]{1,120}$').hasMatch(topic) ||
           day is! String || !_day(day))_fail('invalid_day_identity');
-      final diary=row['diary_id'];
-      if(diary!=null && (diary is! String ||
-          !RegExp(r'^[a-zA-Z0-9_-]{8,120}
+      final dayDiary=row['diary_id'];
+      if(dayDiary!=null && (dayDiary is! String || dayDiary.length>120 || dayDiary.isEmpty))_fail('invalid_day_diary_binding');
+      if(dayDiary is String && !boundDays.add(dayDiary))_fail('duplicate_day_diary_binding');
+      if(visible is! int || (visible!=0 && visible!=1) ||
+          created is! int || created<0)_fail('invalid_day_metadata');
       final key=topic+'|'+day;
       if(!seen.add(key))_fail('duplicate_day_mapping');
       if(last!=null && key.compareTo(last)<=0)_fail('days_not_sorted');
@@ -289,257 +290,6 @@ final class ModMonthGraphArchiveV2 {
       final readback=_decode(await exportGraph(db));
       if(readback.sha!=item.sha)_fail('readback_mismatch');
     });
-  }
-
-  /// Test-only isolated recovery with readback; no live activation.
-  /// A single outer transaction rolls back V1 and day rows on ANY failure.
-  @visibleForTesting
-  static Future<void> restoreIntoIsolatedEmptyDatabaseForTest(
-    MoodiaryDatabase db,String encoded) async {
-    final item=_decode(encoded);
-    await db.transaction(() async {
-      final present=await db.customSelect(
-        'SELECT COUNT(*) AS n FROM mod_day_pages').getSingle();
-      if(present.read<int>('n')!=0)_fail('nonempty_day_target');
-      await ModMonthGraphArchiveV1.restoreIntoIsolatedEmptyDatabaseForTest(
-        db,jsonEncode(item.graph));
-      for(final row in item.days) {
-        await db.customStatement(
-          'INSERT INTO mod_day_pages '
-          '(topic_id,day_key,diary_id,visible_local,created_ms) '
-          'VALUES(?,?,?,?,?)',
-          [row['topic_id'],row['day_key'],row['diary_id'],
-           row['visible_local'],row['created_ms']],
-        );
-      }
-      final readback=_decode(await exportGraph(db));
-      if(readback.sha!=item.sha)_fail('readback_mismatch');
-    });
-  }
-}
-).hasMatch(diary))) {
-        _fail('invalid_month_diary_binding');
-      }
-      months.add((r['topic_id'] as String)+'|'+(r['month_key'] as String));
-    }
-    final topics=<String,String>{}, kinds=<String,String>{};
-    for(final v in blocks) {
-      final r=v as Map<String,dynamic>, id=r['block_id'] as String;
-      topics[id]=r['topic_id'] as String;
-      kinds[id]=r['kind'] as String;
-    }
-    // Tombstones and moved blocks retain their historical day mappings.
-    final history=<String>{};
-    for(final v in revisions) {
-      final r=v as Map<String,dynamic>, id=r['block_id'] as String;
-      if(kinds[id]=='entry')history.add(topics[id]!+'|'+(r['day_key'] as String));
-    }
-    final seen=<String>{};
-    String? last;
-    for(final row in days) {
-      if(row.length!=_columns.length ||
-        !row.keys.toSet().containsAll(_columns))_fail('invalid_day_shape');
-      final topic=row['topic_id'], day=row['day_key'];
-      final visible=row['visible_local'], created=row['created_ms'];
-      if(topic is! String ||
-          !RegExp(r'^[a-zA-Z0-9_-]{1,120}$').hasMatch(topic) ||
-          day is! String || !_day(day))_fail('invalid_day_identity');
-      if(row['diary_id']!=null)_fail('native_day_binding_requires_full_archive');
-      if(visible is! int || (visible!=0 && visible!=1) ||
-          created is! int || created<0)_fail('invalid_day_metadata');
-      final key=topic+'|'+day;
-      if(!seen.add(key))_fail('duplicate_day_mapping');
-      if(last!=null && key.compareTo(last)<=0)_fail('days_not_sorted');
-      last=key;
-      if(!months.contains(topic+'|'+day.substring(0,7)) ||
-         !history.contains(key))_fail('orphan_day_mapping');
-    }
-  }
-
-  static _VerifiedV2 _decode(String encoded) {
-    if(utf8.encode(encoded).length>_limit)_fail('too_large');
-    final Object? obj;
-    try {obj=jsonDecode(encoded);} catch(_){_fail('invalid_json');}
-    if(obj is! Map<String,dynamic> || obj.length!=6 ||
-       !obj.keys.toSet().containsAll({
-         'format','version','scope','monthGraph','dayPages','sha256',
-       }) || obj['format']!=format || obj['version']!=version ||
-       obj['scope']!=scope || obj['monthGraph'] is! Map<String,dynamic> ||
-       obj['dayPages'] is! List || obj['sha256'] is! String){
-      _fail('invalid_header');
-    }
-    final graph=obj['monthGraph'] as Map<String,dynamic>;
-    final raw=obj['dayPages'] as List<dynamic>;
-    if(raw.length>250000)_fail('too_many_day_pages');
-    final days=<Map<String,Object?>>[];
-    for(final v in raw){
-      if(v is! Map<String,dynamic>)_fail('invalid_day_shape');
-      days.add(Map<String,Object?>.from(v));
-    }
-    final digest=_hash(_body(graph,days));
-    if(digest!=obj['sha256'])_fail('checksum_mismatch');
-    _validate(graph,days);
-    return _VerifiedV2(graph,days,digest);
-  }
-
-  /// Test-only isolated recovery with readback; no live activation.
-  /// A single outer transaction rolls back V1 and day rows on ANY failure.
-  @visibleForTesting
-  static Future<void> restoreIntoIsolatedEmptyDatabaseForTest(
-    MoodiaryDatabase db,String encoded) async {
-    final item=_decode(encoded);
-    await db.transaction(() async {
-      final present=await db.customSelect(
-        'SELECT COUNT(*) AS n FROM mod_day_pages').getSingle();
-      if(present.read<int>('n')!=0)_fail('nonempty_day_target');
-      await ModMonthGraphArchiveV1.restoreIntoIsolatedEmptyDatabaseForTest(
-        db,jsonEncode(item.graph));
-      for(final row in item.days) {
-        await db.customStatement(
-          'INSERT INTO mod_day_pages '
-          '(topic_id,day_key,diary_id,visible_local,created_ms) '
-          'VALUES(?,?,?,?,?)',
-          [row['topic_id'],row['day_key'],row['diary_id'],
-           row['visible_local'],row['created_ms']],
-        );
-      }
-      final readback=_decode(await exportGraph(db));
-      if(readback.sha!=item.sha)_fail('readback_mismatch');
-    });
-  }
-}
-).hasMatch(diary))) {
-        _fail('invalid_day_diary_binding');
-      }
-      if(diary is String && !boundDays.add(diary)) {
-        _fail('duplicate_day_diary_binding');
-      }
-      if(visible is! int || (visible!=0 && visible!=1) ||
-          created is! int || created<0)_fail('invalid_day_metadata');
-      final key=topic+'|'+day;
-      if(!seen.add(key))_fail('duplicate_day_mapping');
-      if(last!=null && key.compareTo(last)<=0)_fail('days_not_sorted');
-      last=key;
-      if(!months.contains(topic+'|'+day.substring(0,7)) ||
-         !history.contains(key))_fail('orphan_day_mapping');
-    }
-  }
-
-  static _VerifiedV2 _decode(String encoded) {
-    if(utf8.encode(encoded).length>_limit)_fail('too_large');
-    final Object? obj;
-    try {obj=jsonDecode(encoded);} catch(_){_fail('invalid_json');}
-    if(obj is! Map<String,dynamic> || obj.length!=6 ||
-       !obj.keys.toSet().containsAll({
-         'format','version','scope','monthGraph','dayPages','sha256',
-       }) || obj['format']!=format || obj['version']!=version ||
-       obj['scope']!=scope || obj['monthGraph'] is! Map<String,dynamic> ||
-       obj['dayPages'] is! List || obj['sha256'] is! String){
-      _fail('invalid_header');
-    }
-    final graph=obj['monthGraph'] as Map<String,dynamic>;
-    final raw=obj['dayPages'] as List<dynamic>;
-    if(raw.length>250000)_fail('too_many_day_pages');
-    final days=<Map<String,Object?>>[];
-    for(final v in raw){
-      if(v is! Map<String,dynamic>)_fail('invalid_day_shape');
-      days.add(Map<String,Object?>.from(v));
-    }
-    final digest=_hash(_body(graph,days));
-    if(digest!=obj['sha256'])_fail('checksum_mismatch');
-    _validate(graph,days);
-    return _VerifiedV2(graph,days,digest);
-  }
-
-  /// Test-only isolated recovery with readback; no live activation.
-  /// A single outer transaction rolls back V1 and day rows on ANY failure.
-  @visibleForTesting
-  static Future<void> restoreIntoIsolatedEmptyDatabaseForTest(
-    MoodiaryDatabase db,String encoded) async {
-    final item=_decode(encoded);
-    await db.transaction(() async {
-      final present=await db.customSelect(
-        'SELECT COUNT(*) AS n FROM mod_day_pages').getSingle();
-      if(present.read<int>('n')!=0)_fail('nonempty_day_target');
-      await ModMonthGraphArchiveV1.restoreIntoIsolatedEmptyDatabaseForTest(
-        db,jsonEncode(item.graph));
-      for(final row in item.days) {
-        await db.customStatement(
-          'INSERT INTO mod_day_pages '
-          '(topic_id,day_key,diary_id,visible_local,created_ms) '
-          'VALUES(?,?,?,?,?)',
-          [row['topic_id'],row['day_key'],row['diary_id'],
-           row['visible_local'],row['created_ms']],
-        );
-      }
-      final readback=_decode(await exportGraph(db));
-      if(readback.sha!=item.sha)_fail('readback_mismatch');
-    });
-  }
-}
-).hasMatch(diary))) {
-        _fail('invalid_month_diary_binding');
-      }
-      months.add((r['topic_id'] as String)+'|'+(r['month_key'] as String));
-    }
-    final topics=<String,String>{}, kinds=<String,String>{};
-    for(final v in blocks) {
-      final r=v as Map<String,dynamic>, id=r['block_id'] as String;
-      topics[id]=r['topic_id'] as String;
-      kinds[id]=r['kind'] as String;
-    }
-    // Tombstones and moved blocks retain their historical day mappings.
-    final history=<String>{};
-    for(final v in revisions) {
-      final r=v as Map<String,dynamic>, id=r['block_id'] as String;
-      if(kinds[id]=='entry')history.add(topics[id]!+'|'+(r['day_key'] as String));
-    }
-    final seen=<String>{};
-    String? last;
-    for(final row in days) {
-      if(row.length!=_columns.length ||
-        !row.keys.toSet().containsAll(_columns))_fail('invalid_day_shape');
-      final topic=row['topic_id'], day=row['day_key'];
-      final visible=row['visible_local'], created=row['created_ms'];
-      if(topic is! String ||
-          !RegExp(r'^[a-zA-Z0-9_-]{1,120}$').hasMatch(topic) ||
-          day is! String || !_day(day))_fail('invalid_day_identity');
-      if(row['diary_id']!=null)_fail('native_day_binding_requires_full_archive');
-      if(visible is! int || (visible!=0 && visible!=1) ||
-          created is! int || created<0)_fail('invalid_day_metadata');
-      final key=topic+'|'+day;
-      if(!seen.add(key))_fail('duplicate_day_mapping');
-      if(last!=null && key.compareTo(last)<=0)_fail('days_not_sorted');
-      last=key;
-      if(!months.contains(topic+'|'+day.substring(0,7)) ||
-         !history.contains(key))_fail('orphan_day_mapping');
-    }
-  }
-
-  static _VerifiedV2 _decode(String encoded) {
-    if(utf8.encode(encoded).length>_limit)_fail('too_large');
-    final Object? obj;
-    try {obj=jsonDecode(encoded);} catch(_){_fail('invalid_json');}
-    if(obj is! Map<String,dynamic> || obj.length!=6 ||
-       !obj.keys.toSet().containsAll({
-         'format','version','scope','monthGraph','dayPages','sha256',
-       }) || obj['format']!=format || obj['version']!=version ||
-       obj['scope']!=scope || obj['monthGraph'] is! Map<String,dynamic> ||
-       obj['dayPages'] is! List || obj['sha256'] is! String){
-      _fail('invalid_header');
-    }
-    final graph=obj['monthGraph'] as Map<String,dynamic>;
-    final raw=obj['dayPages'] as List<dynamic>;
-    if(raw.length>250000)_fail('too_many_day_pages');
-    final days=<Map<String,Object?>>[];
-    for(final v in raw){
-      if(v is! Map<String,dynamic>)_fail('invalid_day_shape');
-      days.add(Map<String,Object?>.from(v));
-    }
-    final digest=_hash(_body(graph,days));
-    if(digest!=obj['sha256'])_fail('checksum_mismatch');
-    _validate(graph,days);
-    return _VerifiedV2(graph,days,digest);
   }
 
   /// Test-only isolated recovery with readback; no live activation.
