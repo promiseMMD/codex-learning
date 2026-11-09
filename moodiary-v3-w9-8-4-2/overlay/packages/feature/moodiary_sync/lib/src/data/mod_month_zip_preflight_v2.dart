@@ -59,8 +59,9 @@ final class ModMonthZipPreflightV2 {
   }
 
   static Future<List<String>> _inspect(
-    String zipPath, {required bool requireV2},
-  ) async {
+    String zipPath, {
+    required bool requireV2,
+  }) async {
     if (await FileSystemEntity.type(zipPath, followLinks: false) !=
         FileSystemEntityType.file) {
       _fail('zip_not_regular_file');
