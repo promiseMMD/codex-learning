@@ -285,6 +285,7 @@ safe_tests=(ROOT/"moodiary-v3-w9-8-4-13/test_safe_install.py").read_text()
 safe_docs=(ROOT/"moodiary-v3-w9-8-4-13/SAFE-INSTALL-MIGRATION.md").read_text()
 safe_keygen=(ROOT/"moodiary-v3-w9-8-4-13/generate-safe-signing-key.ps1").read_text()
 safe_verifier=(ROOT/"moodiary-v3-w9-8-4-12/verify_apk.py").read_text()
+safe_bundle=(ROOT/"moodiary-v3-w9-8-4-2/overlay/packages/feature/moodiary_sync/lib/src/data/mod_month_zip_bundle_v2.dart").read_text()
 for needle in (
   'create("v3safe")',
   'applicationIdSuffix = ".v3safe"',
@@ -315,9 +316,9 @@ for needle in (
 for needle in (
   "This is NOT a user backup",
   "NO production restore, ZIP export",
-  "No live database writes",
-  "not wired to the backup UI"):
+  "No live database writes"):
     require(safe_patch,needle,"W9.8.4.14 explicit custom-data migration blocker")
+require(safe_bundle,"not wired to the backup UI","W9.8.4.14 offline-only ZIP boundary")
 for needle in (
   "MOODIARY_SAFE_KEYSTORE_BASE64",
   "MOODIARY_SAFE_STORE_PASSWORD",
