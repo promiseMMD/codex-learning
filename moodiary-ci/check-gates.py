@@ -19,9 +19,12 @@ for source in (fast, full):
     require(source, "sqlite3: {source: system}", "Linux-test SQLite hook")
 require(full, "cp /tmp/moodiary-w9-test-pubspec.yaml pubspec.yaml",
         "restore signed APK hook settings")
-if re.search(r"(?m)^concurrency:\\s*$", fast):
+if re.search(r"(?m)^concurrency:\s*$", fast):
     raise SystemExit("Fast push cancellation must not be workflow-scoped")
-require(fast, "  fast:\\n    concurrency:\\n      group: moodiary-fast-${{ github.ref }}-${{ github.event_name }}\\n      cancel-in-progress: ${{ github.event_name == 'push' }}", "fast-job-only push cancellation")
+require(fast, """  fast:
+    concurrency:
+      group: moodiary-fast-${{ github.ref }}-${{ github.event_name }}
+      cancel-in-progress: ${{ github.event_name == 'push' }}""", "fast-job-only push cancellation")
 require(full, "cancel-in-progress: false", "Full Acceptance must survive later pushes")
 
 for needle in ("flutter build apk","setup-ndk@","rustup toolchain install",
