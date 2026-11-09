@@ -171,6 +171,7 @@ jobs:
     uses: ./.github/workflows/moodiary-v3-full-ci.yml
     with:
       build_apk: false
+    secrets: inherit
   apk-after-fast:
     needs: fast
     if: >-
@@ -179,3 +180,4 @@ jobs:
     uses: ./.github/workflows/moodiary-v3-full-ci.yml
     with:
       build_apk: true
+    secrets: inherit
