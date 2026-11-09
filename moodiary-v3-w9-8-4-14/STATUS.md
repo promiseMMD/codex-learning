@@ -24,8 +24,8 @@
 
 ## Remaining work — do not treat as release-ready
 
-1. Latest-upstream Fast CI must pass after all W9.8.4.14 commits.
-2. Full Acceptance CI must pass on the exact release candidate SHA.
+1. Latest-upstream Fast CI passed on the pre-release-gate candidate; it must pass again after the final W9.8.4.14 hardening commit.
+2. Full Acceptance CI is configured to run after Fast CI for this [full-ci] commit and must pass on the exact candidate SHA.
 3. W9 custom monthly/day graph must be connected to a production user-facing
    export package and a separately designed new-app migration import.
 4. End-to-end migration must preserve ordinary Diary data, categories, places,
@@ -36,6 +36,8 @@
 6. Only after migration and signing gates pass may CI build the v3safe ARM64 APK.
 7. Xiaomi 14 Pro / HyperOS 3 parallel install and migration acceptance remains
    a separate device gate.
+8. APK delivery is intentionally blocked by moodiary-ci/check-release-readiness.py
+   until production full-data migration is implemented and verified.
 
 ## Safety constraints
 
