@@ -103,7 +103,8 @@ for needle in ("git checkout 2c552ddd7939a054122380397fb914cf000824b0",
   "moodiary-v3-w9-8-4-5/apply_w9_8_4_5.py",
   "moodiary-v3-w9-8-4-6/apply_w9_8_4_6.py",
   "moodiary-v3-w9-8-4-7/apply_w9_8_4_7.py",
-  "moodiary-v3-w9-8-4-8/apply_w9_8_4_8.py"):
+  "moodiary-v3-w9-8-4-8/apply_w9_8_4_8.py",
+  "moodiary-v3-w9-8-4-9/apply_w9_8_4_9.py"):
     require(prepare,needle,"pinned source assembly")
 w9845=(ROOT/"moodiary-v3-w9-8-4-5/apply_w9_8_4_5.py").read_text()
 for needle in (
@@ -152,6 +153,27 @@ for needle in ("createTemp(_prefix)","private_root_not_regular_directory",
    "private_workspace_identity_invalid","private_restore_archive_inside_workspace",
    "ModMonthZipGenerationInstallV2.install"):
     require(workspace_code,needle,"W9.8.4.8 private path ownership fence")
+
+w9849=(ROOT/"moodiary-v3-w9-8-4-9/apply_w9_8_4_9.py").read_text()
+for needle in (
+  "Android private root preserves unrelated diaries during ZIP recovery",
+  "Android private root creation is idempotent without reusing workspaces",
+  "Android private root refuses an existing foreign unmarked directory",
+  "Android private root refuses a symlink alias without following it",
+  "Android private root refuses forged identity without altering files",
+  "Android private root rejects untrusted external workspace on reopen",
+  "Android private root reopen never creates missing directories",
+  "Android private restore facade fails closed outside Android"):
+    require(w9849,needle,"W9.8.4.9 Android private storage acceptance")
+for workflow in (fast,full):
+    require(workflow,"mod_month_android_restore_root_v2.dart",
+            "W9.8.4.9 Android private restore binder source formatting")
+app_root_code=(ROOT/"moodiary-v3-w9-8-4-9/overlay/packages/feature/moodiary_sync/lib/src/data/mod_month_android_restore_root_v2.dart").read_text()
+for needle in ("PlatformService.get().applicationSupportPath",
+  "Platform.isAndroid","android_restore_unsupported_platform",
+  "android_restore_private_root_identity_invalid","createNewWorkspace()",
+  "openExistingWorkspace(","_verifyDirectory()"):
+    require(app_root_code,needle,"W9.8.4.9 trusted Android app-support root")
 
 # Changes to CI workflows or their gate scripts must exercise sensitive
 # tests as well; otherwise a workflow-only commit can appear green while
