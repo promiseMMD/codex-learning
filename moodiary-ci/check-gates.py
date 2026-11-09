@@ -3,6 +3,7 @@
 from pathlib import Path
 import ast
 import re
+import subprocess
 ROOT=Path(__file__).resolve().parents[1]
 fast=(ROOT/".github/workflows/moodiary-v3-fast-ci.yml").read_text()
 full=(ROOT/".github/workflows/moodiary-v3-full-ci.yml").read_text()
@@ -125,7 +126,8 @@ for needle in ("git checkout 2c552ddd7939a054122380397fb914cf000824b0",
   "moodiary-v3-w9-8-4-8/apply_w9_8_4_8.py",
   "moodiary-v3-w9-8-4-9/apply_w9_8_4_9.py",
   "moodiary-v3-w9-8-4-10/apply_w9_8_4_10.py",
-  "moodiary-v3-w9-8-4-11/apply_w9_8_4_11.py"):
+  "moodiary-v3-w9-8-4-11/apply_w9_8_4_11.py",
+  "moodiary-v3-w9-8-4-13/apply_w9_8_4_13.py"):
     require(prepare,needle,"pinned source assembly")
 w9845=(ROOT/"moodiary-v3-w9-8-4-5/apply_w9_8_4_5.py").read_text()
 for needle in (
@@ -272,5 +274,69 @@ for workflow_name, source in (("fast", fast), ("full", full)):
         except SyntaxError as error:
             raise SystemExit("Broken " + workflow_name +
                              " embedded Python syntax: " + str(error))
+
+
+# W9.8.4.13: old signing material is unavailable, so the new app MUST use a
+# distinct package ID and a separately pinned, persistent signing certificate.
+safe_patch=(ROOT/"moodiary-v3-w9-8-4-13/apply_w9_8_4_13.py").read_text()
+safe_tests=(ROOT/"moodiary-v3-w9-8-4-13/test_safe_install.py").read_text()
+safe_docs=(ROOT/"moodiary-v3-w9-8-4-13/SAFE-INSTALL-MIGRATION.md").read_text()
+safe_keygen=(ROOT/"moodiary-v3-w9-8-4-13/generate-safe-signing-key.ps1").read_text()
+safe_verifier=(ROOT/"moodiary-v3-w9-8-4-12/verify_apk.py").read_text()
+for needle in (
+  'create("v3safe")',
+  'applicationIdSuffix = ".v3safe"',
+  'cn.yooss.moodiary.v3safe',
+  'Moodiary 安全版',
+  'version: 2.9.3+125',
+  'getIt<IBackupArchive>().export()',
+  'getIt<IBackupArchive>().import(file.path)',
+  'policy: const RestorePolicy()'):
+    require(safe_patch,needle,"W9.8.4.13 safe package and migration contract")
+for needle in (
+  "test_clone_v3dev_suffix_to_v3safe",
+  "test_patch_is_idempotent",
+  "test_wrong_existing_safe_identity_fails_closed",
+  "test_missing_v3dev_fails_closed",
+  "test_version_bump_is_idempotent"):
+    require(safe_tests,needle,"W9.8.4.13 patch regression tests")
+for needle in (
+  "cn.yooss.moodiary.v3dev",
+  "cn.yooss.moodiary.v3safe",
+  "Backup → Export backup",
+  "Restore from backup",
+  "not encrypted",
+  "Keep the old app"):
+    require(safe_docs,needle,"W9.8.4.13 data-safe migration instructions")
+for needle in (
+  "MOODIARY_SAFE_KEYSTORE_BASE64",
+  "MOODIARY_SAFE_STORE_PASSWORD",
+  "MOODIARY_SAFE_KEY_PASSWORD",
+  "MOODIARY_SAFE_CERT_SHA256",
+  "key0",
+  "4096"):
+    require(safe_keygen,needle,"W9.8.4.13 persistent signing-key generator")
+for needle in (
+  'EXPECTED_PACKAGE = "cn.yooss.moodiary.v3safe"',
+  'EXPECTED_VERSION_CODE = 125',
+  'EXPECTED_VERSION_NAME = "2.9.3"',
+  "MOODIARY_SAFE_CERT_SHA256",
+  "signer_matches_persistent_safe_key",
+  "parallel_install_is_safe"):
+    require(safe_verifier,needle,"W9.8.4.13 APK identity and signer verifier")
+for needle in (
+  "MOODIARY_SAFE_KEYSTORE_BASE64",
+  "MOODIARY_SAFE_STORE_PASSWORD",
+  "MOODIARY_SAFE_KEY_PASSWORD",
+  "MOODIARY_SAFE_CERT_SHA256",
+  "keytool -list",
+  "flutter build apk --flavor v3safe",
+  "app-v3safe-release.apk"):
+    require(full,needle,"W9.8.4.13 fail-closed APK signing workflow")
+require(full,"secrets:","W9.8.4.13 reusable workflow signing secret contract")
+require(fast,"secrets: inherit","W9.8.4.13 safe signing secret inheritance")
+if full.count("MOODIARY_SAFE_KEYSTORE_BASE64") < 2:
+    raise SystemExit("APK workflow must both provision and validate persistent signing material")
+subprocess.run(["python3", str(ROOT/"moodiary-v3-w9-8-4-13/test_safe_install.py")], check=True)
 
 print("All CI contracts verified: quick, full coverage, APK SHA and device QA")
