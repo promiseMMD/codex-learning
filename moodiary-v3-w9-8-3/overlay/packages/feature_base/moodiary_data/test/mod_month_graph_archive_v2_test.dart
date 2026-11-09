@@ -210,24 +210,51 @@ void main() {
     expect(await ModMonthGraphArchiveV2.exportGraph(empty),archive);
   });
 
-  test('native Diary association cannot be exported without a complete native bundle', () async {
+  test('bound native Diaries export and production graph restore are lossless', () async {
     await seed(source);
-    await source.customStatement(
+    Future<void> addDiary(MoodiaryDatabase db,String id) => db.customStatement(
       'INSERT INTO diaries'
       '(id,title,content,content_text,time,last_modified,show,type)'
       ' VALUES(?,?,?,?,?,?,?,?)',
-      ['native-day-0001','legacy diary untouched',
-       'original bytes','original bytes',1,2,1,'tiptap']);
+      [id,'untouched native diary','original bytes','original bytes',
+       1,2,1,'tiptap']);
+    await addDiary(source,topic);
+    await addDiary(source,'native-month-0001');
+    await addDiary(source,'native-day-0001');
+    await source.customStatement(
+      'UPDATE mod_month_pages SET diary_id=?'
+      ' WHERE topic_id=? AND month_key=?',
+      ['native-month-0001',topic,nov]);
     await source.customStatement(
       'UPDATE mod_day_pages SET diary_id=? WHERE topic_id=? AND day_key=?',
       ['native-day-0001',topic,novDay]);
-    await expectLater(ModMonthGraphArchiveV2.exportGraph(source),
+
+    final archive=await ModMonthGraphArchiveV2.exportGraph(source);
+    ModMonthGraphArchiveV2.verify(archive);
+    final json=jsonDecode(archive) as Map<String,dynamic>;
+    final tables=(json['monthGraph'] as Map<String,dynamic>)['tables']
+      as Map<String,dynamic>;
+    expect((tables['mod_month_pages'] as List<dynamic>)
+      .firstWhere((r)=>r['month_key']==nov)['diary_id'],'native-month-0001');
+    expect((json['dayPages'] as List<dynamic>)
+      .firstWhere((r)=>r['day_key']==novDay)['diary_id'],'native-day-0001');
+
+    await addDiary(empty,topic);
+    await expectLater(
+      ModMonthGraphArchiveV2.restoreIntoEmptyDatabase(empty,archive),
       throwsA(isA<ModGraphV2Exception>().having(
-        (e)=>e.code,'code','native_day_binding_requires_full_archive')));
-    final unchanged=await source.customSelect(
-      'SELECT content FROM diaries',
-      // No app-level Diary API is called, and nothing writes its content.
-    ).get();
-    expect(unchanged.single.read<String>('content'),'original bytes');
+        (e)=>e.code,'code','missing_native_diary_binding')));
+    expect(await count(empty,'mod_month_pages'),0);
+    expect(await count(empty,'mod_day_pages'),0);
+
+    await addDiary(empty,'native-month-0001');
+    await addDiary(empty,'native-day-0001');
+    await ModMonthGraphArchiveV2.restoreIntoEmptyDatabase(empty,archive);
+    expect(await ModMonthGraphArchiveV2.exportGraph(empty),archive);
+    // A retry of the exact same graph is idempotent; a different graph is not.
+    await ModMonthGraphArchiveV2.restoreIntoEmptyDatabase(empty,archive);
+    final unchanged=await source.customSelect('SELECT content FROM diaries').get();
+    expect(unchanged.length,3);
+    expect(unchanged.every((r)=>r.read<String>('content')=='original bytes'),true);
   });
 }
