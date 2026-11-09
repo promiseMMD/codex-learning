@@ -1,6 +1,5 @@
 // ignore_for_file: deprecated_member_use
 
-import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:moodiary_i18n/moodiary_i18n.dart';
@@ -68,9 +67,9 @@ void main() {
     );
     await showPanel(tester, const ModRestoreInventorySnapshotV2([entry]));
     expect(find.text('已验证恢复副本'), findsOneWidget);
-    expect(find.text('1.50 KB'), findsOneWidget);
     await tester.tap(find.text('恢复工作区 1'));
     await tester.pumpAndSettle();
+    expect(find.text('1.50 KB'), findsOneWidget);
     expect(find.text('目录路径'), findsOneWidget);
     expect(find.text('活跃副本路径'), findsOneWidget);
     expect(
