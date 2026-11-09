@@ -237,6 +237,10 @@ jobs:
         if: ${{ inputs.build_apk }}
         working-directory: upstream
         run: cp /tmp/moodiary-w9-test-pubspec.yaml pubspec.yaml
+      - name: Block APK delivery until complete custom-data migration is production-ready
+        if: ${{ inputs.build_apk }}
+        run: python3 moodiary-ci/check-release-readiness.py
+
       - name: Provision persistent safe signing identity (fail closed; no debug fallback)
         if: ${{ inputs.build_apk }}
         shell: bash
@@ -299,7 +303,7 @@ jobs:
           cp "$apk" /tmp/moodiary-ci-delivery/app-v3safe-release.apk
           cd /tmp/moodiary-ci-delivery
           sha256sum app-v3safe-release.apk > app-v3safe-release.apk.sha256
-          actual_signer="$(sed -n 's/.*V2 Signer: certificate SHA-256 digest: //p' SIGNATURE.txt | head -n 1 | tr '[:upper:]' '[:lower:]')"
+          actual_signer="$(python3 -c 'import json; print(json.load(open("APK-VERIFICATION.json"))["signer_certificate_sha256"])' | tr '[:upper:]' '[:lower:]')"
           expected_signer="$(printf '%s' "$MOODIARY_SAFE_CERT_SHA256" | tr -d '[:space:]:' | tr '[:upper:]' '[:lower:]')"
           test -n "$actual_signer"
           test "$actual_signer" = "$expected_signer"
@@ -312,7 +316,8 @@ jobs:
             echo "application_id=cn.yooss.moodiary.v3safe"
             echo "previous_application_id=cn.yooss.moodiary.v3dev"
             echo "parallel_install=true"
-            echo "migration_method=full backup ZIP export/import"
+            echo "full_custom_migration_ready=false"
+            echo "migration_method=ordinary native ZIP only; W9 custom migration pending"
             echo "version_name=2.9.3"
             echo "version_code=125"
             echo "abi=arm64-v8a"
