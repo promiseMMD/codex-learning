@@ -10,21 +10,24 @@ function Convert-SecureStringToPlainText([Security.SecureString]$Value) {
     }
 }
 
+$keytool = $null
 $keytoolCommand = Get-Command keytool.exe -ErrorAction SilentlyContinue
 if (-not $keytoolCommand) {
     $keytoolCommand = Get-Command keytool -ErrorAction SilentlyContinue
 }
-if (-not $keytoolCommand -and $env:JAVA_HOME) {
+if ($keytoolCommand) {
+    $keytool = $keytoolCommand.Source
+    if (-not $keytool) { $keytool = $keytoolCommand.Definition }
+}
+if (-not $keytool -and $env:JAVA_HOME) {
     $candidate = Join-Path $env:JAVA_HOME "bin\keytool.exe"
     if (Test-Path $candidate) {
-        $keytoolCommand = Get-Item $candidate
+        $keytool = $candidate
     }
 }
-if (-not $keytoolCommand) {
+if (-not $keytool) {
     throw "找不到 keytool。请先安装 JDK 21，或使用 Android Studio 自带的 JBR，并将其 bin 目录加入 PATH。"
 }
-$keytool = $keytoolCommand.Source
-if (-not $keytool) { $keytool = $keytoolCommand.Definition }
 
 $directory = Join-Path $env:USERPROFILE "Documents\MoodiarySigning"
 New-Item -ItemType Directory -Force -Path $directory | Out-Null
