@@ -1,7 +1,7 @@
 # Moodiary 3.0 — CI tiers, 2026-11-08
 
 **Baseline:** W9.7.6 commit `49305a1ae05d808e569ac3c795a826fb84ebe419`, full W7 GitHub run `42450432090` **success** including arm64 APK.
-Recent successful complete W7 runs were approximately **24–30 minutes**. Frequent full runs were blocking iterative feedback.
+Recent successful complete W7 runs were approximately **24–30 minutes**. Frequent full runs were blocking iterative feedback. W9.8.4.11 adds read-only recovery inventory root and UI tests to both Fast and Full tiers.
 
 ## CI routing
 

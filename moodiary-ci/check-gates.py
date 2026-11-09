@@ -105,7 +105,8 @@ for needle in ("git checkout 2c552ddd7939a054122380397fb914cf000824b0",
   "moodiary-v3-w9-8-4-7/apply_w9_8_4_7.py",
   "moodiary-v3-w9-8-4-8/apply_w9_8_4_8.py",
   "moodiary-v3-w9-8-4-9/apply_w9_8_4_9.py",
-  "moodiary-v3-w9-8-4-10/apply_w9_8_4_10.py"):
+  "moodiary-v3-w9-8-4-10/apply_w9_8_4_10.py",
+  "moodiary-v3-w9-8-4-11/apply_w9_8_4_11.py"):
     require(prepare,needle,"pinned source assembly")
 w9845=(ROOT/"moodiary-v3-w9-8-4-5/apply_w9_8_4_5.py").read_text()
 for needle in (
@@ -194,6 +195,29 @@ inventory_code=(ROOT/"moodiary-v3-w9-8-4-10/overlay/packages/feature/moodiary_sy
 for needle in ("requiresExplicitRetentionDecision","recoveryRequired",
   "unrecognized","maxEntries","followLinks:false","openExistingWorkspace("):
     require(inventory_code,needle,"W9.8.4.10 non-destructive inventory gate")
+
+w98411=(ROOT/"moodiary-v3-w9-8-4-11/apply_w9_8_4_11.py").read_text()
+for needle in (
+  "Android private root inspection returns null without creating a missing root",
+  "Android private root inspection opens an existing verified root only",
+  "Android private root inspection rejects a symlink without following it"):
+    require(w98411,needle,"W9.8.4.11 non-creating root inspection")
+for workflow in (fast,full):
+    for path in (
+      "mod_month_android_restore_root_v2_test.dart",
+      "recovery_inventory_panel_test.dart",
+      "recovery_inventory_panel.dart"):
+        require(workflow,path,"W9.8.4.11 read-only inventory UI coverage")
+root_ui=(ROOT/"moodiary-v3-w9-8-4-11/overlay/mobile/lib/app/settings/storage/recovery_inventory_controller.dart").read_text()
+panel_ui=(ROOT/"moodiary-v3-w9-8-4-11/overlay/mobile/lib/app/settings/storage/recovery_inventory_panel.dart").read_text()
+require(root_ui,"openExistingRootIfPresent()","W9.8.4.11 non-creating Android root access")
+for forbidden in ("createOrOpenForSupport(", "createNewWorkspace(", ".recover(", ".delete(",
+                  "restoreZipToNewIsolatedDirectory("):
+    if forbidden in root_ui or forbidden in panel_ui:
+        raise SystemExit("W9.8.4.11 UI must remain read-only: "+forbidden)
+for needle in ("StorageScanner", "StorageCleanupKind", "storageSelectionProvider"):
+    if needle in panel_ui:
+        raise SystemExit("W9.8.4.11 inventory panel must not alter storage cleanup: "+needle)
 
 # Changes to CI workflows or their gate scripts must exercise sensitive
 # tests as well; otherwise a workflow-only commit can appear green while
