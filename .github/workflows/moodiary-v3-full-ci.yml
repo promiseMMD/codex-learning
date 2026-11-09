@@ -7,6 +7,15 @@ on:
         type: boolean
         required: false
         default: false
+    secrets:
+      MOODIARY_SAFE_KEYSTORE_BASE64:
+        required: false
+      MOODIARY_SAFE_STORE_PASSWORD:
+        required: false
+      MOODIARY_SAFE_KEY_PASSWORD:
+        required: false
+      MOODIARY_SAFE_CERT_SHA256:
+        required: false
   workflow_dispatch:
     inputs:
       build_apk:
@@ -228,18 +237,52 @@ jobs:
         if: ${{ inputs.build_apk }}
         working-directory: upstream
         run: cp /tmp/moodiary-w9-test-pubspec.yaml pubspec.yaml
-      - name: Build validated V3 arm64 APK
+      - name: Provision persistent safe signing identity (fail closed; no debug fallback)
+        if: ${{ inputs.build_apk }}
+        shell: bash
+        env:
+          MOODIARY_SAFE_KEYSTORE_BASE64: ${{ secrets.MOODIARY_SAFE_KEYSTORE_BASE64 }}
+          MOODIARY_SAFE_STORE_PASSWORD: ${{ secrets.MOODIARY_SAFE_STORE_PASSWORD }}
+          MOODIARY_SAFE_KEY_PASSWORD: ${{ secrets.MOODIARY_SAFE_KEY_PASSWORD }}
+          MOODIARY_SAFE_CERT_SHA256: ${{ secrets.MOODIARY_SAFE_CERT_SHA256 }}
+        run: |
+          set -euo pipefail
+          [ -n "$MOODIARY_SAFE_KEYSTORE_BASE64" ] || { echo "::error::Missing MOODIARY_SAFE_KEYSTORE_BASE64 Actions secret"; exit 1; }
+          [ -n "$MOODIARY_SAFE_STORE_PASSWORD" ] || { echo "::error::Missing MOODIARY_SAFE_STORE_PASSWORD Actions secret"; exit 1; }
+          [ -n "$MOODIARY_SAFE_KEY_PASSWORD" ] || { echo "::error::Missing MOODIARY_SAFE_KEY_PASSWORD Actions secret"; exit 1; }
+          [ -n "$MOODIARY_SAFE_CERT_SHA256" ] || { echo "::error::Missing MOODIARY_SAFE_CERT_SHA256 Actions secret"; exit 1; }
+          keystore="$GITHUB_WORKSPACE/upstream/mobile/android/app/key.jks"
+          printf '%s' "$MOODIARY_SAFE_KEYSTORE_BASE64" | base64 --decode > "$keystore"
+          test -s "$keystore"
+          actual_cert="$(keytool -list -v -keystore "$keystore" -storepass "$MOODIARY_SAFE_STORE_PASSWORD" -alias key0 \
+            | sed -n 's/.*SHA256: //p' | head -n 1 | tr -d ':' | tr '[:upper:]' '[:lower:]')"
+          expected_cert="$(printf '%s' "$MOODIARY_SAFE_CERT_SHA256" | tr -d '[:space:]:' | tr '[:upper:]' '[:lower:]')"
+          [[ "$actual_cert" =~ ^[0-9a-f]{64}$ ]]
+          [[ "$actual_cert" == "$expected_cert" ]] || { echo "::error::The JKS certificate does not match MOODIARY_SAFE_CERT_SHA256"; exit 1; }
+          props="$GITHUB_WORKSPACE/upstream/mobile/android/local.properties"
+          tmp="$(mktemp)"
+          if [[ -f "$props" ]]; then
+            grep -Ev '^(storePassword|keyPassword)=' "$props" > "$tmp" || true
+          fi
+          printf 'storePassword=%s\nkeyPassword=%s\n' "$MOODIARY_SAFE_STORE_PASSWORD" "$MOODIARY_SAFE_KEY_PASSWORD" >> "$tmp"
+          mv "$tmp" "$props"
+          echo "Persistent v3safe signing identity verified; private key was not logged or uploaded."
+
+      - name: Build validated V3 safe parallel-install ARM64 APK
         if: ${{ inputs.build_apk }}
         env:
           ANDROID_NDK_HOME: ${{ steps.ndk.outputs.ndk-path }}
         working-directory: upstream/mobile
-        run: flutter build apk --flavor v3dev --release --target-platform android-arm64
-      - name: Verify APK package, version, assets, ABI and signer
+        run: flutter build apk --flavor v3safe --release --target-platform android-arm64
+
+      - name: Verify safe package, migration assets, persistent signer and APK hash
         if: ${{ inputs.build_apk }}
         shell: bash
+        env:
+          MOODIARY_SAFE_CERT_SHA256: ${{ secrets.MOODIARY_SAFE_CERT_SHA256 }}
         run: |
           set -euo pipefail
-          apk=upstream/mobile/build/app/outputs/flutter-apk/app-v3dev-release.apk
+          apk=upstream/mobile/build/app/outputs/flutter-apk/app-v3safe-release.apk
           test -s "$apk"
           mkdir -p /tmp/moodiary-ci-delivery
           python3 moodiary-v3-w9-8-4-12/verify_apk.py "$apk" | tee /tmp/moodiary-ci-delivery/APK-VERIFICATION.json
@@ -250,41 +293,38 @@ jobs:
           "$apksigner" verify --verbose --print-certs "$apk" | tee /tmp/moodiary-ci-delivery/SIGNATURE.txt
           grep -F "Verified using v2 scheme (APK Signature Scheme v2): true" /tmp/moodiary-ci-delivery/SIGNATURE.txt
           "$aapt" dump badging "$apk" | tee /tmp/moodiary-ci-delivery/MANIFEST.txt
-          grep -F "package: name='cn.yooss.moodiary.v3dev' versionCode='124' versionName='2.9.2'" /tmp/moodiary-ci-delivery/MANIFEST.txt
+          grep -F "package: name='cn.yooss.moodiary.v3safe' versionCode='125' versionName='2.9.3'" /tmp/moodiary-ci-delivery/MANIFEST.txt
           grep -F "sdkVersion:'28'" /tmp/moodiary-ci-delivery/MANIFEST.txt
           grep -F "targetSdkVersion:'36'" /tmp/moodiary-ci-delivery/MANIFEST.txt
-          cp "$apk" /tmp/moodiary-ci-delivery/
+          cp "$apk" /tmp/moodiary-ci-delivery/app-v3safe-release.apk
           cd /tmp/moodiary-ci-delivery
-          sha256sum app-v3dev-release.apk > app-v3dev-release.apk.sha256
+          sha256sum app-v3safe-release.apk > app-v3safe-release.apk.sha256
           actual_signer="$(sed -n 's/.*V2 Signer: certificate SHA-256 digest: //p' SIGNATURE.txt | head -n 1 | tr '[:upper:]' '[:lower:]')"
+          expected_signer="$(printf '%s' "$MOODIARY_SAFE_CERT_SHA256" | tr -d '[:space:]:' | tr '[:upper:]' '[:lower:]')"
           test -n "$actual_signer"
-          previous_signer="19a9a5816297abfac1daaba0fbeeeedfd5bc8a67aa42e479aa60a3534c880b3a"
-          if [[ "$actual_signer" == "$previous_signer" ]]; then
-            signer_compatibility="same-as-previous-W9.5.2-dev-build"
-          else
-            signer_compatibility="DIFFERENT-DO-NOT-UPDATE-INSTALL-OVER-EXISTING-APP"
-            echo "::warning::APK signer differs from W9.5.2. Do not uninstall or update-install over an existing app; preserve existing app data."
-          fi
+          test "$actual_signer" = "$expected_signer"
           {
             echo "source_commit=${{ github.sha }}"
             echo "upstream_commit=2c552ddd7939a054122380397fb914cf000824b0"
             echo "workflow_run=${{ github.run_id }}"
             echo "workflow_ref=${{ github.ref }}"
             echo "generated_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-            echo "application_id=cn.yooss.moodiary.v3dev"
-            echo "version_name=2.9.2"
-            echo "version_code=124"
+            echo "application_id=cn.yooss.moodiary.v3safe"
+            echo "previous_application_id=cn.yooss.moodiary.v3dev"
+            echo "parallel_install=true"
+            echo "migration_method=full backup ZIP export/import"
+            echo "version_name=2.9.3"
+            echo "version_code=125"
             echo "abi=arm64-v8a"
             echo "signer_certificate_sha256=$actual_signer"
-            echo "previous_dev_signer_sha256=$previous_signer"
-            echo "signer_compatibility=$signer_compatibility"
+            echo "signer_compatibility=stable-persistent-v3safe-key"
             grep '^version:' "$GITHUB_WORKSPACE/upstream/mobile/pubspec.yaml"
           } > BUILD-PROVENANCE.txt
-          sha256sum --check app-v3dev-release.apk.sha256
+          sha256sum --check app-v3safe-release.apk.sha256
       - uses: actions/upload-artifact@v4
         if: ${{ inputs.build_apk }}
         with:
-          name: Moodiary-V3-${{ github.sha }}-arm64
+          name: Moodiary-V3-Safe-${{ github.sha }}-arm64
           path: /tmp/moodiary-ci-delivery/
           retention-days: 90
           if-no-files-found: error
