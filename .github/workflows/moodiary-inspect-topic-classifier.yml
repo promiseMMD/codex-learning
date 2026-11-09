@@ -1,0 +1,32 @@
+name: Inspect Moodiary topic classifier
+on:
+  push:
+    branches:
+      - moodiary-v3-w9-8-4-15-full-history-migration-20261109
+    paths:
+      - moodiary-ci/inspect-w1-topic-classifier.py
+      - .github/workflows/moodiary-inspect-topic-classifier.yml
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Extract original W1 source bundle
+        run: |
+          base64 --decode moodiary-longrecord/build-payload.b64 > /tmp/moodiary-v3-w1.zip
+          unzip -q /tmp/moodiary-v3-w1.zip -d /tmp/moodiary-v3-w1
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('/tmp/moodiary-v3-w1')
+          hits=list(p.rglob('mod_continuous.dart'))
+          print('MATCHES:', [str(x) for x in hits])
+          if len(hits)!=1:
+              raise SystemExit('Expected one mod_continuous.dart')
+          source=hits[0].read_text(encoding='utf-8').splitlines()
+          matches=[i for i,x in enumerate(source) if 'class ModDiary' in x]
+          if len(matches)!=1:
+              raise SystemExit('Expected one ModDiary class')
+          start=matches[0]
+          for i,line in enumerate(source[start:min(len(source),start+200)],start+1):
+              print(f'{i}: {line}')
+          PY
