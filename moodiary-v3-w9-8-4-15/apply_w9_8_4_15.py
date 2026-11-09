@@ -99,47 +99,47 @@ patch(
 )
 
 local_archive = "packages/feature/moodiary_sync/lib/src/data/impl/local_archive.dart"
-patch(
-    local_archive,
-    """    ArchiveApplyPolicy policy = const SyncPullPolicy(),
-  }) async {
-    if (!await File(p.join(dir, SyncKeys.manifestPath)).exists()) {""",
-    """    ArchiveApplyPolicy policy = const SyncPullPolicy(),
-    Future<void> Function(SyncReport)? afterApply,
-  }) async {
-    if (!await File(p.join(dir, SyncKeys.manifestPath)).exists()) {""",
-)
-patch(
-    local_archive,
-    """    return runSyncExclusive(
-      () => ArchiveApplier(
-        backend,
-        policy: policy,
-        diaryStore: diaryStore,
-        categoryStore: categoryStore,
-        placeStore: placeStore,
-        tombstoneStore: tombstoneStore,
-        mediaFiles: mediaFiles,
-        cipherProvider: cipher,
-        concurrency: concurrency ?? 4,
-      ).apply(SyncManifest.fromJson(decoded)),
-    );""",
-    """    return runSyncExclusive(() async {
-      final report = await ArchiveApplier(
-        backend,
-        policy: policy,
-        diaryStore: diaryStore,
-        categoryStore: categoryStore,
-        placeStore: placeStore,
-        tombstoneStore: tombstoneStore,
-        mediaFiles: mediaFiles,
-        cipherProvider: cipher,
-        concurrency: concurrency ?? 4,
-      ).apply(SyncManifest.fromJson(decoded));
-      await afterApply?.call(report);
-      return report;
-    });""",
-)
+archive_path = root / local_archive
+archive_text = archive_path.read_text(encoding="utf-8")
+method_marker = "  static Future<SyncReport> importDirectory("
+begin = archive_text.find(method_marker)
+if begin < 0:
+    raise SystemExit("W9.8.4.15: importDirectory declaration missing")
+end = archive_text.find("\n  }\n}", begin)
+if end < 0:
+    raise SystemExit("W9.8.4.15: importDirectory method end missing")
+section = archive_text[begin:end]
+signature_end = section.find("  }) async {")
+if signature_end < 0:
+    raise SystemExit("W9.8.4.15: importDirectory signature has changed")
+if "afterApply" not in section[:signature_end]:
+    section = (
+        section[:signature_end]
+        + "    Future<void> Function(SyncReport)? afterApply,\n"
+        + section[signature_end:]
+    )
+if "await afterApply?.call(report)" not in section:
+    import re
+    rx = re.compile(
+        r"return runSyncExclusive\(\s*\(\)\s*=>\s*"
+        r"(ArchiveApplier\(.*?\)\.apply\(SyncManifest\.fromJson\(decoded\)\))"
+        r",\s*\);",
+        re.S,
+    )
+    match = rx.search(section)
+    if match is None:
+        print("importDirectory source excerpt:", section[-1300:])
+        raise SystemExit("W9.8.4.15: cannot safely wrap importDirectory apply call")
+    replacement = (
+        "return runSyncExclusive(() async {\n"
+        "      final report = await " + match.group(1) + ";\n"
+        "      await afterApply?.call(report);\n"
+        "      return report;\n"
+        "    });"
+    )
+    section = section[:match.start()] + replacement + section[match.end():]
+archive_text = archive_text[:begin] + section + archive_text[end:]
+archive_path.write_text(archive_text, encoding="utf-8")
 
 backup_impl = "packages/feature/moodiary_sync/lib/src/data/impl/backup_archive_impl.dart"
 patch(
