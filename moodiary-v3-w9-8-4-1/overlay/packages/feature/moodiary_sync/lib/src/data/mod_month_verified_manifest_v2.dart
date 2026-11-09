@@ -9,6 +9,7 @@ import 'package:moodiary_data/moodiary_data.dart';
 import 'package:moodiary_models/moodiary_models.dart';
 
 import 'mod_month_verified_manifest_v1.dart';
+import 'model/manifest.dart';
 
 final class ModMonthVerifiedManifestV2 {
   const ModMonthVerifiedManifestV2._();
@@ -32,6 +33,16 @@ final class ModMonthVerifiedManifestV2 {
       name==graphPath ||
       (name!=ModMonthVerifiedManifestV1.graphPath &&
         ModMonthVerifiedManifestV1.allowsEntryPath(name));
+
+  static Set<String> _boundDayDiaryIds(String graphEncoded) {
+    final graph=jsonDecode(graphEncoded) as Map<String,dynamic>;
+    final days=graph['dayPages'] as List<dynamic>;
+    return {
+      for(final day in days)
+        if(day is Map && day['diary_id'] is String)
+          day['diary_id'] as String,
+    };
+  }
 
   /// Byte-backed adapter is only for small test fixtures. Real media use
   /// sealWithReceipts and are fingerprinted with streaming SHA-256.
@@ -110,6 +121,26 @@ final class ModMonthVerifiedManifestV2 {
       rethrow;
     } catch (_) {
       _fail('invalid_v2_graph');
+    }
+
+    // The day projection may bind an ordinary native Diary. Verify that
+    // every such ID is present as a live native object in the same manifest;
+    // V1 closure separately validates month-page bindings and topic identity.
+    late final SyncManifest nativeManifest;
+    try {
+      final raw=jsonDecode(utf8.decode(metadata['manifest.json']!));
+      if(raw is! Map<String,dynamic>)_fail('invalid_native_manifest');
+      nativeManifest=SyncManifest.fromJson(raw);
+    } catch (_) {
+      _fail('invalid_native_manifest');
+    }
+    final nativeDiaryIds={
+      for(final entry in nativeManifest.entries.entries)
+        if(entry.key.startsWith(SyncKeys.diaryPrefix) && !entry.value.deleted)
+          entry.key.substring(SyncKeys.diaryPrefix.length),
+    };
+    for(final id in _boundDayDiaryIds(encoded)) {
+      if(!nativeDiaryIds.contains(id))_fail('bound_day_diary_not_backed_up');
     }
 
     // Re-use the audited V1 native/media-closure validator with a synthetic
