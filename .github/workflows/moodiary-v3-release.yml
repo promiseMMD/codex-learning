@@ -26,6 +26,7 @@ jobs:
     uses: ./.github/workflows/moodiary-v3-full-ci.yml
     with:
       build_apk: true
+    secrets: inherit
   verify-device-evidence:
     needs: release-candidate-build
     runs-on: ubuntu-latest
@@ -34,7 +35,7 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with:
-          name: Moodiary-V3-${{ github.sha }}-arm64
+          name: Moodiary-V3-Safe-${{ github.sha }}-arm64
           path: /tmp/moodiary-qa
       - name: Fail closed unless the SAME APK bytes passed real-device QA
         shell: bash
@@ -46,8 +47,8 @@ jobs:
         run: |
           set -euo pipefail
           cd /tmp/moodiary-qa
-          sha256sum --check app-v3dev-release.apk.sha256
-          actual_sha="$(sha256sum app-v3dev-release.apk | awk '{print $1}')"
+          sha256sum --check app-v3safe-release.apk.sha256
+          actual_sha="$(sha256sum app-v3safe-release.apk | awk '{print $1}')"
           test "$TESTED_SHA" = "$GITHUB_SHA" || { echo 'Tested Git SHA mismatch'; exit 1; }
           test "$TESTED_APK_SHA256" = "$actual_sha" || { echo 'Tested APK bytes differ from this build'; exit 1; }
           [[ "$QA_EVIDENCE" =~ ^https:// ]] || { echo 'Real-device QA evidence URL required'; exit 1; }
