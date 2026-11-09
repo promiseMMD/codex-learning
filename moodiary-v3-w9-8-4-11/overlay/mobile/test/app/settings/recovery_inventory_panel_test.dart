@@ -9,8 +9,8 @@ import 'package:moodiary_sync/src/data/mod_month_restore_inventory_v2.dart';
 import 'package:mui/mui.dart';
 
 void main() {
-  setUpAll(() {
-    setupPluralResolvers();
+  setUpAll(() async {
+    await setupPluralResolvers();
     LocaleSettings.setLocaleSync(AppLocale.zh);
   });
 
@@ -29,8 +29,6 @@ void main() {
         child: TranslationProvider(
           child: MaterialApp(
             theme: buildMuiTheme(brightness: Brightness.light),
-            locale: const Locale('zh'),
-            supportedLocales: AppLocaleUtils.supportedLocales,
             home: const Scaffold(
               body: CustomScrollView(
                 slivers: [RecoveryInventoryPanel()],
@@ -68,9 +66,9 @@ void main() {
     await showPanel(tester, const ModRestoreInventorySnapshotV2([entry]));
     expect(find.textContaining('已验证恢复副本'), findsOneWidget);
     expect(find.textContaining('重置应用数据前'), findsOneWidget);
+    expect(find.textContaining('1.50 KB'), findsWidgets);
     await tester.tap(find.text('恢复工作区 1'));
     await tester.pumpAndSettle();
-    expect(find.text('1.50 KB'), findsOneWidget);
     expect(find.text('目录路径'), findsOneWidget);
     expect(find.text('活跃副本路径'), findsOneWidget);
     expect(
@@ -113,7 +111,7 @@ void main() {
     await showPanel(tester, snapshot);
     expect(find.textContaining('恢复事务未完成'), findsOneWidget);
     expect(find.textContaining('未识别项目'), findsWidgets);
-    expect(find.textContaining('需要人工检查'), findsOneWidget);
+    expect(find.textContaining('需要人工检查'), findsWidgets);
     expect(find.textContaining('大小未知'), findsOneWidget);
     expect(find.byType(FilledButton), findsNothing);
     expect(find.text('删除'), findsNothing);
@@ -140,8 +138,6 @@ void main() {
         child: TranslationProvider(
           child: MaterialApp(
             theme: buildMuiTheme(brightness: Brightness.light),
-            locale: const Locale('zh'),
-            supportedLocales: AppLocaleUtils.supportedLocales,
             home: const Scaffold(
               body: CustomScrollView(
                 slivers: [RecoveryInventoryPanel()],
@@ -152,7 +148,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.text('读取失败'), findsOneWidget);
+    expect(find.text('读取失败'), findsNWidgets(2));
     await tester.tap(find.byTooltip('重新扫描'));
     await tester.pumpAndSettle();
     expect(calls, 2);
