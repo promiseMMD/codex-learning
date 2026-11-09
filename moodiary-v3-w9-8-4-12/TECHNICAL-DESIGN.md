@@ -1,3 +1,5 @@
+> Historical note: this document records the W9.8.4.12 stage and its original 2.9.2 release baseline. It is superseded for current builds by W9.8.4.14, which pins official Moodiary develop commit 570ff99cd150fb2d45eb0949344f7bda22e32bde. Do not use this historical pin for new builds.
+
 # W9.8.4.12 Technical Design — APK build and device-test gate
 
 ## 1. Purpose
