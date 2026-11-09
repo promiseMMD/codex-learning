@@ -62,7 +62,8 @@ for source in (fast, full):
 require(full, "cargo +1.95.0 test sync::webdav::tests --lib",
         "all Rust WebDAV tests, including Nutstore pagination-risk regression")
 require(full, "moodiary-v3-w9-8-4-12/verify_apk.py", "W9.8.4.12 APK structural verification")
-require(full, "apksigner verify --verbose --print-certs", "W9.8.4.12 cryptographic APK signature verification")
+require(full, "verify --verbose --print-certs", "W9.8.4.12 cryptographic APK signature verification")
+require(full, '"$apksigner"', "W9.8.4.12 Android apksigner binary")
 require(full, "aapt dump badging", "W9.8.4.12 Android package manifest verification")
 require(full, "versionCode='124' versionName='2.9.2'", "W9.8.4.12 exact app version")
 require(full, "DIFFERENT-DO-NOT-UPDATE-INSTALL-OVER-EXISTING-APP", "W9.8.4.12 signer mismatch safety warning")
