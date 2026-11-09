@@ -68,3 +68,4 @@ python3 ../moodiary-v3-w9-8-4-4/apply_w9_8_4_4.py .
 python3 ../moodiary-v3-w9-8-4-5/apply_w9_8_4_5.py .
 python3 ../moodiary-v3-w9-8-4-6/apply_w9_8_4_6.py .
 python3 ../moodiary-v3-w9-8-4-7/apply_w9_8_4_7.py .
+python3 ../moodiary-v3-w9-8-4-8/apply_w9_8_4_8.py .
