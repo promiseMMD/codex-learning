@@ -3,16 +3,18 @@
 from __future__ import annotations
 import hashlib
 import json
+import os
 import struct
 import sys
 import zipfile
 from pathlib import Path
 
-EXPECTED_PACKAGE = "cn.yooss.moodiary.v3dev"
-EXPECTED_VERSION_NAME = "2.9.2"
-EXPECTED_VERSION_CODE = 124
+EXPECTED_PACKAGE = "cn.yooss.moodiary.v3safe"
+EXPECTED_VERSION_NAME = "2.9.3"
+EXPECTED_VERSION_CODE = 125
 EXPECTED_MIN_SDK = 28
 EXPECTED_TARGET_SDK = 36
+OLD_PARALLEL_PACKAGE = "cn.yooss.moodiary.v3dev"
 PREVIOUS_DEV_SIGNER_SHA256 = (
     "19a9a5816297abfac1daaba0fbeeeedfd5bc8a67aa42e479aa60a3534c880b3a"
 )
@@ -141,7 +143,10 @@ def parse_v2_signer_certificate_sha256(raw: bytes) -> tuple[list[str], str]:
 
 def main() -> None:
     if len(sys.argv) != 2:
-        raise SystemExit("Usage: verify_apk.py <app-v3dev-release.apk>")
+        raise SystemExit("Usage: verify_apk.py <app-v3safe-release.apk>")
+    expected_signer = os.environ.get("MOODIARY_SAFE_CERT_SHA256", "").replace(":", "").strip().lower()
+    if len(expected_signer) != 64 or any(c not in "0123456789abcdef" for c in expected_signer):
+        raise SystemExit("MOODIARY_SAFE_CERT_SHA256 is missing or malformed; refusing unsigned/unpinned delivery")
     apk = Path(sys.argv[1])
     if not apk.is_file() or apk.stat().st_size == 0:
         raise SystemExit("APK file is missing or empty")
@@ -193,6 +198,10 @@ def main() -> None:
         raise SystemExit("Unexpected APK targetSdkVersion: " + repr(sdk.get("targetSdkVersion")))
 
     signing_ids, signer_sha256 = parse_v2_signer_certificate_sha256(raw)
+    if signer_sha256.lower() != expected_signer:
+        raise SystemExit("APK signer does not match the persistent W9.8.4.13 signing certificate")
+    if manifest["package"] == OLD_PARALLEL_PACKAGE:
+        raise SystemExit("Safe APK package ID collides with the old installation")
     result = {
         "path": str(apk),
         "size_bytes": len(raw),
@@ -208,11 +217,13 @@ def main() -> None:
         "signing_block_ids": signing_ids,
         "signer_certificate_sha256": signer_sha256,
         "previous_w9_5_2_dev_signer_sha256": PREVIOUS_DEV_SIGNER_SHA256,
-        "same_signer_as_previous_dev_apk": signer_sha256.lower() == PREVIOUS_DEV_SIGNER_SHA256,
-        "install_warning": (
-            None if signer_sha256.lower() == PREVIOUS_DEV_SIGNER_SHA256
-            else "Do not update-install over an existing app; do not uninstall or clear data."
-        ),
+        "expected_safe_signer_sha256": expected_signer,
+        "signer_matches_persistent_safe_key": True,
+        "previous_dev_signer_sha256": PREVIOUS_DEV_SIGNER_SHA256,
+        "old_parallel_package_id": OLD_PARALLEL_PACKAGE,
+        "parallel_install_is_safe": manifest["package"] != OLD_PARALLEL_PACKAGE,
+        "migration_method": "in-app full backup ZIP export/import",
+        "old_app_data_modified": False,
     }
     print(json.dumps(result, ensure_ascii=False, sort_keys=True))
 
