@@ -34,7 +34,7 @@ jobs:
     timeout-minutes: 110
     steps:
       - name: Reject signed APK builds outside the approved branch
-        if: \${{ inputs.build_apk && github.ref != 'refs/heads/moodiary-v3-w9-8-4-31-permanent-application-id-20261110' }}
+        if: ${{ inputs.build_apk && github.ref != 'refs/heads/moodiary-v3-w9-8-4-31-permanent-application-id-20261110' }}
         shell: bash
         run: |
           echo "::error::Signed APK builds are restricted to the approved v3safe branch."
@@ -352,7 +352,7 @@ jobs:
           } > BUILD-PROVENANCE.txt
           sha256sum --check app-v3safe-release.apk.sha256
       - name: Remove signing material from ephemeral runner workspace
-        if: \${{ always() && inputs.build_apk }}
+        if: ${{ always() && inputs.build_apk }}
         shell: bash
         run: |
           set +x
