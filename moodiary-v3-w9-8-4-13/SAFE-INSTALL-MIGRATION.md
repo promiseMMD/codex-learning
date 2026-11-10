@@ -56,7 +56,7 @@ The graph includes the `mod_month_pages`, `mod_month_blocks`, `mod_month_revisio
 
 However, the official original app does not contain the modified app's W9 custom monthly/day graph, and the modified app has no user notes to migrate. Therefore:
 
-- W9 graph/revision/history migration is **not** a prerequisite for this user's first migration.
+- W9 graph/revision/history migration is not a prerequisite for this user's first migration.
 - Do not connect experimental W9 graph archives to the ordinary official ZIP import merely to satisfy an obsolete handoff checklist.
 - Do not require nonexistent old modified-app history as a release blocker.
 - Continue testing existing W9 features for their own correctness and data safety, without expanding the official-to-modified first-import scope.
