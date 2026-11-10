@@ -33,6 +33,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 110
     steps:
+      - name: Reject signed APK builds outside the approved branch
+        if: \${{ inputs.build_apk && github.ref != 'refs/heads/moodiary-v3-w9-8-4-31-permanent-application-id-20261110' }}
+        shell: bash
+        run: |
+          echo "::error::Signed APK builds are restricted to the approved v3safe branch."
+          exit 1
       - uses: actions/checkout@v4
       - name: Validate CI safety contract before full regression
         run: python3 moodiary-ci/check-gates.py
@@ -275,7 +281,7 @@ jobs:
           keystore="$GITHUB_WORKSPACE/upstream/mobile/android/app/key.jks"
           printf '%s' "$MOODIARY_SAFE_KEYSTORE_BASE64" | base64 --decode > "$keystore"
           test -s "$keystore"
-          actual_cert="$(keytool -list -v -keystore "$keystore" -storepass "$MOODIARY_SAFE_STORE_PASSWORD" -alias key0 \
+          actual_cert="$(keytool -list -v -keystore "$keystore" -storepass:env MOODIARY_SAFE_STORE_PASSWORD -alias key0 \
             | sed -n 's/.*SHA256: //p' | head -n 1 | tr -d ':' | tr '[:upper:]' '[:lower:]')"
           expected_cert="$(printf '%s' "$MOODIARY_SAFE_CERT_SHA256" | tr -d '[:space:]:' | tr '[:upper:]' '[:lower:]')"
           [[ "$actual_cert" =~ ^[0-9a-f]{64}$ ]]
@@ -345,6 +351,20 @@ jobs:
             grep '^version:' "$GITHUB_WORKSPACE/upstream/mobile/pubspec.yaml"
           } > BUILD-PROVENANCE.txt
           sha256sum --check app-v3safe-release.apk.sha256
+      - name: Remove signing material from ephemeral runner workspace
+        if: \${{ always() && inputs.build_apk }}
+        shell: bash
+        run: |
+          set +x
+          set -euo pipefail
+          rm -f "$GITHUB_WORKSPACE/upstream/mobile/android/app/key.jks"
+          props="$GITHUB_WORKSPACE/upstream/mobile/android/local.properties"
+          if [[ -f "$props" ]]; then
+            tmp="$(mktemp)"
+            grep -Ev '^(storePassword|keyPassword)=' "$props" > "$tmp" || true
+            mv "$tmp" "$props"
+          fi
+          echo "Signing material cleanup completed."
       - uses: actions/upload-artifact@v4
         if: ${{ inputs.build_apk }}
         with:

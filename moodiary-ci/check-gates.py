@@ -421,6 +421,28 @@ require(full[full.index(signer_marker):],
         "full certificate identity verification must remain after preflight")
 subprocess.run(["python3", str(ROOT/"moodiary-ci/test-signing-preflight.py")], check=True)
 
+
+# W9.8.4.15: signing material is only exposed on the approved branch, keytool
+# receives passwords through JDK 21 environment modifiers, and the ephemeral
+# runner removes the JKS and Gradle password properties on every exit path.
+if not (full.index(branchMarker) < full.index(preflightMarker) < full.index(signerMarker)):
+    raise SystemExit("APK branch allowlist must run before any signing secret is accessed")
+require(full, "github.ref != 'refs/heads/moodiary-v3-w9-8-4-31-permanent-application-id-20261110'",
+        "signed APK builds must be restricted to the approved permanent-identity branch")
+signer_block = full[full.index(signerMarker):full.index(buildMarker)]
+require(signer_block, "-storepass:env MOODIARY_SAFE_STORE_PASSWORD",
+        "keytool must receive the store password through the environment")
+if '-storepass "$MOODIARY_SAFE_STORE_PASSWORD"' in signer_block:
+    raise SystemExit("keytool must not receive the store password as a process argument")
+if not (full.index(verifyMarker) < full.index(cleanupMarker) < full.index("      - uses: actions/upload-artifact@v4", full.index(cleanupMarker))):
+    raise SystemExit("Signing cleanup must run after APK verification and before delivery artifact upload")
+cleanup_block = full[full.index(cleanupMarker):full.index("      - uses: actions/upload-artifact@v4", full.index(cleanupMarker))]
+require(cleanup_block, "always() && inputs.build_apk", "signing cleanup must run after success or failure")
+require(cleanup_block, 'rm -f "$GITHUB_WORKSPACE/upstream/mobile/android/app/key.jks"',
+        "temporary JKS must be removed from the ephemeral runner")
+require(cleanup_block, "grep -Ev '^(storePassword|keyPassword)='",
+        "Gradle signing passwords must be removed from local.properties")
+
 # Keep the local Windows JKS generator from exposing passwords in keytool argv.
 keygen = (ROOT/"moodiary-v3-w9-8-4-13/generate-safe-signing-key.ps1").read_text(encoding="utf-8")
 require(keygen, '"-storepass:env", "MOODIARY_SIGNING_STORE_PASSWORD"',
