@@ -41,7 +41,7 @@ def read_provenance(path: Path) -> dict[str, str]:
             continue  # Original build script appends the pubspec version.
         require("=" in line, "unrecognized build provenance line")
         key, value = line.split("=", 1)
-        require(bool(re.fullmatch(r"[a-z_]+", key)), "invalid provenance key")
+        require(bool(re.fullmatch(r"[a-z][a-z0-9_]*", key)), "invalid provenance key")
         require(key not in values, f"duplicate provenance key: {key}")
         values[key] = value
     return values
