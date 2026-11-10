@@ -5,7 +5,7 @@
 > The user's existing notes are in the official ZhuJHua/moodiary app. The modified app has no user notes.
 > Initial migration means **official original app → final modified app** only. Do not require migration of nonexistent old modified-app W9 history.
 >
-> **Permanent package identity (D02, user-approved 2026-11-10):** `cn.yooss.moodiary.v3safe` is the permanent applicationId of the modified app. This approval is final for the package identity. A build may still be labelled a signed QA candidate while migration/device/release gates remain incomplete; QA status describes the artifact's verification state, not a temporary or unapproved package name.
+> **Permanent package identity (V1.0 D02, user-approved 2026-11-10):** `cn.yooss.moodiary.v3safe` is the permanent applicationId of the modified app. This approval is final for the package identity. A build may still be labelled a signed QA candidate while migration/device/release gates remain incomplete; QA status describes the artifact's verification state, not a temporary or unapproved package name.
 
 ## 1. Installation and signing boundaries
 
