@@ -376,6 +376,12 @@ final class ModMonthFullBackupArchiveV1 {
           graph: graph,
           phase: previous['phase'] as String,
         );
+        await verifyNativePayloadReadback(
+          db: db,
+          manifest: nativeManifest,
+          verifiedDirectory: verified,
+          allowPartial: previous['phase'] == 'verified',
+        );
       }
       // A source file may be replaced while an expensive ZIP verification
       // runs. Never bind an earlier SHA to bytes verified later.
@@ -394,6 +400,11 @@ final class ModMonthFullBackupArchiveV1 {
             _fail('native_import_incomplete');
           }
           await _verifyNativeEntities(db,nativeManifest);
+          await verifyNativePayloadReadback(
+            db: db,
+            manifest: nativeManifest,
+            verifiedDirectory: verified,
+          );
           await TombstoneRepository(db).putAll([
             for(final entry in nativeManifest.entries.entries)
               if(entry.value.deleted)
@@ -421,6 +432,83 @@ final class ModMonthFullBackupArchiveV1 {
       return report;
     } finally {
       if(await temp.exists())await temp.delete(recursive:true);
+    }
+  }
+
+  /// Compare complete native objects, not only IDs and lastModified.
+  /// A journal can be resumed only when any existing records match the
+  /// verified source byte-for-byte at the domain-model level.
+  static Future<void> verifyNativePayloadReadback({
+    required MoodiaryDatabase db,
+    required SyncManifest manifest,
+    required String verifiedDirectory,
+    bool allowPartial = false,
+  }) async {
+    final diaries = {
+      for (final d in await DiaryRepository(db).getAllDiaries()) d.id: d,
+    };
+    final categories = {
+      for (final c in await CategoryRepository(db).getAllCategories()) c.id: c,
+    };
+    final places = {
+      for (final p in await PlaceRepository(db).getAllPlaces()) p.id: p,
+    };
+
+    Future<Map<String, dynamic>> sourceObject(String path) async {
+      final file = File(p.joinAll([verifiedDirectory, ...path.split('/')]));
+      if (await FileSystemEntity.type(file.path, followLinks: false) !=
+          FileSystemEntityType.file) {
+        _fail('migration_native_source_missing');
+      }
+      try {
+        final decoded = jsonDecode(await file.readAsString());
+        if (decoded is Map<String, dynamic>) return decoded;
+      } catch (_) {
+        _fail('migration_native_source_invalid');
+      }
+      _fail('migration_native_source_invalid');
+    }
+
+    for (final entry in manifest.entries.entries) {
+      if (entry.value.deleted) continue;
+      final key = entry.key;
+      try {
+        if (key.startsWith(SyncKeys.diaryPrefix)) {
+          final id = key.substring(SyncKeys.diaryPrefix.length);
+          final expected = Diary.fromJson(
+            await sourceObject(SyncKeys.diaryObjectPath(id)),
+          );
+          final actual = diaries[id];
+          if (actual == null && allowPartial) continue;
+          if (expected.id != id || expected != actual) {
+            _fail('migration_native_payload_mismatch');
+          }
+        } else if (key.startsWith(SyncKeys.categoryPrefix)) {
+          final id = key.substring(SyncKeys.categoryPrefix.length);
+          final expected = Category.fromJson(
+            await sourceObject(SyncKeys.categoryObjectPath(id)),
+          );
+          final actual = categories[id];
+          if (actual == null && allowPartial) continue;
+          if (expected.id != id || expected != actual) {
+            _fail('migration_native_payload_mismatch');
+          }
+        } else if (key.startsWith(SyncKeys.placePrefix)) {
+          final id = key.substring(SyncKeys.placePrefix.length);
+          final expected = Place.fromJson(
+            await sourceObject(SyncKeys.placeObjectPath(id)),
+          );
+          final actual = places[id];
+          if (actual == null && allowPartial) continue;
+          if (expected.id != id || expected != actual) {
+            _fail('migration_native_payload_mismatch');
+          }
+        }
+      } on ModMonthFullBackupException {
+        rethrow;
+      } catch (_) {
+        _fail('migration_native_payload_mismatch');
+      }
     }
   }
 
