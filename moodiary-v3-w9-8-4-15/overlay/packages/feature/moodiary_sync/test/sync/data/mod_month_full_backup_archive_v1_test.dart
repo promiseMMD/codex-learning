@@ -700,6 +700,7 @@ with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_STORED) as archive:
       setup: (raw) => raw.execute('PRAGMA foreign_keys = ON'),
     ));
     try {
+      getIt.registerSingleton<MoodiaryDatabase>(db);
       getIt.registerSingleton<DiaryRepository>(DiaryRepository(db));
       getIt.registerSingleton<CategoryRepository>(CategoryRepository(db));
       getIt.registerSingleton<PlaceRepository>(PlaceRepository(db));
