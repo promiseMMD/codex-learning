@@ -379,6 +379,31 @@ for needle in (
   "app-v3safe-release.apk"):
     require(full,needle,"W9.8.4.13 fail-closed APK signing workflow")
 require(full,"check-release-readiness.py --qa-candidate","QA-only APK build does not require circular device QA before APK exists")
+
+# Fail fast on missing persistent signing secrets *before* installing Flutter,
+# running long regressions or building an APK. This checks presence only:
+# certificate/private-key identity is still checked in the original signer step.
+preflight_marker = "      - name: Fail early when persistent Android signing secrets are missing"
+prepare_marker = "      - name: Prepare pinned upstream and apply ALL V3 overlays"
+signer_marker = "      - name: Provision persistent safe signing identity (fail closed; no debug fallback)"
+if not (full.index("      - name: Validate CI safety contract before full regression")
+        < full.index(preflight_marker) < full.index(prepare_marker)
+        < full.index(signer_marker)):
+    raise SystemExit("APK signing preflight must precede expensive full tests and keep final signer validation")
+preflight_block = full[full.index(preflight_marker):full.index(prepare_marker)]
+require(preflight_block,'if: ${{ inputs.build_apk }}',"only APK builds need signing preflight")
+for signing_secret in (
+    "MOODIARY_SAFE_KEYSTORE_BASE64", "MOODIARY_SAFE_STORE_PASSWORD",
+    "MOODIARY_SAFE_KEY_PASSWORD", "MOODIARY_SAFE_CERT_SHA256",
+):
+    require(preflight_block, "secrets."+signing_secret, "early APK signing secret binding")
+    require(preflight_block, signing_secret, "missing-secret detection")
+require(preflight_block, 'if [[ -z "${!name:-}" ]]', "fail-closed missing secret check")
+require(preflight_block, 'exit 1', "missing signing secret fails build")
+require(full[full.index(signer_marker):],
+        'The JKS certificate does not match MOODIARY_SAFE_CERT_SHA256',
+        "full certificate identity verification must remain after preflight")
+
 require(full,"signed-QA-candidate-not-formal-release","QA artifact must not imply formal release")
 require(full,"original_first_import_device_qa=pending","QA artifact must declare real device acceptance pending")
 require(full,'signer_certificate_sha256',"W9.8.4.14 signer parsed from verifier JSON")

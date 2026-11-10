@@ -36,6 +36,23 @@ jobs:
       - uses: actions/checkout@v4
       - name: Validate CI safety contract before full regression
         run: python3 moodiary-ci/check-gates.py
+      - name: Fail early when persistent Android signing secrets are missing
+        if: ${{ inputs.build_apk }}
+        shell: bash
+        env:
+          MOODIARY_SAFE_KEYSTORE_BASE64: ${{ secrets.MOODIARY_SAFE_KEYSTORE_BASE64 }}
+          MOODIARY_SAFE_STORE_PASSWORD: ${{ secrets.MOODIARY_SAFE_STORE_PASSWORD }}
+          MOODIARY_SAFE_KEY_PASSWORD: ${{ secrets.MOODIARY_SAFE_KEY_PASSWORD }}
+          MOODIARY_SAFE_CERT_SHA256: ${{ secrets.MOODIARY_SAFE_CERT_SHA256 }}
+        run: |
+          set -euo pipefail
+          for name in MOODIARY_SAFE_KEYSTORE_BASE64 MOODIARY_SAFE_STORE_PASSWORD MOODIARY_SAFE_KEY_PASSWORD MOODIARY_SAFE_CERT_SHA256; do
+            if [[ -z "${!name:-}" ]]; then
+              echo "::error::Missing required GitHub Actions signing secret: $name"
+              exit 1
+            fi
+          done
+          echo "Persistent signing configuration exists; certificate verification remains mandatory at the APK signing stage."
       - name: Prepare pinned upstream and apply ALL V3 overlays
         shell: bash
         run: bash moodiary-ci/prepare-workspace.sh
