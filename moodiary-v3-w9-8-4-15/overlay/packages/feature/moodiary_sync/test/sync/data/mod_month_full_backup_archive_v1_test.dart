@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:drift/drift.dart' show Variable;
@@ -310,6 +311,107 @@ with zipfile.ZipFile(sys.argv[1], 'w', compression=zipfile.ZIP_STORED) as archiv
       ).getSingle();
       expect(current.read<int>('last_modified'), databaseMicros,
           reason: 'validation must never modify the source timestamp');
+    } finally {
+      await db.close();
+    }
+  });
+
+  test('resumed migration refuses altered native payload with unchanged ID and timestamp', () async {
+    final db = MoodiaryDatabase.forTesting(NativeDatabase.memory());
+    try {
+      await db.customSelect('SELECT 1').get();
+      const micros = 1794038400000123;
+      const millis = 1794038400000;
+      await db.customStatement(
+        'INSERT INTO diaries '
+        '(id,title,content,content_text,time,last_modified,show,type) '
+        'VALUES(?,?,?,?,?,?,?,?)',
+        ['diary-001', 'original diary', '{}', 'original', micros,
+         micros, 1, 'tiptap'],
+      );
+      await db.customStatement(
+        'INSERT INTO categories (id,name,last_modified) VALUES(?,?,?)',
+        ['category-001', 'original category', micros],
+      );
+      await db.customStatement(
+        'INSERT INTO places '
+        '(id,name,latitude,longitude,last_modified) VALUES(?,?,?,?,?)',
+        ['place-001', 'original place', 34.0, 110.0, micros],
+      );
+      final root = sandbox.path + '/verified-native';
+      Future<void> archive(String relative, Map<String, dynamic> value) async {
+        final file = File(root + '/' + relative);
+        await file.parent.create(recursive: true);
+        await file.writeAsString(jsonEncode(value), flush: true);
+      }
+      await archive('diary/diary-001.json',
+          (await DiaryRepository(db).getDiaryByBusinessId('diary-001'))!.toJson());
+      await archive('category/category-001.json',
+          (await CategoryRepository(db).getCategoryById('category-001'))!.toJson());
+      await archive('place/place-001.json',
+          (await PlaceRepository(db).getPlaceById('place-001'))!.toJson());
+
+      final manifest = SyncManifest(
+        version: SyncManifest.currentVersion,
+        updatedAtMs: millis,
+        entries: {
+          SyncKeys.diary('diary-001'): const ManifestEntry(timeMs: millis),
+          SyncKeys.category('category-001'): const ManifestEntry(timeMs: millis),
+          SyncKeys.place('place-001'): const ManifestEntry(timeMs: millis),
+        },
+      );
+      Future<void> verify({bool partial = false}) =>
+          ModMonthFullBackupArchiveV1.verifyNativePayloadReadback(
+            db: db, manifest: manifest,
+            verifiedDirectory: root, allowPartial: partial,
+          );
+      Future<void> rejected() => expectLater(
+        verify(),
+        throwsA(isA<ModMonthFullBackupException>().having(
+          (e) => e.code, 'code', 'migration_native_payload_mismatch')),
+      );
+
+      await verify();
+      await db.customStatement(
+        'UPDATE diaries SET title=? WHERE id=?',
+        ['unexpected edit', 'diary-001'],
+      );
+      await rejected();
+      await db.customStatement(
+        'UPDATE diaries SET title=? WHERE id=?',
+        ['original diary', 'diary-001'],
+      );
+      await db.customStatement(
+        'UPDATE categories SET name=? WHERE id=?',
+        ['unexpected edit', 'category-001'],
+      );
+      await rejected();
+      await db.customStatement(
+        'UPDATE categories SET name=? WHERE id=?',
+        ['original category', 'category-001'],
+      );
+      await db.customStatement(
+        'UPDATE places SET latitude=? WHERE id=?',
+        [35.0, 'place-001'],
+      );
+      await rejected();
+      await db.customStatement(
+        'UPDATE places SET latitude=? WHERE id=?',
+        [34.0, 'place-001'],
+      );
+      await verify();
+
+      // A crash before finishing native import may leave an absent row.
+      // However, the fully-imported phase must never accept a missing row.
+      await db.customStatement('DELETE FROM places WHERE id=?', ['place-001']);
+      await verify(partial: true);
+      await rejected();
+      final row = await db.customSelect(
+        'SELECT title FROM diaries WHERE id=?',
+        variables: [Variable.withString('diary-001')],
+      ).getSingle();
+      expect(row.read<String>('title'), 'original diary',
+          reason: 'safety validation is always read-only');
     } finally {
       await db.close();
     }
