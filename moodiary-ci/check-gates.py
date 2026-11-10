@@ -416,6 +416,10 @@ if full.count("MOODIARY_SAFE_KEYSTORE_BASE64") < 2:
     raise SystemExit("APK workflow must both provision and validate persistent signing material")
 subprocess.run(["python3", str(ROOT/"moodiary-v3-w9-8-4-13/test_safe_install.py")], check=True)
 subprocess.run(["python3", str(ROOT/"moodiary-ci/test-release-readiness.py")], check=True)
+require(release,"moodiary-ci/check-qa-artifact.py","QA gate validates exact candidate provenance")
+require(release,'--candidate-run-id "$QA_CANDIDATE_RUN_ID"',"QA gate compares downloaded artifact run")
+require(release,'--current-sha "$GITHUB_SHA"',"QA gate binds candidate to current code")
+subprocess.run(["python3", str(ROOT/"moodiary-ci/test-qa-artifact.py")], check=True)
 
 require(full, "upstream_commit=2c552ddd7939a054122380397fb914cf000824b0", "W9.8.4.14 latest upstream provenance")
 print("All CI contracts verified: quick, full coverage, APK SHA and device QA")

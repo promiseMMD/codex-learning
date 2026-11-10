@@ -32,6 +32,7 @@ jobs:
     environment: android-device-qa
     timeout-minutes: 10
     steps:
+      - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
           name: Moodiary-V3-Safe-${{ inputs.tested_sha }}-arm64
@@ -60,6 +61,12 @@ jobs:
           actual_sha="$(sha256sum app-v3safe-release.apk | awk '{print $1}')"
           test "$TESTED_SHA" = "$GITHUB_SHA" || { echo 'Tested Git SHA mismatch'; exit 1; }
           test "$TESTED_APK_SHA256" = "$actual_sha" || { echo 'Tested APK bytes differ from this build'; exit 1; }
+          python3 "$GITHUB_WORKSPACE/moodiary-ci/check-qa-artifact.py" \
+            --artifact-dir "$PWD" \
+            --candidate-run-id "$QA_CANDIDATE_RUN_ID" \
+            --tested-sha "$TESTED_SHA" \
+            --tested-apk-sha256 "$TESTED_APK_SHA256" \
+            --current-sha "$GITHUB_SHA"
           [[ "$QA_EVIDENCE" =~ ^https:// ]] || { echo 'Real-device QA evidence URL required'; exit 1; }
           test -n "$DEVICE_MODEL"
           {
