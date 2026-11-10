@@ -5,18 +5,19 @@
 > The user's existing notes are in the official ZhuJHua/moodiary app. The modified app has no user notes.
 > Initial migration means **official original app → final modified app** only. Do not require migration of nonexistent old modified-app W9 history.
 >
-> **Package identity warning (D02):** `cn.yooss.moodiary.v3safe` is the current isolated QA-candidate applicationId only. The user has not approved it as the permanent formal applicationId. Any older statement below or in historical commits treating it as the final package is superseded by V1.0. Do not publish or label it as the formal package without explicit user approval.
+> **Permanent package identity (D02, user-approved 2026-11-10):** `cn.yooss.moodiary.v3safe` is the permanent applicationId of the modified app. This approval is final for the package identity. A build may still be labelled a signed QA candidate while migration/device/release gates remain incomplete; QA status describes the artifact's verification state, not a temporary or unapproved package name.
 
 ## 1. Installation and signing boundaries
 
 - Official original package: `cn.yooss.moodiary`.
 - Historical modified development package: `cn.yooss.moodiary.v3dev`.
-- Current isolated QA candidate package: `cn.yooss.moodiary.v3safe` (candidate only; not a D02 approval).
+- **Permanent modified applicationId: `cn.yooss.moodiary.v3safe` (D02 user-approved 2026-11-10).**
+- The `v3safe` Gradle flavor is the permanent app identity. `signed-QA-candidate-not-formal-release` is only an artifact readiness label; it does not make the package name temporary.
 - The original app and its data must remain installed and untouched until the first-import acceptance passes.
-- The final modified app must use a separate, user-approved package ID and a persistent signing identity.
+- Every future modified-app build must retain the exact same applicationId and signing identity so normal in-place upgrades remain possible.
 - Never bypass Android signature checks or generate a replacement key after the first formal release.
 
-The old development APK's private signing key is unavailable. A public certificate extracted from an APK cannot recreate its private key. A different signer cannot perform an in-place Android update. The separate QA candidate avoids overwriting that old installation, but its package ID must not be silently promoted to the permanent package.
+The old development APK's private signing key is unavailable. A public certificate extracted from an APK cannot recreate its private key. A different signer cannot perform an in-place Android update. The permanent `v3safe` package remains separate from both the official original and historical `v3dev` installation, allowing parallel installation without overwriting either.
 
 ## 2. Official original backup format — verified source behavior
 
@@ -72,14 +73,14 @@ Create one long-term signing identity for the final modified app and retain two 
 
 CI must fail closed if any secret is absent, the alias is wrong, or the certificate fingerprint does not match. Presence-only preflight is not a substitute for the later JKS and APK certificate verification. Never use a debug or ephemeral signer as a fallback.
 
-The candidate key must be retained and used consistently if selected for the final package; do not regenerate it after a formal release. The exact formal applicationId must first be approved under V1.0 D02.
+The persistent signer configured for `cn.yooss.moodiary.v3safe` must be used consistently for QA builds and all future formal releases. Before first formal release, verify its certificate fingerprint against the APK; after the first formal release, never regenerate or replace the signing key. The package ID is already approved; signing-key configuration and validation remain pending.
 
 ## 6. Formal release gates
 
 Do not publish or describe an APK as the formal long-term app until all applicable V1.0 gates pass:
 
 - Official upstream Release/Tag and exact commit are pinned and recorded.
-- The permanent formal applicationId is explicitly approved by the user under D02. `cn.yooss.moodiary.v3safe` remains QA-only until then.
+- The permanent applicationId is fixed as `cn.yooss.moodiary.v3safe` under D02. Gradle flavor, APK Manifest, structural verifier, CI provenance and delivered APK must all match this exact value; do not rename it in future releases.
 - Display version follows the adapted official Release; each formal APK's integer `versionCode` exceeds the previous formal release.
 - One persistent signing key is used; APK package, signature and SHA-256 are verified.
 - Full CI passes on the exact source commit.
@@ -87,4 +88,4 @@ Do not publish or describe an APK as the formal long-term app until all applicab
 - Coverage includes install coexistence, approved modified features, data integrity, backup/restore, database upgrade and required real-device checks.
 - Xiaomi 14 Pro / HyperOS 3 device acceptance is recorded where applicable.
 
-A signed QA candidate is not a formal release. Fast CI success is not device acceptance. Until the original-to-modified migration and device acceptance pass, keep the original app and its data untouched.
+A signed QA candidate is not a formal release. Its package identity is nevertheless the permanent `cn.yooss.moodiary.v3safe`. Fast CI success is not device acceptance. Until the original-to-modified migration and device acceptance pass, keep the original app and its data untouched.

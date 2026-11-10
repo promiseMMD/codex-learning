@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """Fail-closed APK release gate for original Moodiary -> final mod build."""
 
+# D02: the user approved this permanent package identity on 2026-11-10.
+PERMANENT_APPLICATION_ID = "cn.yooss.moodiary.v3safe"
+
 # Confirmed user scope (2026-11-10): ALL existing notes are in original Moodiary.
 # The interim modified APK has no notes, so no modified-build W9 history needs
 # migrating. An ordinary original-app native backup is a valid source, not an
@@ -11,7 +14,6 @@
 MIGRATION_READY = False
 
 BLOCKERS = (
-    "formal Android applicationId must be explicitly approved under V1.0 D02; cn.yooss.moodiary.v3safe is QA-only",
     "original installed Moodiary version and its native backup format must be verified",
     "original ZIP -> final app media, metadata and note round-trip device acceptance pending",
     "final build must have a persistent signing identity and pass Android installation tests",
@@ -24,14 +26,17 @@ def main(argv: list[str] | None = None) -> None:
 
     args = sys.argv[1:] if argv is None else argv
     if args == ["--qa-candidate"]:
-        # The workflow still requires full tests, a pinned persistent
-        # production-compatible signer, APK verification and SHA-256.
-        # This option only permits an explicitly marked QA artifact for
-        # Android tests, not publication or real user-data migration.
-        print("QA CANDIDATE ONLY: no formal release or user-data migration authorized.")
+        # The package identity is permanent; this option only marks the artifact
+        # as a QA candidate until real migration and device acceptance pass.
+        print(
+            "QA CANDIDATE ONLY: permanent applicationId="
+            + PERMANENT_APPLICATION_ID
+            + "; no formal release or user-data migration authorized."
+        )
         return
     if args:
         raise SystemExit("Unknown release-readiness option; refusing to proceed")
+    print("Permanent Android applicationId (D02 user-approved): " + PERMANENT_APPLICATION_ID)
     if not MIGRATION_READY:
         print("APK PUBLIC RELEASE BLOCKED: official original-to-modded first import and device QA are not verified.")
         for item in BLOCKERS:

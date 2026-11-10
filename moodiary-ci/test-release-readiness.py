@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fail-closed regression for QA-candidate vs formal APK release separation."""
+"""Regression for permanent package identity and QA-candidate/formal-release separation."""
 import subprocess
 import sys
 from pathlib import Path
@@ -21,14 +21,19 @@ def main() -> None:
     release = run()
     assert release.returncode == 2, release
     assert "APK PUBLIC RELEASE BLOCKED" in release.stdout
-    assert "formal Android applicationId must be explicitly approved under V1.0 D02" in release.stdout
-    assert "cn.yooss.moodiary.v3safe is QA-only" in release.stdout
+    assert (
+        "Permanent Android applicationId (D02 user-approved): "
+        "cn.yooss.moodiary.v3safe"
+    ) in release.stdout
+    assert "formal Android applicationId must be explicitly approved" not in release.stdout
+    assert "cn.yooss.moodiary.v3safe is QA-only" not in release.stdout
     assert "original-to-modded first import and device QA" in release.stdout
     assert "complete custom-data migration" not in release.stdout
 
     candidate = run("--qa-candidate")
     assert candidate.returncode == 0, candidate
     assert "QA CANDIDATE ONLY" in candidate.stdout
+    assert "permanent applicationId=cn.yooss.moodiary.v3safe" in candidate.stdout
     assert "no formal release" in candidate.stdout
     assert "readiness gate passed" not in candidate.stdout
 
@@ -37,7 +42,7 @@ def main() -> None:
         assert rejected.returncode != 0, option
         assert "QA CANDIDATE ONLY" not in rejected.stdout
 
-    print("Release remains blocked; signed QA candidate is explicitly not a release.")
+    print("Permanent applicationId is fixed; formal release remains blocked by independent acceptance gates.")
 
 
 if __name__ == "__main__":

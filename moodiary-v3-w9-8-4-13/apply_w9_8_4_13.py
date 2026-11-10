@@ -1,6 +1,9 @@
-"""W9.8.4.13: parallel-safe Android package identity and migration contract."""
+"""W9.8.4.13: permanent Android package identity and migration contract."""
 from pathlib import Path
 import sys
+
+PERMANENT_APPLICATION_ID = "cn.yooss.moodiary.v3safe"
+PERMANENT_APPLICATION_ID_SUFFIX = ".v3safe"
 
 
 def _extract_braced_block(source: str, marker: str) -> tuple[int, int, str]:
@@ -36,11 +39,18 @@ def _extract_braced_block(source: str, marker: str) -> tuple[int, int, str]:
 
 
 def ensure_v3safe_flavor(source: str) -> str:
+    """Create or validate the one permanent v3safe Android application identity."""
     safe_marker = 'create("v3safe")'
+    suffix_identity = f'applicationIdSuffix = "{PERMANENT_APPLICATION_ID_SUFFIX}"'
+    explicit_identity = f'applicationId = "{PERMANENT_APPLICATION_ID}"'
     if safe_marker in source:
         _, _, safe_block = _extract_braced_block(source, safe_marker)
-        if 'applicationIdSuffix = ".v3safe"' not in safe_block:
-            raise SystemExit("Existing v3safe flavor has an unexpected applicationId")
+        valid_suffix = safe_block.count(suffix_identity) == 1
+        valid_explicit = safe_block.count(explicit_identity) == 1
+        if valid_suffix == valid_explicit:
+            raise SystemExit(
+                "Existing v3safe flavor must contain exactly one approved permanent application identity"
+            )
         return source
 
     _, end, dev_block = _extract_braced_block(source, 'create("v3dev")')
@@ -48,21 +58,23 @@ def ensure_v3safe_flavor(source: str) -> str:
         safe_block = dev_block.replace('create("v3dev")', safe_marker, 1)
         safe_block = safe_block.replace(
             'applicationIdSuffix = ".v3dev"',
-            'applicationIdSuffix = ".v3safe"',
+            suffix_identity,
             1,
         )
     elif dev_block.count('applicationId = "cn.yooss.moodiary.v3dev"') == 1:
         safe_block = dev_block.replace('create("v3dev")', safe_marker, 1)
         safe_block = safe_block.replace(
             'applicationId = "cn.yooss.moodiary.v3dev"',
-            'applicationId = "cn.yooss.moodiary.v3safe"',
+            explicit_identity,
             1,
         )
     else:
         raise SystemExit("Cannot safely clone v3dev application identity into v3safe")
 
-    if 'applicationIdSuffix = ".v3dev"' in safe_block:
-        raise SystemExit("v3safe flavor still carries the old package suffix")
+    if (safe_block.count(suffix_identity) + safe_block.count(explicit_identity)) != 1:
+        raise SystemExit("v3safe flavor does not resolve to the one approved permanent applicationId")
+    if 'applicationIdSuffix = ".v3dev"' in safe_block or 'applicationId = "cn.yooss.moodiary.v3dev"' in safe_block:
+        raise SystemExit("v3safe flavor still carries the historical v3dev application identity")
     return source[:end] + "\n" + safe_block + source[end:]
 
 
@@ -167,7 +179,7 @@ def main(root: Path) -> None:
             if needle not in text:
                 raise SystemExit("W9 migration readiness contract changed: " + label + ": " + needle)
 
-    print("W9.8.4.13 applied: cn.yooss.moodiary.v3safe is a parallel-install package")
+    print(f"W9.8.4.13 applied: permanent applicationId is {PERMANENT_APPLICATION_ID}")
     print("Standard native Diary ZIP export/import contract verified; old app remains untouched")
     print("IMPORTANT: W9 custom monthly/day graph migration is NOT production-wired; do not claim full migration readiness")
 

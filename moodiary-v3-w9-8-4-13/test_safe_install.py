@@ -23,6 +23,45 @@ def test_clone_v3dev_suffix_to_v3safe():
     assert 'create("v3safe")' in result
     assert 'applicationIdSuffix = ".v3safe"' in result
     assert result.count('create("v3safe")') == 1
+    assert MODULE.PERMANENT_APPLICATION_ID == "cn.yooss.moodiary.v3safe"
+
+
+def test_clone_explicit_v3dev_id_to_permanent_v3safe_id():
+    source = '''productFlavors {
+        create("v3dev") {
+            dimension = "channel"
+            applicationId = "cn.yooss.moodiary.v3dev"
+        }
+    }'''
+    result = MODULE.ensure_v3safe_flavor(source)
+    _, _, safe_block = MODULE._extract_braced_block(result, 'create("v3safe")')
+    assert 'applicationId = "cn.yooss.moodiary.v3safe"' in safe_block
+    assert 'cn.yooss.moodiary.v3dev' not in safe_block
+
+
+def test_existing_exact_permanent_id_is_accepted():
+    source = '''productFlavors {
+        create("v3safe") {
+            dimension = "channel"
+            applicationId = "cn.yooss.moodiary.v3safe"
+        }
+    }'''
+    assert MODULE.ensure_v3safe_flavor(source) == source
+
+
+def test_existing_wrong_explicit_id_fails_closed():
+    source = '''productFlavors {
+        create("v3safe") {
+            dimension = "channel"
+            applicationId = "cn.yooss.moodiary.other"
+        }
+    }'''
+    try:
+        MODULE.ensure_v3safe_flavor(source)
+    except SystemExit as error:
+        assert "approved permanent application identity" in str(error)
+    else:
+        raise AssertionError("wrong explicit permanent applicationId was accepted")
 
 
 def test_patch_is_idempotent():
@@ -51,7 +90,7 @@ def test_wrong_existing_safe_identity_fails_closed():
     try:
         MODULE.ensure_v3safe_flavor(source)
     except SystemExit as error:
-        assert "unexpected applicationId" in str(error)
+        assert "approved permanent application identity" in str(error)
     else:
         raise AssertionError("wrong package identity was accepted")
 
@@ -73,6 +112,9 @@ def test_version_bump_is_idempotent():
 if __name__ == "__main__":
     tests = [
         test_clone_v3dev_suffix_to_v3safe,
+        test_clone_explicit_v3dev_id_to_permanent_v3safe_id,
+        test_existing_exact_permanent_id_is_accepted,
+        test_existing_wrong_explicit_id_fails_closed,
         test_patch_is_idempotent,
         test_wrong_existing_safe_identity_fails_closed,
         test_missing_v3dev_fails_closed,

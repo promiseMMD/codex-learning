@@ -93,7 +93,8 @@ require(full, "dump badging", "W9.8.4.13 Android package manifest verification")
 require(full, '"$aapt"', "W9.8.4.13 Android aapt binary")
 require(full, "versionCode='126' versionName='2.9.2'", "W9.8.4.13 exact safe app version")
 require(full, "MOODIARY_SAFE_CERT_SHA256", "W9.8.4.13 pinned persistent signer")
-require(full, "cn.yooss.moodiary.v3safe", "W9.8.4.13 parallel package identity")
+require(full, "cn.yooss.moodiary.v3safe", "W9.8.4.13 permanent parallel package identity")
+require(full, "application_id=cn.yooss.moodiary.v3safe", "build provenance must record the permanent applicationId")
 w98413=(ROOT/"moodiary-v3-w9-8-4-12/verify_apk.py").read_text()
 for needle in ("cn.yooss.moodiary.v3safe", "cn.yooss.moodiary.v3dev",
   "2.9.2", "126", "arm64-v8a", "APK Sig Block 42", "0x7109871a",
@@ -309,8 +310,8 @@ for workflow_name, source in (("fast", fast), ("full", full)):
                              " embedded Python syntax: " + str(error))
 
 
-# W9.8.4.13: old signing material is unavailable, so the new app MUST use a
-# distinct package ID and a separately pinned, persistent signing certificate.
+# W9.8.4.13: old signing material is unavailable, so the new app MUST use its
+# user-approved permanent package ID and a separately pinned, persistent signing certificate.
 safe_patch=(ROOT/"moodiary-v3-w9-8-4-13/apply_w9_8_4_13.py").read_text()
 safe_tests=(ROOT/"moodiary-v3-w9-8-4-13/test_safe_install.py").read_text()
 safe_docs=(ROOT/"moodiary-v3-w9-8-4-13/SAFE-INSTALL-MIGRATION.md").read_text()
@@ -319,6 +320,7 @@ safe_verifier=(ROOT/"moodiary-v3-w9-8-4-12/verify_apk.py").read_text()
 release_gate=(ROOT/"moodiary-ci/check-release-readiness.py").read_text()
 safe_bundle=(ROOT/"moodiary-v3-w9-8-4-2/overlay/packages/feature/moodiary_sync/lib/src/data/mod_month_zip_bundle_v2.dart").read_text()
 for needle in (
+  'PERMANENT_APPLICATION_ID = "cn.yooss.moodiary.v3safe"',
   'create("v3safe")',
   'applicationIdSuffix = ".v3safe"',
   'cn.yooss.moodiary.v3safe',
@@ -330,6 +332,9 @@ for needle in (
     require(safe_patch,needle,"W9.8.4.13 safe package and migration contract")
 for needle in (
   "test_clone_v3dev_suffix_to_v3safe",
+  "test_clone_explicit_v3dev_id_to_permanent_v3safe_id",
+  "test_existing_exact_permanent_id_is_accepted",
+  "test_existing_wrong_explicit_id_fails_closed",
   "test_patch_is_idempotent",
   "test_wrong_existing_safe_identity_fails_closed",
   "test_missing_v3dev_fails_closed",
@@ -344,7 +349,9 @@ for needle in (
   "partial import",
   "read-only",
   "keep the original app",
-  "QA-only",
+  "permanent applicationId",
+  "user-approved 2026-11-10",
+  "QA status describes the artifact's verification state",
   "V1.0 D02"):
     require(safe_docs,needle,"W9.8.4.14 V1.0-aligned migration and package boundaries")
 for needle in (
@@ -412,9 +419,11 @@ require(full,"original_first_import_device_qa=pending","QA artifact must declare
 require(full,'signer_certificate_sha256',"W9.8.4.14 signer parsed from verifier JSON")
 require(release_gate,"MIGRATION_READY = False","production release remains fail-closed")
 require(release_gate,"APK PUBLIC RELEASE BLOCKED","release guard must name correct first-migration scope")
-require(release_gate,"formal Android applicationId must be explicitly approved under V1.0 D02","formal package identity must not be assumed from a QA build")
-require(release_gate,"cn.yooss.moodiary.v3safe is QA-only","v3safe candidate package must not silently become the formal package")
+require(release_gate,'PERMANENT_APPLICATION_ID = "cn.yooss.moodiary.v3safe"',"D02 permanent applicationId must be fixed in release readiness")
+if "formal Android applicationId must be explicitly approved" in release_gate or "cn.yooss.moodiary.v3safe is QA-only" in release_gate:
+    raise SystemExit("Stale D02 package-approval blocker remains in release readiness")
 require(release_gate,"QA CANDIDATE ONLY","QA candidate mode must not imply release")
+require(release_gate,'PERMANENT_APPLICATION_ID = "cn.yooss.moodiary.v3safe"',"release readiness uses the D02 permanent identity")
 # The user's only existing notes are in the ORIGINAL app, not a prior modded
 # build. Preserve the W9 integrity tests, but do NOT require unavailable old
 # modded revision history as a precondition for initial native-note migration.
@@ -428,6 +437,8 @@ spec_path = ROOT/"docs/MOODIARY_MOD_PROJECT_SPEC_V1.0.md"
 if not spec_path.is_file():
     raise SystemExit("Moodiary V1.0 project requirements missing")
 spec = spec_path.read_text(encoding="utf-8")
+require(spec,"D02 | **魔改版永久 `applicationId` 固定为 `cn.yooss.moodiary.v3safe`", "V1.0 D02 exact user-approved package identity")
+require(spec,"D02 补充确认记录（2026-11-10）", "V1.0 D02 user approval record")
 for marker, label in (
     ("B04", "upstream stable Release"),
     ("B07", "incremental Android versionCode"),
@@ -456,6 +467,8 @@ require((ROOT/"moodiary-ci/check-qa-artifact.py").read_text(),
         "--expected-workflow-ref", "offline QA evidence can bind to exact feature branch")
 require((ROOT/"moodiary-ci/check-qa-artifact.py").read_text(),
         "signed-QA-candidate-not-formal-release", "branch QA remains candidate-only")
+require((ROOT/"moodiary-ci/check-qa-artifact.py").read_text(),
+        'EXPECTED_PACKAGE = "cn.yooss.moodiary.v3safe"', "device QA evidence must bind the permanent package identity")
 subprocess.run(["python3", str(ROOT/"moodiary-ci/test-qa-artifact.py")], check=True)
 
 require(full, "upstream_commit=2c552ddd7939a054122380397fb914cf000824b0", "W9.8.4.14 latest upstream provenance")
