@@ -77,6 +77,20 @@ jobs:
           fi
       - name: Verify shared CI contracts and security-test inventory
         run: python3 moodiary-ci/check-gates.py
+      - name: Parse Windows JKS generator with PowerShell AST
+        shell: pwsh
+        run: |
+          $tokens = $null
+          $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile(
+            "moodiary-v3-w9-8-4-13/generate-safe-signing-key.ps1",
+            [ref]$tokens,
+            [ref]$errors
+          ) | Out-Null
+          if ($errors.Count -gt 0) {
+            $errors | Format-List *
+            throw "PowerShell syntax validation failed."
+          }
       - name: Prepare exact pinned upstream and V3 sources
         shell: bash
         run: bash moodiary-ci/prepare-workspace.sh

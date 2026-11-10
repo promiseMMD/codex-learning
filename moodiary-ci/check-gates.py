@@ -38,6 +38,12 @@ def require(source, value, label):
     if value not in source:
         raise SystemExit("CI contract missing "+label+": "+value)
 
+# The Windows JKS generator is parsed by PowerShell itself in Fast CI.
+require(fast, "Parse Windows JKS generator with PowerShell AST",
+        "Windows signing-key generator must be parsed in CI")
+require(fast, "[System.Management.Automation.Language.Parser]::ParseFile",
+        "CI must use the PowerShell AST parser")
+
 # Do not disable sqlite3's supply-chain SHA check on release builds.
 # Only the temporary test pubspec opts into the OS SQLite installation.
 for source in (fast, full):

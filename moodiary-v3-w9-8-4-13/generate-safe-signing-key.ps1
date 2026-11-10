@@ -36,27 +36,12 @@ if (Test-Path $keystore) {
     throw "签名文件已存在，拒绝覆盖：$keystore。未来版本必须继续使用同一密钥。"
 }
 
-$securePassword = Read-Host "设置新的签名密码（至少 20 位，仅字母和数字）" -AsSecureString
-$password = Convert-SecureStringToPlainText $securePassword
+$securePassword = $null
+$password = $null
 try {
-    if ($password.Length -lt 20 -or $password -notmatch '^[A-Za-z0-9]+
-$base64 = [Convert]::ToBase64String([IO.File]::ReadAllBytes($keystore))
-Set-Clipboard -Value $base64
-
-Write-Host ""
-Write-Host "签名密钥已创建。请勿删除或重新生成。"
-Write-Host "JKS 文件：$keystore"
-Write-Host "Base64 已复制到剪贴板。"
-Write-Host "证书 SHA-256：$fingerprint"
-Write-Host ""
-Write-Host "在 GitHub 仓库 Settings → Secrets and variables → Actions 中添加："
-Write-Host "MOODIARY_SAFE_KEYSTORE_BASE64 = 剪贴板中的 Base64"
-Write-Host "MOODIARY_SAFE_STORE_PASSWORD = 你刚设置的密码"
-Write-Host "MOODIARY_SAFE_KEY_PASSWORD = 同一个密码"
-Write-Host "MOODIARY_SAFE_CERT_SHA256 = 上面打印的 64 位指纹"
-Write-Host ""
-Write-Host "请将 JKS 文件另存两份离线备份。不要把 JKS 或密码提交到 Git。"
-) {
+    $securePassword = Read-Host "设置新的签名密码（至少 20 位，仅字母和数字）" -AsSecureString
+    $password = Convert-SecureStringToPlainText $securePassword
+    if ($password.Length -lt 20 -or $password -notmatch '^[A-Za-z0-9]+$') {
         throw "密码必须至少 20 位，并且只能使用英文字母和数字。"
     }
 
@@ -90,24 +75,9 @@ Write-Host "请将 JKS 文件另存两份离线备份。不要把 JKS 或密码�
     $fingerprintLine = $listing | Where-Object { $_ -match 'SHA256:' } | Select-Object -First 1
     if (-not $fingerprintLine) { throw "无法提取证书 SHA-256 指纹。" }
     $fingerprint = (($fingerprintLine -replace '^.*SHA256:\s*', '') -replace ':', '').Trim().ToLowerInvariant()
-    if ($fingerprint -notmatch '^[0-9a-f]{64}
-$base64 = [Convert]::ToBase64String([IO.File]::ReadAllBytes($keystore))
-Set-Clipboard -Value $base64
-
-Write-Host ""
-Write-Host "签名密钥已创建。请勿删除或重新生成。"
-Write-Host "JKS 文件：$keystore"
-Write-Host "Base64 已复制到剪贴板。"
-Write-Host "证书 SHA-256：$fingerprint"
-Write-Host ""
-Write-Host "在 GitHub 仓库 Settings → Secrets and variables → Actions 中添加："
-Write-Host "MOODIARY_SAFE_KEYSTORE_BASE64 = 剪贴板中的 Base64"
-Write-Host "MOODIARY_SAFE_STORE_PASSWORD = 你刚设置的密码"
-Write-Host "MOODIARY_SAFE_KEY_PASSWORD = 同一个密码"
-Write-Host "MOODIARY_SAFE_CERT_SHA256 = 上面打印的 64 位指纹"
-Write-Host ""
-Write-Host "请将 JKS 文件另存两份离线备份。不要把 JKS 或密码提交到 Git。"
-) { throw "证书 SHA-256 指纹格式异常。" }
+    if ($fingerprint -notmatch '^[0-9a-f]{64}$') {
+        throw "证书 SHA-256 指纹格式异常。"
+    }
 }
 finally {
     Remove-Item Env:MOODIARY_SIGNING_STORE_PASSWORD -ErrorAction SilentlyContinue
@@ -118,6 +88,7 @@ finally {
 
 $base64 = [Convert]::ToBase64String([IO.File]::ReadAllBytes($keystore))
 Set-Clipboard -Value $base64
+$base64 = $null
 
 Write-Host ""
 Write-Host "签名密钥已创建。请勿删除或重新生成。"
