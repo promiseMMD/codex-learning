@@ -254,6 +254,38 @@ final class ModMonthFullBackupArchiveV1 {
     }
   }
 
+  /// The upstream native archive deliberately omits missing files from its
+  /// manifest. A full-fidelity W9 archive must instead fail closed when a
+  /// current Diary references an unavailable primary media object.
+  /// Generated video thumbnails are optional; original video bytes are not.
+  static void verifyNativeMediaClosure({
+    required Iterable<Diary> diaries,
+    required SyncManifest manifest,
+  }) {
+    for (final diary in diaries) {
+      final entry = manifest.entries[SyncKeys.diary(diary.id)];
+      if (entry == null || entry.deleted) _fail('native_diary_missing_from_archive');
+      final references = entry.media.toSet();
+      for (final (kind, names) in <(String, List<String>)>[
+        ('image', diary.imageName),
+        ('audio', diary.audioName),
+        ('video', diary.videoName),
+        ('file', diary.fileName),
+      ]) {
+        for (final name in names) {
+          if (name.isEmpty || name == '.' || name == '..' ||
+              p.isAbsolute(name) || p.basename(name) != name ||
+              name.contains('\\')) {
+            _fail('invalid_native_media_name');
+          }
+          if (!references.contains(SyncKeys.mediaRef(kind, name))) {
+            _fail('native_media_missing_from_archive');
+          }
+        }
+      }
+    }
+  }
+
   /// Build a user-facing ZIP containing native records, every W9 revision,
   /// operation, day mapping and all media used by current or historical data.
   static Future<String> export({required MoodiaryDatabase db}) =>
@@ -296,6 +328,10 @@ final class ModMonthFullBackupArchiveV1 {
         await File(p.join(stage.stagingPath,'manifest.json')).readAsString(),
       ) as Map<String,dynamic>;
       final nativeManifest=SyncManifest.fromJson(nativeManifestRaw);
+      verifyNativeMediaClosure(
+        diaries: snapshot.diaries,
+        manifest: nativeManifest,
+      );
       final nativeMedia={
         for(final ref in nativeManifest.referencedMedia()) 'media/$ref',
       };
