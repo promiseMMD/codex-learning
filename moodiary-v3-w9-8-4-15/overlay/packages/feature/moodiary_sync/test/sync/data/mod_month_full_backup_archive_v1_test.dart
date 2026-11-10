@@ -180,7 +180,7 @@ with zipfile.ZipFile(sys.argv[1], 'w', compression=zipfile.ZIP_STORED) as archiv
         'INSERT INTO diaries '
         '(id,title,content,content_text,time,last_modified,show,type) '
         'VALUES(?,?,?,?,?,?,?,?)',
-        ['expected-diary', 'safe', 'safe', 'safe', 100, 200, 1, 'tiptap'],
+        ['expected-diary', 'safe', 'safe', 'safe', 100, 200000, 1, 'tiptap'],
       );
       // A crash mid-native-import is recoverable only for source-owned rows.
       await check('verified');
@@ -190,7 +190,7 @@ with zipfile.ZipFile(sys.argv[1], 'w', compression=zipfile.ZIP_STORED) as archiv
         'INSERT INTO diaries '
         '(id,title,content,content_text,time,last_modified,show,type) '
         'VALUES(?,?,?,?,?,?,?,?)',
-        ['unrelated-diary', 'keep', 'keep', 'keep', 100, 200, 1, 'tiptap'],
+        ['unrelated-diary', 'keep', 'keep', 'keep', 100, 200000, 1, 'tiptap'],
       );
       await expectLater(check('verified'),
           throwsA(isA<ModMonthFullBackupException>().having(
@@ -226,13 +226,13 @@ with zipfile.ZipFile(sys.argv[1], 'w', compression=zipfile.ZIP_STORED) as archiv
         'INSERT INTO diaries '
         '(id,title,content,content_text,time,last_modified,show,type) '
         'VALUES(?,?,?,?,?,?,?,?)',
-        ['expected-diary', 'same-id', 'different', 'different', 100, 201, 1, 'tiptap'],
+        ['expected-diary', 'same-id', 'different', 'different', 100, 201000, 1, 'tiptap'],
       );
       await expectLater(check(), throwsA(isA<ModMonthFullBackupException>()
           .having((e) => e.code, 'code', 'migration_resume_native_mismatch')));
       await db.customStatement(
         'UPDATE diaries SET last_modified=? WHERE id=?',
-        [200, 'expected-diary'],
+        [200000, 'expected-diary'],
       );
       await check();
       await TombstoneRepository(db).putAll([
@@ -251,6 +251,65 @@ with zipfile.ZipFile(sys.argv[1], 'w', compression=zipfile.ZIP_STORED) as archiv
       );
       await expectLater(check(), throwsA(isA<ModMonthFullBackupException>()
           .having((e) => e.code, 'code', 'migration_resume_graph_mismatch')));
+    } finally {
+      await db.close();
+    }
+  });
+
+  test('native resume validates microsecond database timestamps against millisecond manifest', () async {
+    final db = MoodiaryDatabase.forTesting(NativeDatabase.memory());
+    try {
+      await db.customSelect('SELECT 1').get();
+      const manifestMs = 1794038400000;
+      const databaseMicros = manifestMs * Duration.microsecondsPerMillisecond + 123;
+      await db.customStatement(
+        'INSERT INTO diaries '
+        '(id,title,content,content_text,time,last_modified,show,type) '
+        'VALUES(?,?,?,?,?,?,?,?)',
+        ['native-001', 'safe', 'safe', 'safe', databaseMicros,
+         databaseMicros, 1, 'tiptap'],
+      );
+      await db.customStatement(
+        'INSERT INTO categories (id,name,last_modified) VALUES(?,?,?)',
+        ['category-001', 'safe', databaseMicros],
+      );
+      await db.customStatement(
+        'INSERT INTO places '
+        '(id,name,latitude,longitude,last_modified) VALUES(?,?,?,?,?)',
+        ['place-001', 'safe', 34.0, 110.0, databaseMicros],
+      );
+      final manifest = SyncManifest(
+        version: SyncManifest.currentVersion,
+        updatedAtMs: manifestMs,
+        entries: {
+          SyncKeys.diary('native-001'):
+              const ManifestEntry(timeMs: manifestMs),
+          SyncKeys.category('category-001'):
+              const ManifestEntry(timeMs: manifestMs),
+          SyncKeys.place('place-001'):
+              const ManifestEntry(timeMs: manifestMs),
+        },
+      );
+      final graph = await ModMonthGraphArchiveV2.exportGraph(db);
+      Future<void> check() =>
+          ModMonthFullBackupArchiveV1.validateResumeTarget(
+            db: db, manifest: manifest, graph: graph, phase: 'native_imported',
+          );
+      // Source manifest carries milliseconds; the database correctly keeps
+      // the original microseconds, including the 123-us fractional remainder.
+      await check();
+      await db.customStatement(
+        'UPDATE places SET last_modified=? WHERE id=?',
+        [databaseMicros + 1000, 'place-001'],
+      );
+      await expectLater(check(), throwsA(isA<ModMonthFullBackupException>()
+          .having((e) => e.code, 'code', 'migration_resume_native_mismatch')));
+      final current = await db.customSelect(
+        'SELECT last_modified FROM diaries WHERE id=?',
+        variables: [Variable.withString('native-001')],
+      ).getSingle();
+      expect(current.read<int>('last_modified'), databaseMicros,
+          reason: 'validation must never modify the source timestamp');
     } finally {
       await db.close();
     }
