@@ -1,10 +1,10 @@
 import 'dart:io';
 
-import 'package:drift/drift.dart';
+import 'package:drift/drift.dart' show Variable;
 import 'package:drift/native.dart';
 import 'package:moodiary_data/moodiary_data.dart';
 import 'package:moodiary_models/moodiary_models.dart';
-import '../../../lib/src/data/model/manifest.dart';
+import 'package:moodiary_sync/src/data/model/manifest.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../../lib/src/data/mod_month_full_backup_archive_v1.dart';
