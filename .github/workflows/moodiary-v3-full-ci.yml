@@ -309,7 +309,8 @@ jobs:
           test "$actual_signer" = "$expected_signer"
           {
             echo "source_commit=${{ github.sha }}"
-            echo "upstream_release_tag=v2.9.2"\n            echo "upstream_commit=2c552ddd7939a054122380397fb914cf000824b0"
+            echo "upstream_release_tag=v2.9.2"
+            echo "upstream_commit=2c552ddd7939a054122380397fb914cf000824b0"
             echo "workflow_run=${{ github.run_id }}"
             echo "workflow_ref=${{ github.ref }}"
             echo "generated_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
