@@ -349,7 +349,31 @@ for needle in (
 require(full,"check-release-readiness.py","W9.8.4.14 APK migration release gate")
 require(full,'signer_certificate_sha256',"W9.8.4.14 signer parsed from verifier JSON")
 require(release_gate,"MIGRATION_READY = False","W9.8.4.14 APK blocked until full migration")
-require(release_gate,"mod_month_revisions","W9.8.4.14 release gate covers revision-history migration")
+# The user's only existing notes are in the ORIGINAL app, not a prior modded
+# build. Preserve the W9 integrity tests, but do NOT require unavailable old
+# modded revision history as a precondition for initial native-note migration.
+require(release_gate,"original installed Moodiary version and its native backup format must be verified",
+        "official original backup must be verified before releasing the modded APK")
+require(release_gate,"original ZIP -> final app media, metadata and note round-trip device acceptance pending",
+        "original to modded migration/device acceptance must remain fail-closed")
+
+# V1.0 is the persistent requirements source for every future developer/chat.
+spec_path = ROOT/"docs/MOODIARY_MOD_PROJECT_SPEC_V1.0.md"
+if not spec_path.is_file():
+    raise SystemExit("Moodiary V1.0 project requirements missing")
+spec = spec_path.read_text(encoding="utf-8")
+for marker, label in (
+    ("B04", "upstream stable Release"),
+    ("B07", "incremental Android versionCode"),
+    ("C06", "first-import fidelity"),
+    ("C10", "WebDAV directory separation"),
+    ("C12", "database upgrade testing"),
+    ("D02", "fixed app package"),
+    ("D03", "persistent signing key"),
+    ("D06", "device delivery acceptance"),
+    ("X05", "no unapproved scope creep"),
+):
+    require(spec, marker, "V1.0 "+label)
 require(full,"secrets:","W9.8.4.13 reusable workflow signing secret contract")
 require(fast,"secrets: inherit","W9.8.4.13 safe signing secret inheritance")
 if full.count("MOODIARY_SAFE_KEYSTORE_BASE64") < 2:
