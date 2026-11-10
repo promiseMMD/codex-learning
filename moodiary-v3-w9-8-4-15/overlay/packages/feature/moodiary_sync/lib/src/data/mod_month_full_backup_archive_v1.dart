@@ -182,6 +182,8 @@ final class ModMonthFullBackupArchiveV1 {
     }
     final allowPartial = phase == 'verified';
 
+    // Database last_modified is stored in microseconds; native manifest timeMs
+    // is in milliseconds. Match the manifest's declared precision only.
     Future<void> verifyTable(String table, String prefix) async {
       final expected = <String, int>{
         for (final entry in manifest.entries.entries)
@@ -196,7 +198,8 @@ final class ModMonthFullBackupArchiveV1 {
       }
       for (final row in rows) {
         final id = row.read<String>('id');
-        if (expected[id] != row.read<int>('last_modified')) {
+        if (expected[id] !=
+            row.read<int>('last_modified') ~/ Duration.microsecondsPerMillisecond) {
           _fail('migration_resume_native_mismatch');
         }
       }
@@ -439,12 +442,14 @@ final class ModMonthFullBackupArchiveV1 {
         if(e.key.startsWith(SyncKeys.placePrefix) && !e.value.deleted)
           e.key.substring(SyncKeys.placePrefix.length):e.value.timeMs,
     };
+    // SQLite stores microseconds; the manifest intentionally stores millis.
     Future<Map<String,int>> read(String table) async {
       final rows=await db.customSelect(
         'SELECT id,last_modified FROM $table').get();
       return {
         for(final row in rows)
-          row.read<String>('id'):row.read<int>('last_modified'),
+          row.read<String>('id'):
+            row.read<int>('last_modified') ~/ Duration.microsecondsPerMillisecond,
       };
     }
     bool same(Map<String,int> a,Map<String,int> b) {
