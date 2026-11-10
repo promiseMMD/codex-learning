@@ -415,6 +415,21 @@ require(full[full.index(signer_marker):],
         "full certificate identity verification must remain after preflight")
 subprocess.run(["python3", str(ROOT/"moodiary-ci/test-signing-preflight.py")], check=True)
 
+# Keep the local Windows JKS generator from exposing passwords in keytool argv.
+keygen = (ROOT/"moodiary-v3-w9-8-4-13/generate-safe-signing-key.ps1").read_text(encoding="utf-8")
+require(keygen, '"-storepass:env", "MOODIARY_SIGNING_STORE_PASSWORD"',
+        "local signing-key generator must pass the store password through the environment")
+require(keygen, '"-keypass:env", "MOODIARY_SIGNING_KEY_PASSWORD"',
+        "local signing-key generator must pass the key password through the environment")
+require(keygen, "Remove-Item Env:MOODIARY_SIGNING_STORE_PASSWORD",
+        "local signing-key generator must clear the store password environment variable")
+require(keygen, "Remove-Item Env:MOODIARY_SIGNING_KEY_PASSWORD",
+        "local signing-key generator must clear the key password environment variable")
+for unsafe_password_arg in ('"-storepass", $password', '"-keypass", $password',
+                            '-storepass $password', '-keypass $password'):
+    if unsafe_password_arg in keygen:
+        raise SystemExit("Local signing-key generator exposes a password in keytool argv: "+unsafe_password_arg)
+
 require(full,"signed-QA-candidate-not-formal-release","QA artifact must not imply formal release")
 require(full,"original_first_import_device_qa=pending","QA artifact must declare real device acceptance pending")
 require(full,'signer_certificate_sha256',"W9.8.4.14 signer parsed from verifier JSON")
