@@ -434,6 +434,10 @@ if not (full.index(branchMarker) < full.index(preflight_marker) < full.index(sig
     raise SystemExit("APK branch allowlist must run before any signing secret is accessed")
 require(full, "github.ref != 'refs/heads/moodiary-v3-w9-8-4-31-permanent-application-id-20261110'",
         "signed APK builds must be restricted to the approved permanent-identity branch")
+require(full, "if: ${{ inputs.build_apk && github.ref != 'refs/heads/moodiary-v3-w9-8-4-31-permanent-application-id-20261110' }}",
+        "APK branch restriction must use a valid GitHub Actions expression")
+if r"if: \${{" in full:
+    raise SystemExit("Escaped GitHub Actions expression found in full signing workflow")
 signer_block = full[full.index(signer_marker):full.index(buildMarker)]
 require(signer_block, "-storepass:env MOODIARY_SAFE_STORE_PASSWORD",
         "keytool must receive the store password through the environment")
@@ -443,6 +447,8 @@ if not (full.index(verifyMarker) < full.index(cleanupMarker) < full.index("     
     raise SystemExit("Signing cleanup must run after APK verification and before delivery artifact upload")
 cleanup_block = full[full.index(cleanupMarker):full.index("      - uses: actions/upload-artifact@v4", full.index(cleanupMarker))]
 require(cleanup_block, "always() && inputs.build_apk", "signing cleanup must run after success or failure")
+require(cleanup_block, "if: ${{ always() && inputs.build_apk }}",
+        "signing cleanup must use a valid always() GitHub Actions expression")
 require(cleanup_block, 'rm -f "$GITHUB_WORKSPACE/upstream/mobile/android/app/key.jks"',
         "temporary JKS must be removed from the ephemeral runner")
 require(cleanup_block, "grep -Ev '^(storePassword|keyPassword)='",
