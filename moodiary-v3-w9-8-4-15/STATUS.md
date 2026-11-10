@@ -1,5 +1,7 @@
 # W9.8.4.15 — Full-fidelity migration
 
+> **历史阶段设计记录（2026-11-10 规范对齐）**：用户此前选择的策略 A（保留 W9 revisions、operations、删除状态、日期映射及原生 Diary 关联）仍是任何实际 W9 全历史归档/恢复必须遵守的数据保护要求；不得删除对应实现或测试。但首次迁移的来源范围已由 V1.0 C01/C04/C05/C06 明确为官方原版 → v3safe。若官方原版备份不包含 W9 专属表，则不存在需要从官方原版迁移的 W9 历史；不得把旧阶段“必须提供旧 v3dev W9 全量导出”的假设当成首次迁移阻断条件。当前迁移判定以 `moodiary-v3-w9-8-4-13/SAFE-INSTALL-MIGRATION.md` 和 V1.0 为准。
+
 ## Confirmed
 
 - User selected policy A: preserve all month revisions, operations, deletion

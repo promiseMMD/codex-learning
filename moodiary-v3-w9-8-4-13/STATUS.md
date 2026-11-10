@@ -1,5 +1,7 @@
 # W9.8.4.13 — Parallel-safe installation
 
+> **历史阶段快照（2026-11-10 规范对齐）**：本文记录 v3safe flavor 初次引入时的实现状态，不是当前发布状态的唯一依据。永久包名已由 V1.0 D02 固定为 `cn.yooss.moodiary.v3safe`；当前候选构建目标以 `moodiary-v3-w9-8-4-12/verify_apk.py` 和 Full CI 为准（`2.9.2+126`）。首次迁移范围以 V1.0 C01/C04–C07 和本目录 `SAFE-INSTALL-MIGRATION.md` 为准：官方原版 → v3safe；不得把“官方原版必须含有 W9 自定义历史”作为前置条件。W9 图谱的完整性保护和回归测试仍须保留。
+
 ## Implemented
 
 - Adds a separate v3safe Android flavor and package ID

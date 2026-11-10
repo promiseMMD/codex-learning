@@ -6,10 +6,10 @@
 ## 当前验收现状
 
 - V1.0 要求原版与魔改版独立包名、数据目录和坚果云 WebDAV 路径。
-- 魔改版候选包使用 `cn.yooss.moodiary.v3safe`；正式长期包名在首次正式发布前仍须确认。
-- 当前显示版本 2.9.2、内部 versionCode 126，仅是此候选的配置。
+- 魔改版永久 `applicationId` 已按 V1.0 D02 于 2026-11-10 经用户明确批准固定为 `cn.yooss.moodiary.v3safe`；不再属于待确认事项。永久包名与“签名 QA 候选/正式发布”状态是两回事。
+- 当前 v3safe 候选构建目标为显示版本 `2.9.2`、内部 `versionCode 126`；实际 APK 必须由 Manifest 验证脚本和构建来源证明再次核对。
 - QA 候选 APK 需要长期稳定签名材料，严禁自动生成临时 JKS 或使用 debug 签名替代。
-- **默认 main 分支尚无手动 QA 工作流**，所以不能声称已通过 GitHub workflow_dispatch 的真机门槛。
+- 当前开发分支已包含 `.github/workflows/moodiary-v3-release.yml` 手动设备证据核验工作流；其 job 允许 `main` 和经批准的 `moodiary-v3-w9-8-4-*` 分支。GitHub 对未合并到默认分支的工作流可能不显示手动触发入口；在实际 workflow_dispatch 运行并核验同一 APK 与真机证据前，不得声称设备验收通过。
 - 开发分支可经 `[apk-ci]` 推送触发 `apk-after-fast`，在满足签名密钥、CI 和包体校验要求后产生 *signed QA candidate*；这不是正式发布。
 
 ## 构建候选包前的必备检查
