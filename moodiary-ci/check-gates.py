@@ -403,6 +403,7 @@ require(preflight_block, 'exit 1', "missing signing secret fails build")
 require(full[full.index(signer_marker):],
         'The JKS certificate does not match MOODIARY_SAFE_CERT_SHA256',
         "full certificate identity verification must remain after preflight")
+subprocess.run(["python3", str(ROOT/"moodiary-ci/test-signing-preflight.py")], check=True)
 
 require(full,"signed-QA-candidate-not-formal-release","QA artifact must not imply formal release")
 require(full,"original_first_import_device_qa=pending","QA artifact must declare real device acceptance pending")
