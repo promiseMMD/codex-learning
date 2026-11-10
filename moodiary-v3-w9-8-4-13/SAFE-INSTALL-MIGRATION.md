@@ -52,6 +52,8 @@ A partial import must be reported as partial, never as complete success. The ori
 
 The modified app contains custom monthly/day structures and supporting archive/recovery code. Preserve these existing features and their tests; do not delete or casually refactor them.
 
+The graph includes the `mod_month_pages`, `mod_month_blocks`, `mod_month_revisions`, `mod_month_heads`, `mod_month_ops` and `mod_day_pages` tables.
+
 However, the official original app does not contain the modified app's W9 custom monthly/day graph, and the modified app has no user notes to migrate. Therefore:
 
 - W9 graph/revision/history migration is **not** a prerequisite for this user's first migration.

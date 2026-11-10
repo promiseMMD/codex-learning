@@ -338,13 +338,15 @@ for needle in (
 for needle in (
   "cn.yooss.moodiary.v3dev",
   "cn.yooss.moodiary.v3safe",
-  "does NOT currently",
+  "not a prerequisite for this user's first migration",
   "mod_month_revisions",
-  "not yet connected to the production",
-  "Do not mark migration complete",
+  "Preserve these existing features",
+  "partial import",
   "read-only",
-  "keep the old app installed"):
-    require(safe_docs,needle,"W9.8.4.14 truthful migration readiness contract")
+  "keep the original app",
+  "QA-only",
+  "V1.0 D02"):
+    require(safe_docs,needle,"W9.8.4.14 V1.0-aligned migration and package boundaries")
 for needle in (
   "This is NOT a user backup",
   "NO production restore, ZIP export",
