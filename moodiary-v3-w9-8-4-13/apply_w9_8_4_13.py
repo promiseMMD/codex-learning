@@ -68,7 +68,7 @@ def ensure_v3safe_flavor(source: str) -> str:
 
 def ensure_safe_version(source: str) -> str:
     old = "version: 2.9.2+124"
-    new = "version: 2.9.3+125"
+    new = "version: 2.9.2+125"
     if source.count(old) == 1:
         return source.replace(old, new, 1)
     if source.count(new) == 1:

@@ -212,11 +212,11 @@ patch(
 
 pubspec = root / "mobile/pubspec.yaml"
 source = pubspec.read_text(encoding="utf-8")
-if "version: 2.9.4+126" not in source:
-    if source.count("version: 2.9.3+125") != 1:
+if "version: 2.9.2+126" not in source:
+    if source.count("version: 2.9.2+125") != 1:
         raise SystemExit("W9.8.4.15 version anchor mismatch")
     pubspec.write_text(
-        source.replace("version: 2.9.3+125", "version: 2.9.4+126", 1),
+        source.replace("version: 2.9.2+125", "version: 2.9.2+126", 1),
         encoding="utf-8",
     )
 

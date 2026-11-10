@@ -297,7 +297,7 @@ jobs:
           "$apksigner" verify --verbose --print-certs "$apk" | tee /tmp/moodiary-ci-delivery/SIGNATURE.txt
           grep -F "Verified using v2 scheme (APK Signature Scheme v2): true" /tmp/moodiary-ci-delivery/SIGNATURE.txt
           "$aapt" dump badging "$apk" | tee /tmp/moodiary-ci-delivery/MANIFEST.txt
-          grep -F "package: name='cn.yooss.moodiary.v3safe' versionCode='126' versionName='2.9.4'" /tmp/moodiary-ci-delivery/MANIFEST.txt
+          grep -F "package: name='cn.yooss.moodiary.v3safe' versionCode='126' versionName='2.9.2'" /tmp/moodiary-ci-delivery/MANIFEST.txt
           grep -F "sdkVersion:'28'" /tmp/moodiary-ci-delivery/MANIFEST.txt
           grep -F "targetSdkVersion:'36'" /tmp/moodiary-ci-delivery/MANIFEST.txt
           cp "$apk" /tmp/moodiary-ci-delivery/app-v3safe-release.apk
@@ -309,7 +309,7 @@ jobs:
           test "$actual_signer" = "$expected_signer"
           {
             echo "source_commit=${{ github.sha }}"
-            echo "upstream_commit=570ff99cd150fb2d45eb0949344f7bda22e32bde"
+            echo "upstream_release_tag=v2.9.2"\n            echo "upstream_commit=2c552ddd7939a054122380397fb914cf000824b0"
             echo "workflow_run=${{ github.run_id }}"
             echo "workflow_ref=${{ github.ref }}"
             echo "generated_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
@@ -318,7 +318,7 @@ jobs:
             echo "parallel_install=true"
             echo "full_custom_migration_ready=false"
             echo "migration_method=ordinary native ZIP only; W9 custom migration pending"
-            echo "version_name=2.9.4"
+            echo "version_name=2.9.2"
             echo "version_code=126"
             echo "abi=arm64-v8a"
             echo "signer_certificate_sha256=$actual_signer"

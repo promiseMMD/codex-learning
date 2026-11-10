@@ -67,12 +67,12 @@ require(full, "verify --verbose --print-certs", "W9.8.4.13 cryptographic APK sig
 require(full, '"$apksigner"', "W9.8.4.13 Android apksigner binary")
 require(full, "dump badging", "W9.8.4.13 Android package manifest verification")
 require(full, '"$aapt"', "W9.8.4.13 Android aapt binary")
-require(full, "versionCode='126' versionName='2.9.4'", "W9.8.4.13 exact safe app version")
+require(full, "versionCode='126' versionName='2.9.2'", "W9.8.4.13 exact safe app version")
 require(full, "MOODIARY_SAFE_CERT_SHA256", "W9.8.4.13 pinned persistent signer")
 require(full, "cn.yooss.moodiary.v3safe", "W9.8.4.13 parallel package identity")
 w98413=(ROOT/"moodiary-v3-w9-8-4-12/verify_apk.py").read_text()
 for needle in ("cn.yooss.moodiary.v3safe", "cn.yooss.moodiary.v3dev",
-  "2.9.4", "126", "arm64-v8a", "APK Sig Block 42", "0x7109871a",
+  "2.9.2", "126", "arm64-v8a", "APK Sig Block 42", "0x7109871a",
   "assets/flutter_assets/assets/lan/lan.js", "/api/v3/topics", "bodyOnly",
   "snapshot", "minSdkVersion", "targetSdkVersion", "MOODIARY_SAFE_CERT_SHA256"):
     require(w98413,needle,"W9.8.4.13 safe APK identity, signer, asset and ABI verifier")
@@ -104,7 +104,7 @@ for needle in ("refs/heads/main","environment: android-device-qa",
   'test "$TESTED_APK_SHA256" = "$actual_sha"'):
     require(release,needle,"Android release gate")
 
-for needle in ("git checkout 570ff99cd150fb2d45eb0949344f7bda22e32bde",
+for needle in ("git checkout 2c552ddd7939a054122380397fb914cf000824b0",
   "modkit/verify_patch.py","modkit/apply_v3_patch.py",
   "moodiary-v3-w9-7-4/apply_w9_7_4.py",
   "moodiary-v3-w9-7-5/apply_w9_7_5.py",
@@ -292,7 +292,7 @@ for needle in (
   'applicationIdSuffix = ".v3safe"',
   'cn.yooss.moodiary.v3safe',
   'Moodiary 安全版',
-  'version: 2.9.3+125',
+  'version: 2.9.2+125',
   'getIt<IBackupArchive>().export()',
   'getIt<IBackupArchive>().import(file.path)',
   'policy: const RestorePolicy()'):
@@ -331,7 +331,7 @@ for needle in (
 for needle in (
   'EXPECTED_PACKAGE = "cn.yooss.moodiary.v3safe"',
   'EXPECTED_VERSION_CODE = 126',
-  'EXPECTED_VERSION_NAME = "2.9.4"',
+  'EXPECTED_VERSION_NAME = "2.9.2"',
   "MOODIARY_SAFE_CERT_SHA256",
   "signer_matches_persistent_safe_key",
   "parallel_install_is_safe",
@@ -380,5 +380,5 @@ if full.count("MOODIARY_SAFE_KEYSTORE_BASE64") < 2:
     raise SystemExit("APK workflow must both provision and validate persistent signing material")
 subprocess.run(["python3", str(ROOT/"moodiary-v3-w9-8-4-13/test_safe_install.py")], check=True)
 
-require(full, "upstream_commit=570ff99cd150fb2d45eb0949344f7bda22e32bde", "W9.8.4.14 latest upstream provenance")
+require(full, "upstream_commit=2c552ddd7939a054122380397fb914cf000824b0", "W9.8.4.14 latest upstream provenance")
 print("All CI contracts verified: quick, full coverage, APK SHA and device QA")

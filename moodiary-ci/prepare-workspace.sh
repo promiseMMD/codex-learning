@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # The one pinned upstream + all historical overlays shared by ALL CI tiers.
+# V1.0 B04/B05: official Moodiary v2.9.2 tag -> immutable commit below.
 # Refuse silent failures: no incremental overlay may skip a missing source.
 set -euo pipefail
 if [[ ! -f moodiary-longrecord/build-payload.b64 ]]; then
@@ -14,7 +15,7 @@ python3 modkit/verify_patch.py
 set -euo pipefail
 git clone --no-checkout https://github.com/ZhuJHua/moodiary.git upstream
 cd upstream
-git checkout 570ff99cd150fb2d45eb0949344f7bda22e32bde
+git checkout 2c552ddd7939a054122380397fb914cf000824b0
 python3 ../modkit/apply_beta_patch.py .
 python3 ../modkit/apply_v3_patch.py .
 unzip -q ../moodiary-v3-w2/ledger-source.zip -d /tmp/moodiary-v3-w2

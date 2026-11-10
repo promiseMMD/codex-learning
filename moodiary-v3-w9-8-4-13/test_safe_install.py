@@ -66,8 +66,8 @@ def test_missing_v3dev_fails_closed():
 
 
 def test_version_bump_is_idempotent():
-    assert MODULE.ensure_safe_version("version: 2.9.2+124\n") == "version: 2.9.3+125\n"
-    assert MODULE.ensure_safe_version("version: 2.9.3+125\n") == "version: 2.9.3+125\n"
+    assert MODULE.ensure_safe_version("version: 2.9.2+124\n") == "version: 2.9.2+125\n"
+    assert MODULE.ensure_safe_version("version: 2.9.2+125\n") == "version: 2.9.2+125\n"
 
 
 if __name__ == "__main__":

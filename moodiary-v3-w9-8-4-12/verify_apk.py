@@ -10,7 +10,7 @@ import zipfile
 from pathlib import Path
 
 EXPECTED_PACKAGE = "cn.yooss.moodiary.v3safe"
-EXPECTED_VERSION_NAME = "2.9.4"
+EXPECTED_VERSION_NAME = "2.9.2"
 EXPECTED_VERSION_CODE = 126
 EXPECTED_MIN_SDK = 28
 EXPECTED_TARGET_SDK = 36
