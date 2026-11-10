@@ -417,4 +417,125 @@ with zipfile.ZipFile(sys.argv[1], 'w', compression=zipfile.ZIP_STORED) as archiv
     }
   });
 
+  test('full backup refuses missing original media instead of claiming completeness', () {
+    final now = DateTime.utc(2026, 11, 10);
+    final diary = Diary(
+      id: 'media-diary-001',
+      title: 'native media closure',
+      content: '',
+      contentText: '',
+      time: now,
+      lastModified: now,
+      show: true,
+      imageName: const ['original.png'],
+      audioName: const ['voice.m4a'],
+      videoName: const ['clip.mp4'],
+      fileName: const ['notes.pdf'],
+      tags: const [],
+      type: 'tiptap',
+    );
+    SyncManifest archive(List<String> media) => SyncManifest(
+      version: SyncManifest.currentVersion,
+      updatedAtMs: now.millisecondsSinceEpoch,
+      entries: {
+        SyncKeys.diary(diary.id): ManifestEntry(
+          timeMs: now.millisecondsSinceEpoch,
+          media: media,
+        ),
+      },
+    );
+    void verify(SyncManifest manifest) =>
+        ModMonthFullBackupArchiveV1.verifyNativeMediaClosure(
+          diaries: [diary], manifest: manifest,
+        );
+    final complete = [
+      'image/original.png', 'audio/voice.m4a',
+      'video/clip.mp4', 'file/notes.pdf',
+    ];
+    verify(archive(complete));
+    // A generated video thumbnail is optional, but never the original video.
+    for (final required in complete) {
+      final incomplete = archive(complete.where((x) => x != required).toList());
+      expect(
+        () => verify(incomplete),
+        throwsA(isA<ModMonthFullBackupException>().having(
+          (e) => e.code, 'code', 'native_media_missing_from_archive',
+        )),
+        reason: 'must reject absent primary media: $required',
+      );
+    }
+    expect(
+      () => verify(SyncManifest(
+        version: SyncManifest.currentVersion,
+        updatedAtMs: 0,
+        entries: const {},
+      )),
+      throwsA(isA<ModMonthFullBackupException>().having(
+        (e) => e.code, 'code', 'native_diary_missing_from_archive',
+      )),
+    );
+  });
+
+  test('native media closure enforces per-diary refs and rejects unsafe paths', () {
+    final now = DateTime.utc(2026, 11, 10);
+    Diary diary(String id, String name) => Diary(
+      id: id,
+      title: id,
+      content: '',
+      contentText: '',
+      time: now,
+      lastModified: now,
+      show: true,
+      imageName: [name],
+      audioName: const [],
+      videoName: const [],
+      fileName: const [],
+      tags: const [],
+      type: 'tiptap',
+    );
+    SyncManifest archive(Map<String, ManifestEntry> entries) =>
+        SyncManifest(
+          version: SyncManifest.currentVersion,
+          updatedAtMs: now.millisecondsSinceEpoch,
+          entries: entries,
+        );
+    final first = diary('first', 'shared.png');
+    final second = diary('second', 'shared.png');
+    final incomplete = archive({
+      SyncKeys.diary(first.id): const ManifestEntry(
+        timeMs: 1, media: ['image/shared.png'],
+      ),
+      SyncKeys.diary(second.id): const ManifestEntry(timeMs: 1),
+    });
+    expect(
+      () => ModMonthFullBackupArchiveV1.verifyNativeMediaClosure(
+        diaries: [first, second], manifest: incomplete,
+      ),
+      throwsA(isA<ModMonthFullBackupException>().having(
+        (e) => e.code, 'code', 'native_media_missing_from_archive',
+      )),
+      reason: 'shared file must be referenced by each native diary',
+    );
+    final complete = archive({
+      SyncKeys.diary(first.id): const ManifestEntry(
+        timeMs: 1, media: ['image/shared.png'],
+      ),
+      SyncKeys.diary(second.id): const ManifestEntry(
+        timeMs: 1, media: ['image/shared.png'],
+      ),
+    });
+    ModMonthFullBackupArchiveV1.verifyNativeMediaClosure(
+      diaries: [first, second], manifest: complete,
+    );
+    final unsafe = diary('first', '../outside.png');
+    expect(
+      () => ModMonthFullBackupArchiveV1.verifyNativeMediaClosure(
+        diaries: [unsafe], manifest: complete,
+      ),
+      throwsA(isA<ModMonthFullBackupException>().having(
+        (e) => e.code, 'code', 'invalid_native_media_name',
+      )),
+    );
+  });
+
 }
