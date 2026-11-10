@@ -422,6 +422,11 @@ require(full[full.index(signer_marker):],
 subprocess.run(["python3", str(ROOT/"moodiary-ci/test-signing-preflight.py")], check=True)
 
 
+branchMarker = "      - name: Reject signed APK builds outside the approved branch"
+buildMarker = "      - name: Build validated V3 safe parallel-install ARM64 APK"
+verifyMarker = "      - name: Verify safe package, migration assets, persistent signer and APK hash"
+cleanupMarker = "      - name: Remove signing material from ephemeral runner workspace"
+
 # W9.8.4.15: signing material is only exposed on the approved branch, keytool
 # receives passwords through JDK 21 environment modifiers, and the ephemeral
 # runner removes the JKS and Gradle password properties on every exit path.
