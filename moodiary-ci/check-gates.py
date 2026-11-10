@@ -449,6 +449,9 @@ subprocess.run(["python3", str(ROOT/"moodiary-ci/test-release-readiness.py")], c
 require(release,"moodiary-ci/check-qa-artifact.py","QA gate validates exact candidate provenance")
 require(release,'--candidate-run-id "$QA_CANDIDATE_RUN_ID"',"QA gate compares downloaded artifact run")
 require(release,'--current-sha "$GITHUB_SHA"',"QA gate binds candidate to current code")
+require(release,"startsWith(github.ref, 'refs/heads/moodiary-v3-w9-8-4-')","QA evidence gate permits the approved W9.8.4 candidate branch family")
+require(release,'--expected-workflow-ref "$GITHUB_REF"',"QA evidence gate binds provenance to the exact selected branch")
+require(release,"github.ref == 'refs/heads/main'","main-branch QA evidence remains supported")
 require((ROOT/"moodiary-ci/check-qa-artifact.py").read_text(),
         "--expected-workflow-ref", "offline QA evidence can bind to exact feature branch")
 require((ROOT/"moodiary-ci/check-qa-artifact.py").read_text(),

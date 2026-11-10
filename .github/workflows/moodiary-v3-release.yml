@@ -27,7 +27,9 @@ permissions:
   actions: read
 jobs:
   verify-device-evidence:
-    if: ${{ github.ref == 'refs/heads/main' }}
+    if: >-
+      ${{ github.ref == 'refs/heads/main'
+       || startsWith(github.ref, 'refs/heads/moodiary-v3-w9-8-4-') }}
     runs-on: ubuntu-latest
     environment: android-device-qa
     timeout-minutes: 10
@@ -66,7 +68,8 @@ jobs:
             --candidate-run-id "$QA_CANDIDATE_RUN_ID" \
             --tested-sha "$TESTED_SHA" \
             --tested-apk-sha256 "$TESTED_APK_SHA256" \
-            --current-sha "$GITHUB_SHA"
+            --current-sha "$GITHUB_SHA" \
+            --expected-workflow-ref "$GITHUB_REF"
           [[ "$QA_EVIDENCE" =~ ^https:// ]] || { echo 'Real-device QA evidence URL required'; exit 1; }
           test -n "$DEVICE_MODEL"
           {
