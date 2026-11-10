@@ -322,7 +322,7 @@ safe_bundle=(ROOT/"moodiary-v3-w9-8-4-2/overlay/packages/feature/moodiary_sync/l
 for needle in (
   'PERMANENT_APPLICATION_ID = "cn.yooss.moodiary.v3safe"',
   'create("v3safe")',
-  'applicationIdSuffix = ".v3safe"',
+  'PERMANENT_APPLICATION_ID_SUFFIX = ".v3safe"',
   'cn.yooss.moodiary.v3safe',
   'Moodiary 安全版',
   'version: 2.9.2+125',
