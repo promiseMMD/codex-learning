@@ -98,11 +98,18 @@ for needle in ("workflow_call:","build_apk:","moodiary-ci/prepare-workspace.sh",
     require(full,needle,"complete regression")
 
 for needle in ("refs/heads/main","environment: android-device-qa",
-  "tested_sha","tested_apk_sha256","qa_evidence",
+  "tested_sha","tested_apk_sha256","qa_evidence", "qa_candidate_run_id",
+  "run-id: ${{ inputs.qa_candidate_run_id }}",
+  "github-token: ${{ github.token }}",
+  "source_commit=$TESTED_SHA",
+  "artifact_status=signed-QA-candidate-not-formal-release",
+  "original_first_import_device_qa=pending",
   "sha256sum --check app-v3safe-release.apk.sha256",
   'test "$TESTED_SHA" = "$GITHUB_SHA"',
   'test "$TESTED_APK_SHA256" = "$actual_sha"'):
     require(release,needle,"Android release gate")
+if "release-candidate-build:" in release or "build_apk: true" in release:
+    raise SystemExit("QA evidence must verify the previously installed APK, not rebuild another APK")
 
 for needle in ("git checkout 2c552ddd7939a054122380397fb914cf000824b0",
   "modkit/verify_patch.py","modkit/apply_v3_patch.py",
