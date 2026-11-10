@@ -11,6 +11,7 @@
 MIGRATION_READY = False
 
 BLOCKERS = (
+    "formal Android applicationId must be explicitly approved under V1.0 D02; cn.yooss.moodiary.v3safe is QA-only",
     "original installed Moodiary version and its native backup format must be verified",
     "original ZIP -> final app media, metadata and note round-trip device acceptance pending",
     "final build must have a persistent signing identity and pass Android installation tests",

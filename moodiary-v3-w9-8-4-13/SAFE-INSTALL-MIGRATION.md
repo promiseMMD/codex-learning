@@ -1,127 +1,88 @@
-# W9.8.4.13 — Safe parallel installation and migration status
+# W9.8.4.13 — Safe installation and migration status (V1.0-aligned)
 
-> **Historical engineering snapshot, superseded by the user-approved V1.0
-> specification:** [Moodiary Mod Project Spec V1.0](../docs/MOODIARY_MOD_PROJECT_SPEC_V1.0.md).
-> References here to migrating old modified-build W9 user data do **not**
-> apply to the user: existing notes are in the official original app, and
-> the new modified app has no user notes. Current source of truth is V1.0.
-> Nothing in this historical document authorizes removing W9 features.
+> **Current source of truth:** [Moodiary Mod Project Spec V1.0](../docs/MOODIARY_MOD_PROJECT_SPEC_V1.0.md).
+> This note is an engineering handoff, not an authorization to change project scope.
+> The user's existing notes are in the official ZhuJHua/moodiary app. The modified app has no user notes.
+> Initial migration means **official original app → final modified app** only. Do not require migration of nonexistent old modified-app W9 history.
+>
+> **Package identity warning (D02):** `cn.yooss.moodiary.v3safe` is the current isolated QA-candidate applicationId only. The user has not approved it as the permanent formal applicationId. Any older statement below or in historical commits treating it as the final package is superseded by V1.0. Do not publish or label it as the formal package without explicit user approval.
 
-## 1. Signing constraint and install strategy
+## 1. Installation and signing boundaries
 
-The existing W9.5.2 / W9.8.4.12 APKs use the same Android package ID,
-but their signing certificates differ. The old private signing key is not
-available. An APK contains its signing certificate/public key, not the private
-key, so the old signing identity cannot be recovered from the APK.
+- Official original package: `cn.yooss.moodiary`.
+- Historical modified development package: `cn.yooss.moodiary.v3dev`.
+- Current isolated QA candidate package: `cn.yooss.moodiary.v3safe` (candidate only; not a D02 approval).
+- The original app and its data must remain installed and untouched until the first-import acceptance passes.
+- The final modified app must use a separate, user-approved package ID and a persistent signing identity.
+- Never bypass Android signature checks or generate a replacement key after the first formal release.
 
-Android rejects an in-place update when the signer differs. Do not attempt to
-bypass Android's signature check.
+The old development APK's private signing key is unavailable. A public certificate extracted from an APK cannot recreate its private key. A different signer cannot perform an in-place Android update. The separate QA candidate avoids overwriting that old installation, but its package ID must not be silently promoted to the permanent package.
 
-The safe build therefore uses a distinct application ID:
+## 2. Official original backup format — verified source behavior
 
-- Existing installation: cn.yooss.moodiary.v3dev
-- Safe parallel installation: cn.yooss.moodiary.v3safe
-- New launcher label: Moodiary 安全版
+The pinned upstream source is `ZhuJHua/moodiary@2c552ddd7939a054122380397fb914cf000824b0`.
 
-The old installation is never uninstalled, overwritten, cleared, or modified.
-The two installations have separate Android application sandboxes and databases.
+At that commit, `LocalArchive.export()` reads native Diary, Category, Place and Tombstone records and packages referenced media from the app support directory. The archive import path extracts a ZIP and requires the native sync manifest. The importer explicitly detects and rejects legacy Isar `.isar` backups instead of silently treating them as the current ZIP format.
 
-## 2. Important correction: full data migration is NOT ready
+Consequences:
 
-The previous draft of this document overstated what the built-in backup ZIP
-covers. That claim is corrected here.
+1. Do not assume every installed official version exports the same ZIP format.
+2. Before migration, record the user's installed official app version and export a backup using that app's own backup UI.
+3. Inspect a copy of the ZIP read-only. Confirm manifest presence, record objects, media entries and archive integrity before attempting import.
+4. If the official app produces a legacy Isar backup or an unsupported archive, stop and design a narrowly scoped compatibility path. Do not alter the official app or its data.
+5. Keep the original backup file unchanged. Import only into an isolated, empty modified-app target.
 
-The upstream LocalArchive ZIP flow covers ordinary native Moodiary data
-(diary/category/place records and referenced media). It does NOT currently
-include the custom W9 monthly-record graph.
+The native archive source includes ordinary Diary/Category/Place/Tombstone records and referenced media. The actual backup from the user's installed app remains the authority for the migration test; source inspection alone is not proof that the user's archive is compatible.
 
-The custom monthly feature uses these SQLite tables:
+## 3. First migration acceptance — C01/C05/C06/C07
 
-- mod_month_pages
-- mod_month_blocks
-- mod_month_revisions
-- mod_month_heads
-- mod_month_ops
-- mod_day_pages
+The required one-time path is official original app → final modified app. Acceptance must verify:
 
-The custom archive work already contains useful building blocks:
+- Total diary count against the official app/source backup.
+- Plain text and rich-text content.
+- Creation/modification timestamps and diary date mapping.
+- Categories, tags, places and other metadata actually present in the source.
+- Image/audio/video/other attachment presence, openability and content; compare SHA-256 where applicable.
+- No unexplained skipped, failed or partially imported records.
+- Target database integrity and media references after import.
 
-- ModMonthGraphArchiveV1/V2 can serialize and validate the custom graph,
-  including revision history, heads, operation IDs and day mappings.
-- ModMonthStreamStageV2 can stage and hash files.
-- ModMonthZipBundleV2 can package and verify an offline ZIP.
-- ModMonthIsolatedRestoreV2 can restore native data, graph and media into a
-  brand-new isolated directory/database and verify readback.
-- ModMonthRestoreInventoryV2 and the W9.8.4.11 Settings panel can inspect
-  private recovery copies read-only.
+A partial import must be reported as partial, never as complete success. The original app, its database and the original ZIP remain untouched until the user has reviewed the migrated result. Do not uninstall the original app or clear its data before acceptance.
 
-However, these components are deliberately not yet connected to the production
-backup/export UI or a production live-database import. Their source comments
-explicitly state that production ZIP export/restore and WebDAV integration are
-not enabled. The recovery inventory also intentionally has no delete, repair,
-activation or live-restore action.
+## 4. W9 custom monthly/day feature — preserve, but do not expand migration scope
 
-Therefore, exporting and importing only the ordinary upstream ZIP would not
-constitute a complete migration of the current customized Moodiary app.
-Do not mark migration complete or ask the user to rely on that ZIP alone.
+The modified app contains custom monthly/day structures and supporting archive/recovery code. Preserve these existing features and their tests; do not delete or casually refactor them.
 
-## 3. Required migration implementation before release
+However, the official original app does not contain the modified app's W9 custom monthly/day graph, and the modified app has no user notes to migrate. Therefore:
 
-A subsequent implementation stage must:
+- W9 graph/revision/history migration is **not** a prerequisite for this user's first migration.
+- Do not connect experimental W9 graph archives to the ordinary official ZIP import merely to satisfy an obsolete handoff checklist.
+- Do not require nonexistent old modified-app history as a release blocker.
+- Continue testing existing W9 features for their own correctness and data safety, without expanding the official-to-modified first-import scope.
 
-1. Extend one user-facing backup package to include both ordinary Moodiary
-   records/media and the complete W9 monthly/day graph.
-2. Preserve all five monthly tables, all revision history, tombstones, heads,
-   operation IDs, day mappings, native Diary bindings where supported, and
-   referenced media.
-3. Verify the archive manifest, per-file sizes and SHA-256 hashes before import.
-4. Import into the new app only through a separately designed migration flow;
-   never overwrite the old app or its private database.
-5. Restrict first migration to a fresh/empty target database unless a tested,
-   explicit merge policy is implemented.
-6. Verify database integrity, foreign keys, row counts, graph readback and
-   actual media opening after import.
-7. Keep the original ZIP and old app unchanged until the user has checked the
-   new app over several days.
+## 5. Persistent signing identity
 
-The read-only recovery inventory remains read-only. A migration/import flow,
-if later approved and implemented, must be a separate screen and code path.
+Create one long-term signing identity for the final modified app and retain two offline copies of the JKS. Never commit the JKS, Base64 keystore or passwords to Git. Configure these repository Actions secrets only through GitHub's secret settings:
 
-## 4. New persistent signing identity
+- `MOODIARY_SAFE_KEYSTORE_BASE64`
+- `MOODIARY_SAFE_STORE_PASSWORD`
+- `MOODIARY_SAFE_KEY_PASSWORD`
+- `MOODIARY_SAFE_CERT_SHA256`
 
-A new signing key must be created once for the new package and retained for
-every future v3safe release. Never regenerate it after installing the first
-Moodiary 安全版 APK.
+CI must fail closed if any secret is absent, the alias is wrong, or the certificate fingerprint does not match. Presence-only preflight is not a substitute for the later JKS and APK certificate verification. Never use a debug or ephemeral signer as a fallback.
 
-Run generate-safe-signing-key.ps1 on Windows. It creates a JKS file outside
-the repository, copies its Base64 encoding to the clipboard, and prints the
-certificate SHA-256 fingerprint. Add these repository Actions secrets:
+The candidate key must be retained and used consistently if selected for the final package; do not regenerate it after a formal release. The exact formal applicationId must first be approved under V1.0 D02.
 
-- MOODIARY_SAFE_KEYSTORE_BASE64: the clipboard Base64 value
-- MOODIARY_SAFE_STORE_PASSWORD: the keystore password
-- MOODIARY_SAFE_KEY_PASSWORD: the key password (the generator uses the same
-  password for both)
-- MOODIARY_SAFE_CERT_SHA256: the printed SHA-256 fingerprint, hex without
-  colons
+## 6. Formal release gates
 
-Keep two offline copies of the generated JKS file. Never commit the JKS,
-Base64 keystore, or passwords to Git. CI must fail closed if the secrets are
-missing, the alias is wrong, or the certificate fingerprint does not match.
+Do not publish or describe an APK as the formal long-term app until all applicable V1.0 gates pass:
 
-## 5. Release gates
+- Official upstream Release/Tag and exact commit are pinned and recorded.
+- The permanent formal applicationId is explicitly approved by the user under D02. `cn.yooss.moodiary.v3safe` remains QA-only until then.
+- Display version follows the adapted official Release; each formal APK's integer `versionCode` exceeds the previous formal release.
+- One persistent signing key is used; APK package, signature and SHA-256 are verified.
+- Full CI passes on the exact source commit.
+- Official original ZIP → final modified app migration passes C06 on a real backup from the user's installed official version.
+- Coverage includes install coexistence, approved modified features, data integrity, backup/restore, database upgrade and required real-device checks.
+- Xiaomi 14 Pro / HyperOS 3 device acceptance is recorded where applicable.
 
-Do not publish an installable APK until all of the following pass:
-
-- Latest official Moodiary develop baseline is pinned and recorded.
-- Full CI passes on the exact release commit.
-- Package ID is exactly cn.yooss.moodiary.v3safe.
-- Version is 2.9.3+125.
-- ABI is ARM64 only; min SDK 28 and target SDK 36.
-- APK v2 signature verifies.
-- Signer certificate SHA-256 equals the persistent Actions secret.
-- Complete ordinary + W9 custom-data migration has production export/import
-  coverage and passing end-to-end tests.
-- APK SHA-256 and build provenance are retained beside the APK.
-- Xiaomi 14 Pro / HyperOS 3 installation and migration acceptance passes.
-
-Until then, keep the old app installed and its data untouched.
+A signed QA candidate is not a formal release. Fast CI success is not device acceptance. Until the original-to-modified migration and device acceptance pass, keep the original app and its data untouched.

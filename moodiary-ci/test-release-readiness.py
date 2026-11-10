@@ -21,6 +21,8 @@ def main() -> None:
     release = run()
     assert release.returncode == 2, release
     assert "APK PUBLIC RELEASE BLOCKED" in release.stdout
+    assert "formal Android applicationId must be explicitly approved under V1.0 D02" in release.stdout
+    assert "cn.yooss.moodiary.v3safe is QA-only" in release.stdout
     assert "original-to-modded first import and device QA" in release.stdout
     assert "complete custom-data migration" not in release.stdout
 

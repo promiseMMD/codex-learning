@@ -410,6 +410,8 @@ require(full,"original_first_import_device_qa=pending","QA artifact must declare
 require(full,'signer_certificate_sha256',"W9.8.4.14 signer parsed from verifier JSON")
 require(release_gate,"MIGRATION_READY = False","production release remains fail-closed")
 require(release_gate,"APK PUBLIC RELEASE BLOCKED","release guard must name correct first-migration scope")
+require(release_gate,"formal Android applicationId must be explicitly approved under V1.0 D02","formal package identity must not be assumed from a QA build")
+require(release_gate,"cn.yooss.moodiary.v3safe is QA-only","v3safe candidate package must not silently become the formal package")
 require(release_gate,"QA CANDIDATE ONLY","QA candidate mode must not imply release")
 # The user's only existing notes are in the ORIGINAL app, not a prior modded
 # build. Preserve the W9 integrity tests, but do NOT require unavailable old
