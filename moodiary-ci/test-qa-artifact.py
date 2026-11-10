@@ -115,6 +115,32 @@ class CandidateEvidenceTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "workflow_ref"):
             self.verify()
 
+    def test_review_branch_qa_evidence_is_accepted_without_releasing(self) -> None:
+        branch_ref = "refs/heads/moodiary-v3-w9-8-4-26-signed-qa-candidate-20261110"
+        self.provenance["workflow_ref"] = branch_ref
+        self.write_files()
+        module.verify(
+            self.path, RUN_ID, COMMIT, self.sha, COMMIT, branch_ref
+        )
+        self.assertEqual(self.report["artifact_status"], module.EXPECTED_STATUS)
+
+    def test_unrelated_branch_is_rejected_even_if_provenance_matches(self) -> None:
+        branch_ref = "refs/heads/feature-any"
+        self.provenance["workflow_ref"] = branch_ref
+        self.write_files()
+        with self.assertRaisesRegex(ValueError, "unsupported QA candidate branch"):
+            module.verify(
+                self.path, RUN_ID, COMMIT, self.sha, COMMIT, branch_ref
+            )
+
+    def test_qa_branch_cannot_fake_main_source(self) -> None:
+        branch_ref = "refs/heads/moodiary-v3-w9-8-4-26-signed-qa-candidate-20261110"
+        self.provenance["workflow_ref"] = branch_ref
+        self.write_files()
+        with self.assertRaisesRegex(ValueError, "workflow_ref"):
+            self.verify()
+
+
     def test_duplicate_provenance_lines_fail_closed(self) -> None:
         with (self.path / "BUILD-PROVENANCE.txt").open("a", encoding="utf-8") as handle:
             handle.write(f"workflow_run={RUN_ID}\n")

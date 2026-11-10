@@ -18,6 +18,11 @@ EXPECTED_VERSION_CODE = 126
 EXPECTED_STATUS = "signed-QA-candidate-not-formal-release"
 EXPECTED_QA = "pending"
 EXPECTED_WORKFLOW_REF = "refs/heads/main"
+# QA-only branch candidates may be inspected before historical commits are
+# reviewed for integration. This does NOT authorize a formal APK release.
+QA_BRANCH_REF = re.compile(
+    r"refs/heads/moodiary-v3-w9-8-4-[0-9]+-[a-z0-9-]+"
+)
 APK_NAME = "app-v3safe-release.apk"
 
 
@@ -53,7 +58,13 @@ def verify(
     tested_sha: str,
     tested_apk_sha256: str,
     current_sha: str,
+    expected_workflow_ref: str = EXPECTED_WORKFLOW_REF,
 ) -> None:
+    require(
+        expected_workflow_ref == EXPECTED_WORKFLOW_REF
+        or QA_BRANCH_REF.fullmatch(expected_workflow_ref) is not None,
+        "unsupported QA candidate branch ref",
+    )
     require(re.fullmatch(r"[1-9][0-9]*", candidate_run_id) is not None, "invalid candidate run ID")
     require_sha(tested_sha, "tested commit")
     require_sha(current_sha, "current workflow commit")
@@ -87,7 +98,7 @@ def verify(
     required = {
         "source_commit": tested_sha,
         "workflow_run": candidate_run_id,
-        "workflow_ref": EXPECTED_WORKFLOW_REF,
+        "workflow_ref": expected_workflow_ref,
         "application_id": EXPECTED_PACKAGE,
         "version_code": str(EXPECTED_VERSION_CODE),
         "version_name": EXPECTED_VERSION_NAME,
@@ -118,6 +129,11 @@ def main() -> None:
     parser.add_argument("--tested-sha", required=True)
     parser.add_argument("--tested-apk-sha256", required=True)
     parser.add_argument("--current-sha", required=True)
+    parser.add_argument(
+        "--expected-workflow-ref",
+        default=EXPECTED_WORKFLOW_REF,
+        help="Exact source ref recorded in the signed QA artifact; only main or the approved W9.8.4 QA branch prefix",
+    )
     args = parser.parse_args()
     try:
         verify(
@@ -126,6 +142,7 @@ def main() -> None:
             args.tested_sha,
             args.tested_apk_sha256,
             args.current_sha,
+            args.expected_workflow_ref,
         )
     except (ValueError, OSError, json.JSONDecodeError) as error:
         parser.exit(2, f"APK QA EVIDENCE REJECTED: {error}\n")

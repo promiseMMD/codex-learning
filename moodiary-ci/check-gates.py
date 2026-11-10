@@ -419,6 +419,10 @@ subprocess.run(["python3", str(ROOT/"moodiary-ci/test-release-readiness.py")], c
 require(release,"moodiary-ci/check-qa-artifact.py","QA gate validates exact candidate provenance")
 require(release,'--candidate-run-id "$QA_CANDIDATE_RUN_ID"',"QA gate compares downloaded artifact run")
 require(release,'--current-sha "$GITHUB_SHA"',"QA gate binds candidate to current code")
+require((ROOT/"moodiary-ci/check-qa-artifact.py").read_text(),
+        "--expected-workflow-ref", "offline QA evidence can bind to exact feature branch")
+require((ROOT/"moodiary-ci/check-qa-artifact.py").read_text(),
+        "signed-QA-candidate-not-formal-release", "branch QA remains candidate-only")
 subprocess.run(["python3", str(ROOT/"moodiary-ci/test-qa-artifact.py")], check=True)
 
 require(full, "upstream_commit=2c552ddd7939a054122380397fb914cf000824b0", "W9.8.4.14 latest upstream provenance")
