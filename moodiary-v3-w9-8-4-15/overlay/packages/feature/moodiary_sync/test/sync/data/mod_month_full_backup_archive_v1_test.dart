@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:drift/drift.dart' show Variable;
 import 'package:drift/native.dart';
@@ -7,10 +8,40 @@ import 'package:moodiary_data/moodiary_data.dart';
 import 'package:moodiary_models/moodiary_models.dart';
 import 'package:moodiary_sync/src/data/model/manifest.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:moodiary_sync/src/data/archive_apply.dart';
+import 'package:moodiary_sync/src/data/codec.dart';
+import 'package:moodiary_sync/src/data/impl/local_archive.dart';
+import 'package:path/path.dart' as p;
 
 import '../../../lib/src/data/mod_month_full_backup_archive_v1.dart';
 import '../../../lib/src/data/mod_month_zip_preflight_v2.dart';
 import '../../../lib/src/data/mod_month_verified_manifest_v1.dart';
+
+
+import '../sync_test_harness.dart';
+
+/// Writes the exact upstream LocalArchive export entries without Rust in tests.
+final class _OriginalDirectorySink implements ArchiveSink {
+  final String directory;
+  const _OriginalDirectorySink(this.directory);
+
+  @override
+  Future<void> addBytes(String name, Uint8List bytes) async {
+    final file = File(p.join(directory, name));
+    await file.parent.create(recursive: true);
+    await file.writeAsBytes(bytes);
+  }
+
+  @override
+  Future<void> addLocalFile(String name, String source) async {
+    final file = File(p.join(directory, name));
+    await file.parent.create(recursive: true);
+    await File(source).copy(file.path);
+  }
+
+  @override
+  Future<void> finish() async {}
+}
 
 void main() {
   late Directory sandbox;
@@ -536,6 +567,129 @@ with zipfile.ZipFile(sys.argv[1], 'w', compression=zipfile.ZIP_STORED) as archiv
         (e) => e.code, 'code', 'invalid_native_media_name',
       )),
     );
+  });
+
+  test('original Moodiary plain ZIP imports to empty final app without W9 history', () async {
+    await setUpSyncEnv();
+    try {
+      final originalDiary = Diary(
+        id: 'original-note-001',
+        title: '原版日记',
+        content: '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"原版记录"}]}]}',
+        contentText: '原版记录',
+        categoryId: 'original-category',
+        placeId: 'original-place',
+        time: DateTime.utc(2024, 8, 5, 12, 30),
+        lastModified: DateTime.utc(2025, 3, 4, 10, 20),
+        show: true,
+        imageName: const ['photo-original.png'],
+        audioName: const [],
+        videoName: const [],
+        fileName: const ['original.pdf'],
+        tags: const ['旧版', '工作'],
+        type: 'tiptap',
+      );
+      final category = Category(
+        id: 'original-category',
+        categoryName: '工作记录',
+        lastModified: DateTime.utc(2025, 1, 2),
+      );
+      final place = Place(
+        id: 'original-place',
+        name: '原始地点',
+        latitude: 34.0,
+        longitude: 110.0,
+        lastModified: DateTime.utc(2025, 1, 2),
+      );
+
+      final mediaRoot = p.join(sandbox.path, 'original-media');
+      for (final (directory, name, bytes) in [
+        ('image', 'photo-original.png', utf8.encode('original photo bytes')),
+        ('file', 'original.pdf', utf8.encode('original attachment bytes')),
+      ]) {
+        final file = File(p.join(mediaRoot, directory, name));
+        await file.parent.create(recursive: true);
+        await file.writeAsBytes(bytes);
+      }
+      final originalExport = p.join(sandbox.path, 'upstream-export');
+      await LocalArchive.writeArchive(
+        sink: _OriginalDirectorySink(originalExport),
+        diaries: [originalDiary],
+        categories: [category],
+        places: [place],
+        tombstones: const [],
+        mediaBaseDir: mediaRoot,
+      );
+      final zipPath = p.join(sandbox.path, 'upstream-moodiary.zip');
+      const python = r'''
+import os, sys, zipfile
+source, output = sys.argv[1:3]
+with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_STORED) as archive:
+    for root, dirs, files in os.walk(source):
+        for file in files:
+            path = os.path.join(root, file)
+            archive.write(path, os.path.relpath(path, source))
+''';
+      final zipResult = await Process.run(
+        'python3', ['-c', python, originalExport, zipPath],
+      );
+      expect(zipResult.exitCode, 0, reason: zipResult.stderr.toString());
+      final names = await ModMonthZipPreflightV2.inspectForBackupRouting(zipPath);
+      expect(names, containsAll([
+        'manifest.json',
+        'diary/original-note-001.json',
+        'category/original-category.json',
+        'place/original-place.json',
+        'media/image/photo-original.png',
+        'media/file/original.pdf',
+      ]));
+      expect(
+        ModMonthZipPreflightV2.hasCompleteFullHistoryMarkers(names),
+        isFalse,
+        reason: 'original app ZIP must use unchanged RestorePolicy import',
+      );
+
+      // Rust ZIP extraction is not available in Dart-only CI. Use the same
+      // extracted ZIP directory to exercise the exact production importer.
+      final destinationDiaries = FakeDiaryStore();
+      final destinationCategories = FakeCategoryStore();
+      final destinationPlaces = FakePlaceStore();
+      final destinationMedia = FakeMediaFiles();
+      final report = await LocalArchive.importDirectory(
+        originalExport,
+        policy: const RestorePolicy(),
+        diaryStore: destinationDiaries,
+        categoryStore: destinationCategories,
+        placeStore: destinationPlaces,
+        tombstoneStore: destinationDiaries.tombstones,
+        mediaFiles: destinationMedia,
+        cipherProvider: () async => SyncCipher.plaintext,
+      );
+
+      expect(report.failed, 0);
+      expect(report.cancelled, false);
+      expect(report.diaryCount, 1);
+      final restored = destinationDiaries.diaries[originalDiary.id]!;
+      expect(restored.title, originalDiary.title);
+      expect(restored.content, originalDiary.content);
+      expect(restored.contentText, originalDiary.contentText);
+      expect(restored.time, originalDiary.time);
+      expect(restored.categoryId, originalDiary.categoryId);
+      expect(restored.placeId, originalDiary.placeId);
+      expect(restored.tags, originalDiary.tags);
+      expect(restored.show, originalDiary.show);
+      expect(restored.imageName, originalDiary.imageName);
+      expect(restored.fileName, originalDiary.fileName);
+      expect(destinationCategories.categories[category.id]!.categoryName,
+          category.categoryName);
+      expect(destinationPlaces.places[place.id]!.name, place.name);
+      expect(destinationMedia.files['image/photo-original.png'],
+          utf8.encode('original photo bytes'));
+      expect(destinationMedia.files['file/original.pdf'],
+          utf8.encode('original attachment bytes'));
+    } finally {
+      await tearDownSyncEnv();
+    }
   });
 
 }
