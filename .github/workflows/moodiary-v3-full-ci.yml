@@ -237,9 +237,9 @@ jobs:
         if: ${{ inputs.build_apk }}
         working-directory: upstream
         run: cp /tmp/moodiary-w9-test-pubspec.yaml pubspec.yaml
-      - name: Block APK delivery until complete custom-data migration is production-ready
+      - name: Authorize signed QA candidate ONLY (not formal APK release)
         if: ${{ inputs.build_apk }}
-        run: python3 moodiary-ci/check-release-readiness.py
+        run: python3 moodiary-ci/check-release-readiness.py --qa-candidate
 
       - name: Provision persistent safe signing identity (fail closed; no debug fallback)
         if: ${{ inputs.build_apk }}
@@ -317,8 +317,9 @@ jobs:
             echo "application_id=cn.yooss.moodiary.v3safe"
             echo "previous_application_id=cn.yooss.moodiary.v3dev"
             echo "parallel_install=true"
-            echo "full_custom_migration_ready=false"
-            echo "migration_method=ordinary native ZIP only; W9 custom migration pending"
+            echo "artifact_status=signed-QA-candidate-not-formal-release"
+            echo "original_first_import_device_qa=pending"
+            echo "migration_method=official-original-native-ZIP-to-independent-modded-app"
             echo "version_name=2.9.2"
             echo "version_code=126"
             echo "abi=arm64-v8a"

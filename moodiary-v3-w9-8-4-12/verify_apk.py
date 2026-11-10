@@ -221,8 +221,9 @@ def main() -> None:
         "previous_dev_signer_sha256": PREVIOUS_DEV_SIGNER_SHA256,
         "old_parallel_package_id": OLD_PARALLEL_PACKAGE,
         "parallel_install_is_safe": manifest["package"] != OLD_PARALLEL_PACKAGE,
-        "migration_method": "ordinary native ZIP only; W9 custom migration pending",
-        "full_custom_migration_ready": False,
+        "migration_method": "official-original-native-ZIP-to-independent-modded-app",
+        "artifact_status": "signed-QA-candidate-not-formal-release",
+        "original_first_import_device_qa": "pending",
         "old_app_data_modified": False,
     }
     print(json.dumps(result, ensure_ascii=False, sort_keys=True))

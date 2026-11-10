@@ -335,7 +335,8 @@ for needle in (
   "MOODIARY_SAFE_CERT_SHA256",
   "signer_matches_persistent_safe_key",
   "parallel_install_is_safe",
-  '"full_custom_migration_ready": False'):
+  '"artifact_status": "signed-QA-candidate-not-formal-release"',
+  '"original_first_import_device_qa": "pending"'):
     require(safe_verifier,needle,"W9.8.4.14 APK identity and migration readiness report")
 for needle in (
   "MOODIARY_SAFE_KEYSTORE_BASE64",
@@ -346,9 +347,13 @@ for needle in (
   "flutter build apk --flavor v3safe",
   "app-v3safe-release.apk"):
     require(full,needle,"W9.8.4.13 fail-closed APK signing workflow")
-require(full,"check-release-readiness.py","W9.8.4.14 APK migration release gate")
+require(full,"check-release-readiness.py --qa-candidate","QA-only APK build does not require circular device QA before APK exists")
+require(full,"signed-QA-candidate-not-formal-release","QA artifact must not imply formal release")
+require(full,"original_first_import_device_qa=pending","QA artifact must declare real device acceptance pending")
 require(full,'signer_certificate_sha256',"W9.8.4.14 signer parsed from verifier JSON")
-require(release_gate,"MIGRATION_READY = False","W9.8.4.14 APK blocked until full migration")
+require(release_gate,"MIGRATION_READY = False","production release remains fail-closed")
+require(release_gate,"APK PUBLIC RELEASE BLOCKED","release guard must name correct first-migration scope")
+require(release_gate,"QA CANDIDATE ONLY","QA candidate mode must not imply release")
 # The user's only existing notes are in the ORIGINAL app, not a prior modded
 # build. Preserve the W9 integrity tests, but do NOT require unavailable old
 # modded revision history as a precondition for initial native-note migration.
@@ -379,6 +384,7 @@ require(fast,"secrets: inherit","W9.8.4.13 safe signing secret inheritance")
 if full.count("MOODIARY_SAFE_KEYSTORE_BASE64") < 2:
     raise SystemExit("APK workflow must both provision and validate persistent signing material")
 subprocess.run(["python3", str(ROOT/"moodiary-v3-w9-8-4-13/test_safe_install.py")], check=True)
+subprocess.run(["python3", str(ROOT/"moodiary-ci/test-release-readiness.py")], check=True)
 
 require(full, "upstream_commit=2c552ddd7939a054122380397fb914cf000824b0", "W9.8.4.14 latest upstream provenance")
 print("All CI contracts verified: quick, full coverage, APK SHA and device QA")

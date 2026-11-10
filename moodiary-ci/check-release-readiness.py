@@ -17,9 +17,22 @@ BLOCKERS = (
 )
 
 
-def main() -> None:
+def main(argv: list[str] | None = None) -> None:
+    """Keep QA artifact generation separate from formal production authorization."""
+    import sys
+
+    args = sys.argv[1:] if argv is None else argv
+    if args == ["--qa-candidate"]:
+        # The workflow still requires full tests, a pinned persistent
+        # production-compatible signer, APK verification and SHA-256.
+        # This option only permits an explicitly marked QA artifact for
+        # Android tests, not publication or real user-data migration.
+        print("QA CANDIDATE ONLY: no formal release or user-data migration authorized.")
+        return
+    if args:
+        raise SystemExit("Unknown release-readiness option; refusing to proceed")
     if not MIGRATION_READY:
-        print("APK RELEASE BLOCKED: complete custom-data migration is not production-ready.")
+        print("APK PUBLIC RELEASE BLOCKED: official original-to-modded first import and device QA are not verified.")
         for item in BLOCKERS:
             print(" - " + item)
         raise SystemExit(2)

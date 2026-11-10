@@ -1,5 +1,12 @@
 # W9.8.4.13 — Safe parallel installation and migration status
 
+> **Historical engineering snapshot, superseded by the user-approved V1.0
+> specification:** [Moodiary Mod Project Spec V1.0](../docs/MOODIARY_MOD_PROJECT_SPEC_V1.0.md).
+> References here to migrating old modified-build W9 user data do **not**
+> apply to the user: existing notes are in the official original app, and
+> the new modified app has no user notes. Current source of truth is V1.0.
+> Nothing in this historical document authorizes removing W9 features.
+
 ## 1. Signing constraint and install strategy
 
 The existing W9.5.2 / W9.8.4.12 APKs use the same Android package ID,
