@@ -818,9 +818,13 @@ with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_STORED) as archive:
       // after extracting the official archive. The destination is real Drift
       // SQLite, not the fake stores used in the earlier routing test.
       final destMedia = p.join(sandbox.path, 'modded-app-media');
+      final migrationPolicy =
+          await ModMonthFullBackupArchiveV1.originalImportPolicyFor(db);
+      expect(migrationPolicy, isA<FullMigrationRestorePolicy>(),
+          reason: 'initial official import must retain source timestamps');
       final report = await LocalArchive.importDirectory(
         archiveDir,
-        policy: const RestorePolicy(),
+        policy: migrationPolicy,
         diaryStore: RepoSyncDiaryStore(),
         categoryStore: RepoSyncCategoryStore(),
         placeStore: RepoSyncPlaceStore(),
@@ -840,6 +844,7 @@ with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_STORED) as archive:
       expect(saved.content, original.content);
       expect(saved.contentText, contains('来自官方原版的中文日记'));
       expect(saved.time, created);
+      expect(saved.lastModified, modified);
       expect(saved.categoryId, original.categoryId);
       expect(saved.placeId, original.placeId);
       expect(saved.tags, unorderedEquals(original.tags));
@@ -851,11 +856,20 @@ with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_STORED) as archive:
           .getDiaryByBusinessId('official-sqlite-002'))!;
       expect(second.title, textOnly.title);
       expect(second.time, textOnly.time);
+      expect(second.lastModified, textOnly.lastModified);
       expect(second.contentText, contains('第二篇原版记录'));
-      expect((await CategoryRepository(db).getCategoryById(category.id))!
-          .categoryName, category.categoryName);
-      expect((await PlaceRepository(db).getPlaceById(place.id))!.name,
-          place.name);
+      final savedCategory =
+          (await CategoryRepository(db).getCategoryById(category.id))!;
+      final savedPlace =
+          (await PlaceRepository(db).getPlaceById(place.id))!;
+      expect(savedCategory.categoryName, category.categoryName);
+      expect(savedCategory.lastModified, category.lastModified);
+      expect(savedPlace.name, place.name);
+      expect(savedPlace.lastModified, place.lastModified);
+      expect(
+          await ModMonthFullBackupArchiveV1.originalImportPolicyFor(db),
+          isA<RestorePolicy>(),
+          reason: 'subsequent restores must retain upstream policy');
       for (final entry in mediaBytes.entries) {
         expect(
           await File(p.join(destMedia, entry.key)).readAsBytes(),
@@ -865,6 +879,9 @@ with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_STORED) as archive:
       }
       final invalidRelations = await db.customSelect('PRAGMA foreign_key_check').get();
       expect(invalidRelations, isEmpty);
+      // A lone category must also block migration-only timestamp semantics.
+      // The source ZIP is only treated as an initial migration if ALL native
+      // and W9 data tables are empty, not merely the diaries table.
       // The imported note is editable using the standard repository API.
       await DiaryRepository(db).insertADiary(
         saved.copyWith(title: '迁移后可以继续编辑'),
@@ -874,6 +891,27 @@ with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_STORED) as archive:
     } finally {
       await db.close();
       await tearDownSyncEnv();
+    }
+  });
+
+  test('official import policy refuses pristine mode when categories exist', () async {
+    final db = MoodiaryDatabase.forTesting(NativeDatabase.memory());
+    try {
+      expect(
+        await ModMonthFullBackupArchiveV1.originalImportPolicyFor(db),
+        isA<FullMigrationRestorePolicy>(),
+      );
+      await db.customStatement(
+        'INSERT INTO categories (id,name,last_modified) VALUES(?,?,?)',
+        ['preexisting-category', 'already used', 1794038400000000],
+      );
+      expect(
+        await ModMonthFullBackupArchiveV1.originalImportPolicyFor(db),
+        isA<RestorePolicy>(),
+        reason: 'existing native data must keep old restore semantics',
+      );
+    } finally {
+      await db.close();
     }
   });
 

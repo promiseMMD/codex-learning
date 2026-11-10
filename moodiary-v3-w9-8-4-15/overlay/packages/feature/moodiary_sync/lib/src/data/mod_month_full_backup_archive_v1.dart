@@ -152,16 +152,36 @@ final class ModMonthFullBackupArchiveV1 {
     return File(p.join(root.path,'full-v1.json'));
   }
 
-  static Future<void> _requireEmptyTarget(MoodiaryDatabase db) async {
-    const tables=[
-      'diaries','categories','places','tombstones',
-      'mod_month_pages','mod_month_blocks','mod_month_revisions',
-      'mod_month_heads','mod_month_ops','mod_day_pages',
-    ];
-    for(final table in tables) {
+  // Native and W9 tables must be empty before treating a plain official
+  // ZIP as a one-time original -> modded migration. Existing backup restore
+  // semantics remain unchanged on a nonempty destination.
+  static const _migrationDataTables=[
+    'diaries','categories','places','tombstones',
+    'mod_month_pages','mod_month_blocks','mod_month_revisions',
+    'mod_month_heads','mod_month_ops','mod_day_pages',
+  ];
+
+  static Future<bool> _isEmptyMigrationTarget(MoodiaryDatabase db) async {
+    for (final table in _migrationDataTables) {
       final row=await db.customSelect(
         'SELECT COUNT(*) AS n FROM $table').getSingle();
-      if(row.read<int>('n')!=0)_fail('migration_target_not_empty');
+      if(row.read<int>('n')!=0)return false;
+    }
+    return true;
+  }
+
+  /// Only the *first* import into a pristine modded database keeps original
+  /// modification timestamps. Restoring over existing notes continues to use
+  /// upstream RestorePolicy, including its conflict/sync timestamp behavior.
+  static Future<ArchiveApplyPolicy> originalImportPolicyFor(
+    MoodiaryDatabase db,
+  ) async => await _isEmptyMigrationTarget(db)
+      ? const FullMigrationRestorePolicy()
+      : const RestorePolicy();
+
+  static Future<void> _requireEmptyTarget(MoodiaryDatabase db) async {
+    if (!await _isEmptyMigrationTarget(db)) {
+      _fail('migration_target_not_empty');
     }
   }
 

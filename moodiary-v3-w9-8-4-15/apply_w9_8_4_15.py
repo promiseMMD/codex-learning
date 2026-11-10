@@ -197,7 +197,11 @@ patch(
           )
         : await LocalArchive.import(
             zipPath,
-            policy: const RestorePolicy(),
+            // Preserve original metadata only for first import into an empty
+            // modded app. Never change ordinary nonempty backup restore.
+            policy: await ModMonthFullBackupArchiveV1.originalImportPolicyFor(
+              getIt<MoodiaryDatabase>(),
+            ),
           );
     return BackupImportResult(
       diaryCount: report.pulled.diaries,
