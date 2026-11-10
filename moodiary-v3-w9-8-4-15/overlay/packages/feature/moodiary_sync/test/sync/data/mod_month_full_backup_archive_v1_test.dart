@@ -45,6 +45,15 @@ final class _OriginalDirectorySink implements ArchiveSink {
   Future<void> finish() async {}
 }
 
+/// Exercise the upstream byte-stream fallback while still writing to disk.
+/// Avoids requiring Android path_provider in a pure Dart/SQLite test.
+final class _SqliteTestDiskMedia extends DiskSyncMediaFiles {
+  _SqliteTestDiskMedia(String baseDir) : super(baseDir: baseDir);
+
+  @override
+  String? realPath(String type, String filename) => null;
+}
+
 void main() {
   late Directory sandbox;
 
@@ -816,7 +825,7 @@ with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_STORED) as archive:
         categoryStore: RepoSyncCategoryStore(),
         placeStore: RepoSyncPlaceStore(),
         tombstoneStore: RepoSyncTombstoneStore(),
-        mediaFiles: DiskSyncMediaFiles(baseDir: destMedia),
+        mediaFiles: _SqliteTestDiskMedia(destMedia),
         cipherProvider: () async => SyncCipher.plaintext,
       );
       expect(report.failed, 0,
