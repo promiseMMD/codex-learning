@@ -24,8 +24,6 @@ on:
         required: true
 permissions:
   contents: read
-permissions:
-  contents: read
   actions: read
 jobs:
   verify-device-evidence:
