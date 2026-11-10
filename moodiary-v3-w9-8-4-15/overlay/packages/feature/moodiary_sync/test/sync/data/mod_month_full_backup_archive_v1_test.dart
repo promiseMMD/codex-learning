@@ -695,7 +695,7 @@ with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_STORED) as archive:
   });
 
   test('official plain backup imports into real SQLite and preserves native media', () async {
-    await setUpSyncEnv();
+    final env = await setUpSyncEnv();
     final db = MoodiaryDatabase.forTesting(NativeDatabase.memory(
       setup: (raw) => raw.execute('PRAGMA foreign_keys = ON'),
     ));
@@ -819,7 +819,8 @@ with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_STORED) as archive:
         mediaFiles: DiskSyncMediaFiles(baseDir: destMedia),
         cipherProvider: () async => SyncCipher.plaintext,
       );
-      expect(report.failed, 0);
+      expect(report.failed, 0,
+          reason: env.logger.recent.map((event) => event.toJson()).join('\n'));
       expect(report.cancelled, isFalse);
       expect(report.diaryCount, 2);
       expect((await DiaryRepository(db).getAllDiaries()).length, 2);
