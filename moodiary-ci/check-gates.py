@@ -430,11 +430,11 @@ cleanupMarker = "      - name: Remove signing material from ephemeral runner wor
 # W9.8.4.15: signing material is only exposed on the approved branch, keytool
 # receives passwords through JDK 21 environment modifiers, and the ephemeral
 # runner removes the JKS and Gradle password properties on every exit path.
-if not (full.index(branchMarker) < full.index(preflightMarker) < full.index(signerMarker)):
+if not (full.index(branchMarker) < full.index(preflight_marker) < full.index(signer_marker)):
     raise SystemExit("APK branch allowlist must run before any signing secret is accessed")
 require(full, "github.ref != 'refs/heads/moodiary-v3-w9-8-4-31-permanent-application-id-20261110'",
         "signed APK builds must be restricted to the approved permanent-identity branch")
-signer_block = full[full.index(signerMarker):full.index(buildMarker)]
+signer_block = full[full.index(signer_marker):full.index(buildMarker)]
 require(signer_block, "-storepass:env MOODIARY_SAFE_STORE_PASSWORD",
         "keytool must receive the store password through the environment")
 if '-storepass "$MOODIARY_SAFE_STORE_PASSWORD"' in signer_block:
