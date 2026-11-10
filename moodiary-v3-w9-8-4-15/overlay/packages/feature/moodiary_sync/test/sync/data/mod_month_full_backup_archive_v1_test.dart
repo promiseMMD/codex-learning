@@ -915,4 +915,46 @@ with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_STORED) as archive:
     }
   });
 
+  test('brand-new on-disk SQLite stays empty after close and app restart', () async {
+    // Unlike the in-memory routing tests, this uses an actual persistent DB
+    // file. It checks schema creation and subsequent reopening without
+    // declaring a real Android first-launch/device test complete.
+    final dbFile = File(p.join(sandbox.path, 'first-install-moodiary.db'));
+    MoodiaryDatabase openNew() => MoodiaryDatabase.forTesting(
+      NativeDatabase(
+        dbFile,
+        setup: (raw) => raw.execute('PRAGMA foreign_keys = ON'),
+      ),
+    );
+    const dataTables = <String>[
+      'diaries', 'categories', 'places', 'tombstones',
+      'mod_month_pages', 'mod_month_blocks', 'mod_month_revisions',
+      'mod_month_heads', 'mod_month_ops', 'mod_day_pages',
+    ];
+    for (var launch = 1; launch <= 2; launch++) {
+      final db = openNew();
+      try {
+        final nonEmpty = <String, int>{};
+        for (final table in dataTables) {
+          final row = await db.customSelect(
+            'SELECT COUNT(*) AS n FROM $table',
+          ).getSingle();
+          final count = row.read<int>('n');
+          if (count != 0) nonEmpty[table] = count;
+        }
+        expect(nonEmpty, isEmpty,
+            reason: 'new app DB contains unexpected records on open #$launch');
+        expect(
+          await ModMonthFullBackupArchiveV1.originalImportPolicyFor(db),
+          isA<FullMigrationRestorePolicy>(),
+          reason: 'a pristine on-disk DB must accept first-import timestamps',
+        );
+      } finally {
+        await db.close();
+      }
+    }
+    expect(await dbFile.exists(), isTrue,
+        reason: 'test must exercise real SQLite file persistence');
+  });
+
 }

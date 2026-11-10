@@ -9,6 +9,30 @@ fast=(ROOT/".github/workflows/moodiary-v3-fast-ci.yml").read_text()
 full=(ROOT/".github/workflows/moodiary-v3-full-ci.yml").read_text()
 release=(ROOT/".github/workflows/moodiary-v3-release.yml").read_text()
 prepare=(ROOT/"moodiary-ci/prepare-workspace.sh").read_text()
+# Catch duplicate YAML root keys before GitHub Actions rejects a workflow.
+# A repeated permissions: block once prevented any CI job from starting.
+# This is deliberately small and stdlib-only; GitHub still validates full YAML.
+for workflow_name, workflow_text in (
+    ("fast", fast), ("full", full), ("android-QA", release)
+):
+    root_keys = []
+    for line in workflow_text.splitlines():
+        if line.startswith((" ", "\t", "#")) or not line:
+            continue
+        match = re.match(r"^([A-Za-z_][A-Za-z0-9_-]*):(?:[ \t]|$)", line)
+        if match:
+            key = match.group(1)
+            if key in root_keys:
+                raise SystemExit(
+                    f"Duplicate YAML root key {key!r} in {workflow_name} workflow"
+                )
+            root_keys.append(key)
+    for expected in ("on", "permissions", "jobs"):
+        if expected not in root_keys:
+            raise SystemExit(
+                f"Missing YAML root key {expected!r} in {workflow_name} workflow"
+            )
+
 
 def require(source, value, label):
     if value not in source:
