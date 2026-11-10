@@ -350,6 +350,7 @@ for needle in (
   "read-only",
   "keep the original app",
   "permanent applicationId",
+  "Permanent package identity (V1.0 D02, user-approved 2026-11-10)",
   "user-approved 2026-11-10",
   "QA status describes the artifact's verification state",
   "V1.0 D02"):
