@@ -5,12 +5,14 @@ import 'dart:typed_data';
 import 'package:drift/drift.dart' show Variable;
 import 'package:drift/native.dart';
 import 'package:moodiary_data/moodiary_data.dart';
+import 'package:moodiary_di/moodiary_di.dart';
 import 'package:moodiary_models/moodiary_models.dart';
 import 'package:moodiary_sync/src/data/model/manifest.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:moodiary_sync/src/data/archive_apply.dart';
 import 'package:moodiary_sync/src/data/codec.dart';
 import 'package:moodiary_sync/src/data/impl/local_archive.dart';
+import 'package:moodiary_sync/src/data/sync_stores.dart';
 import 'package:path/path.dart' as p;
 
 import '../../../lib/src/data/mod_month_full_backup_archive_v1.dart';
@@ -688,6 +690,178 @@ with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_STORED) as archive:
       expect(destinationMedia.files['file/original.pdf'],
           utf8.encode('original attachment bytes'));
     } finally {
+      await tearDownSyncEnv();
+    }
+  });
+
+  test('official plain backup imports into real SQLite and preserves native media', () async {
+    await setUpSyncEnv();
+    final db = MoodiaryDatabase.forTesting(NativeDatabase.memory(
+      setup: (raw) => raw.execute('PRAGMA foreign_keys = ON'),
+    ));
+    try {
+      getIt.registerSingleton<DiaryRepository>(DiaryRepository(db));
+      getIt.registerSingleton<CategoryRepository>(CategoryRepository(db));
+      getIt.registerSingleton<PlaceRepository>(PlaceRepository(db));
+      getIt.registerSingleton<TombstoneRepository>(TombstoneRepository(db));
+
+      final created = DateTime.utc(2024, 8, 5, 12, 30);
+      final modified = DateTime.utc(2025, 3, 4, 10, 20);
+      const media = <(String, String)>[
+        ('image', 'image-from-official.webp'),
+        ('audio', 'audio-from-official.m4a'),
+        ('video', 'video-from-official.mp4'),
+        ('file', 'file-from-official.pdf'),
+      ];
+      final doc = jsonEncode({
+        'type': 'doc',
+        'attrs': {'v': 2},
+        'content': [
+          {
+            'type': 'paragraph',
+            'content': [
+              {'type': 'text', 'text': '来自官方原版的中文日记'},
+            ],
+          },
+          for (final (kind, name) in media)
+            {
+              'type': kind == 'file' ? 'attachment' : kind,
+              'attrs': {
+                'src': name,
+                if (kind == 'file') 'name': '工作附件.pdf',
+                if (kind == 'file') 'mime': 'application/pdf',
+                if (kind == 'file') 'size': 16,
+              },
+            },
+        ],
+      });
+      final original = Diary(
+        id: 'official-sqlite-001',
+        title: '官方原版真实数据库迁移',
+        content: doc,
+        contentText: '来自官方原版的中文日记',
+        time: created,
+        lastModified: modified,
+        show: true,
+        categoryId: 'official-category',
+        placeId: 'official-place',
+        imageName: const ['image-from-official.webp'],
+        audioName: const ['audio-from-official.m4a'],
+        videoName: const ['video-from-official.mp4'],
+        fileName: const ['file-from-official.pdf'],
+        tags: const ['工作', '光刻'],
+        type: 'tiptap',
+      );
+      final textOnly = Diary(
+        id: 'official-sqlite-002',
+        title: '普通文字',
+        content: jsonEncode({
+          'type': 'doc',
+          'attrs': {'v': 2},
+          'content': [
+            {'type': 'paragraph', 'content': [
+              {'type': 'text', 'text': '第二篇原版记录'},
+            ]},
+          ],
+        }),
+        contentText: '第二篇原版记录',
+        time: DateTime.utc(2023, 11, 10, 8),
+        lastModified: DateTime.utc(2023, 11, 11, 8),
+        show: true,
+        imageName: const [],
+        audioName: const [],
+        videoName: const [],
+        tags: const [],
+        type: 'tiptap',
+      );
+      final category = Category(
+        id: 'official-category',
+        categoryName: '光刻设备',
+        lastModified: modified,
+      );
+      final place = Place(
+        id: 'official-place',
+        name: '原版记录地点',
+        latitude: 34.1,
+        longitude: 110.2,
+        lastModified: modified,
+      );
+      final mediaRoot = p.join(sandbox.path, 'official-source-media');
+      final mediaBytes = <String, List<int>>{};
+      for (final (kind, name) in media) {
+        final bytes = utf8.encode('official-file/$kind/$name');
+        mediaBytes['$kind/$name'] = bytes;
+        final file = File(p.join(mediaRoot, kind, name));
+        await file.parent.create(recursive: true);
+        await file.writeAsBytes(bytes);
+      }
+      final archiveDir = p.join(sandbox.path, 'official-plain-export');
+      await LocalArchive.writeArchive(
+        sink: _OriginalDirectorySink(archiveDir),
+        diaries: [original, textOnly],
+        categories: [category],
+        places: [place],
+        tombstones: const [],
+        mediaBaseDir: mediaRoot,
+      );
+      // This uses the same importer that the ordinary ZIP branch invokes
+      // after extracting the official archive. The destination is real Drift
+      // SQLite, not the fake stores used in the earlier routing test.
+      final destMedia = p.join(sandbox.path, 'modded-app-media');
+      final report = await LocalArchive.importDirectory(
+        archiveDir,
+        policy: const RestorePolicy(),
+        diaryStore: RepoSyncDiaryStore(),
+        categoryStore: RepoSyncCategoryStore(),
+        placeStore: RepoSyncPlaceStore(),
+        tombstoneStore: RepoSyncTombstoneStore(),
+        mediaFiles: DiskSyncMediaFiles(baseDir: destMedia),
+        cipherProvider: () async => SyncCipher.plaintext,
+      );
+      expect(report.failed, 0);
+      expect(report.cancelled, isFalse);
+      expect(report.diaryCount, 2);
+      expect((await DiaryRepository(db).getAllDiaries()).length, 2);
+
+      final saved = (await DiaryRepository(db)
+          .getDiaryByBusinessId('official-sqlite-001'))!;
+      expect(saved.title, original.title);
+      expect(saved.content, original.content);
+      expect(saved.contentText, contains('来自官方原版的中文日记'));
+      expect(saved.time, created);
+      expect(saved.categoryId, original.categoryId);
+      expect(saved.placeId, original.placeId);
+      expect(saved.tags, unorderedEquals(original.tags));
+      expect(saved.imageName, original.imageName);
+      expect(saved.audioName, original.audioName);
+      expect(saved.videoName, original.videoName);
+      expect(saved.fileName, original.fileName);
+      final second = (await DiaryRepository(db)
+          .getDiaryByBusinessId('official-sqlite-002'))!;
+      expect(second.title, textOnly.title);
+      expect(second.time, textOnly.time);
+      expect(second.contentText, contains('第二篇原版记录'));
+      expect((await CategoryRepository(db).getCategoryById(category.id))!
+          .categoryName, category.categoryName);
+      expect((await PlaceRepository(db).getPlaceById(place.id))!.name,
+          place.name);
+      for (final entry in mediaBytes.entries) {
+        expect(
+          await File(p.join(destMedia, entry.key)).readAsBytes(),
+          entry.value,
+          reason: 'media must be fully persisted: ${entry.key}',
+        );
+      }
+      final invalidRelations = await db.customSelect('PRAGMA foreign_key_check').get();
+      expect(invalidRelations, isEmpty);
+      // The imported note is editable using the standard repository API.
+      await DiaryRepository(db).insertADiary(
+        saved.copyWith(title: '迁移后可以继续编辑'),
+      );
+      expect((await DiaryRepository(db)
+          .getDiaryByBusinessId(original.id))!.title, '迁移后可以继续编辑');
+    } finally {
+      await db.close();
       await tearDownSyncEnv();
     }
   });
