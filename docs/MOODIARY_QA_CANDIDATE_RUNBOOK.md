@@ -10,18 +10,18 @@
 - 当前 v3safe 候选构建目标为显示版本 `2.9.2`、内部 `versionCode 126`；实际 APK 必须由 Manifest 验证脚本和构建来源证明再次核对。
 - QA 候选 APK 需要长期稳定签名材料，严禁自动生成临时 JKS 或使用 debug 签名替代。
 - 当前开发分支已包含 `.github/workflows/moodiary-v3-release.yml` 手动设备证据核验工作流；其 job 允许 `main` 和经批准的 `moodiary-v3-w9-8-4-*` 分支。GitHub 对未合并到默认分支的工作流可能不显示手动触发入口；在实际 workflow_dispatch 运行并核验同一 APK 与真机证据前，不得声称设备验收通过。
-- 开发分支可经 `[apk-ci]` 推送触发 `apk-after-fast`，在满足签名密钥、CI 和包体校验要求后产生 *signed QA candidate*；这不是正式发布。
+- 自 2026-11-11 起，**公开主仓库的 `build_apk=true` 会主动失败并拒绝签名**；正式签名流程已迁至独立 Private 仓库 [`promiseMMD/moodiary-signing-vault`](https://github.com/promiseMMD/moodiary-signing-vault)。公开源代码只能进行 Fast / Full 回归，不能读取永久签名 Secrets；Private 保险库分开执行无密钥构建与签名作业。只有通过签名和真机验收的候选才能进入正式交付判断。
 
 ## 构建候选包前的必备检查
 
 1. 检查 Fast CI 与 Full Acceptance。签名包构建在全回归之后执行。
-2. 用户自行安全生成并保管长期 JKS 密钥（可用仓库已有的 `moodiary-v3-w9-8-4-13/generate-safe-signing-key.ps1`）。**不要把 JKS、Base64、密码发送到聊天或提交仓库**；仅在 GitHub Actions Secrets 中设置四个 `MOODIARY_SAFE_*` 字段，并保存离线备份。
+2. **用户已批准完全云端生成 JKS，禁止要求用户本地运行脚本或安装 JDK。** 在独立 Private 保险库的 GitHub Actions 网页配置临时 PAT 与独立恢复口令后，手动执行 `Cloud Signing Identity Bootstrap`；永久 JKS 仅保存在私人保险库的四项 `MOODIARY_SAFE_*` Actions Secrets，并将**AES-256-GCM 加密备份**保存至私人保险库 `backups/`。用户必须在密码管理器中另存恢复口令。旧 PowerShell 脚本仅为历史备用，**不是本项目认可的当前操作步骤**。
 3. 签名配置不存在、证书不匹配、APK 包名/版本不匹配、没有可靠构建证明时，候选 APK 构建必须失败，不得降级为 debug 包。
-4. 下载由具体 GitHub Actions Run 产生的 `Moodiary-V3-Safe-<source-sha>-arm64` artifact（包含 APK、SHA-256、BUILD-PROVENANCE.txt、APK-VERIFICATION.json 等）。
+4. 从 Private 保险库 `Build Without Secrets and Sign Privately` 手动工作流获取 `Moodiary-V3Safe-Permanent-Signer-ARM64-QA` artifact。它是**签名 QA 候选**，包含 APK、SHA-256、签名和构建来源信息；不能仅凭文件存在判定通过原版数据迁移或正式验收。现有 `moodiary-ci/check-qa-artifact.py` 仍绑定旧公开构建证据格式，**尚未适配私人保险库的新 artifact**，必须补齐校验后再声称自动证据验收通过。
 
 ## 不依赖默认分支的候选包证据核验
 
-下载并解压候选包 artifact。在具有 Python 3 的电脑上执行：
+**以下为旧公开仓库候选包的历史验收命令，当前私人签名 artifact 不能直接套用；需要后续适配到新来源证明。** 不要求用户在本地执行命令；验收脚本应由云端 CI 或隔离测试环境运行。
 
 ```bash
 python3 moodiary-ci/check-qa-artifact.py \

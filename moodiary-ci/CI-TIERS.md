@@ -1,6 +1,6 @@
 # Moodiary 3.0 — CI tiers, 2026-11-08
 
-> **当前 v3safe 状态（2026-11-10）**：永久 `applicationId` 已按 V1.0 D02 固定为 `cn.yooss.moodiary.v3safe`，当前候选目标版本为 `2.9.2+126`。开发分支 `moodiary-v3-w9-8-4-31-permanent-application-id-20261110` 的 Fast CI `42811784803` 已通过；该运行的 `full-after-fast` 与 `apk-after-fast` 均为 skipped，且没有 APK Artifact，因此不能标记 Full CI、签名 APK 或设备验收完成。`[full-ci]` 用于同一分支完整回归（不出 APK）；`[apk-ci]` 才会在完整回归后尝试构建签名候选包，并要求四项 `MOODIARY_SAFE_*` Secrets。下文 W9.8.4.12 的 v3dev 构建是历史阶段记录，不是当前包名或版本目标。
+> **当前 v3safe 状态（2026-11-11）**：永久 `applicationId` 已按 V1.0 D02 固定为 `cn.yooss.moodiary.v3safe`，候选目标版本为 `2.9.2+126`。用户已批准**公开主仓库负责代码和 Fast/Full CI、独立 Private 仓库 `promiseMMD/moodiary-signing-vault` 负责唯一永久 JKS、AES-256-GCM 加密备份和云端签名**。公开主仓库的 `build_apk=true` 自最新分支起已显式 fail closed，不再输出签名 APK。请使用 Private 保险库的手动 `Build Without Secrets and Sign Privately` 工作流构建 QA APK，并在正式交付前另行完成证据格式适配、真实原版备份迁移及真机验收。后文 W9.8.4.12 与旧 `[apk-ci]` 操作是历史记录，**不是当前签名操作指令**。
 
 **Baseline:** W9.7.6 commit `49305a1ae05d808e569ac3c795a826fb84ebe419`, full W7 GitHub run `42450432090` **success** including arm64 APK.
 Recent successful complete W7 runs were approximately **24–30 minutes**. Frequent full runs were blocking iterative feedback. W9.8.4.11 adds read-only recovery inventory root and UI tests to both Fast and Full tiers.
@@ -37,8 +37,8 @@ This section documents the earlier `cn.yooss.moodiary.v3dev` test APK only. It i
 
 ## Next (current v3safe branch)
 1. Run `[full-ci]` on the exact current candidate commit and inspect every full-regression job; Fast CI success alone is insufficient.
-2. Generate one persistent v3safe JKS locally with the repository script, retain two offline copies, and configure the four `MOODIARY_SAFE_*` GitHub Actions Secrets. Never send the JKS, Base64 keystore or passwords in chat or commit them to Git.
-3. Only after Full CI passes and signing secrets are configured, trigger `[apk-ci]` on an immutable commit. Verify the artifact package, version, signer fingerprint, source commit and SHA-256.
+2. Generate the one permanent v3safe JKS **entirely in the cloud** using the separate Private `moodiary-signing-vault` bootstrap workflow. Keep the AES-256-GCM backup in that vault and the distinct recovery passphrase in a password manager; signing Secrets stay in the vault, never the public development repository. Do not ask the user to run local commands.
+3. After public Fast/Full CI, manually run the Private vault's secret-free pinned-source build followed by vault-only signer. Verify package, version, signer fingerprint, source commit and APK SHA-256. The new private artifact provenance still needs integration with the device-QA evidence checker before official delivery.
 4. Perform controlled sample tests first, then validate an actual official-original backup under V1.0 C06 and complete real-device QA. Keep the original app and its data untouched throughout.
 
 ## Live acceptance
