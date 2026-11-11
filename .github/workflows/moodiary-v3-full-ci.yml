@@ -248,7 +248,7 @@ jobs:
           dart format mobile/lib/app/settings/storage/recovery_inventory_controller.dart mobile/lib/app/settings/storage/recovery_inventory_panel.dart mobile/lib/app/settings/storage/storage_page.dart mobile/test/app/settings/recovery_inventory_panel_test.dart mobile/test/app/settings/storage_page_test.dart
       - name: W9 migration from older v2 and v3 database preserves user diaries
         working-directory: upstream/packages/feature_base/moodiary_data
-        run: flutter test test/mod_month_migration_test.dart test/mod_month_archive_gate_test.dart test/mod_month_graph_archive_v1_test.dart test/mod_month_graph_archive_v2_test.dart test/mod_day_map_test.dart --reporter expanded
+        run: flutter test test/mod_month_migration_test.dart test/mod_month_archive_gate_test.dart test/mod_month_graph_archive_v1_test.dart test/mod_month_graph_archive_v2_test.dart test/mod_month_graph_merge_v2_test.dart test/mod_day_map_test.dart --reporter expanded
       - name: "Unit tests: W7 assets + W6 rich CAS + W5 autosave + W4 editor + W3 realtime + W2 ledger + LAN policy"
         working-directory: upstream/mobile
         run: |
