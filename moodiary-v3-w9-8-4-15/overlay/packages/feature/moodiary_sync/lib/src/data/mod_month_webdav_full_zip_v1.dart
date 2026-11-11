@@ -153,8 +153,11 @@ final class ModMonthWebdavFullZipV1 {
       RandomAccessFile? output;
       var created=false;
       try {
-        output=await destination.open(mode:FileMode.writeOnlyExclusive);
+        // Dart has no exclusive FileMode: atomically create first, then
+        // append without truncating if a different actor swaps the path.
+        await destination.create(exclusive:true);
         created=true;
+        output=await destination.open(mode:FileMode.writeOnlyAppend);
         await for(final part in verified.openRead()) {
           await output.writeFrom(part);
         }
