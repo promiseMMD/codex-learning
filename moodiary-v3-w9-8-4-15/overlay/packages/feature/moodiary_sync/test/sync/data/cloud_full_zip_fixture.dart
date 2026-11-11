@@ -68,7 +68,7 @@ final class CloudFullZipFixture {
       await db.customStatement(
         'INSERT INTO mod_month_blocks(block_id,topic_id,month_key,kind,created_ms)'
         ' VALUES(?,?,?,?,?)',[block,topic,month,'entry',11]);
-      for(final (id,parent,body,deletedFlag,when) in [
+      for(final (id,parent,body,deletedFlag,occurredMs) in [
         (first,null,old,false,12),(second,first,deleted,true,14)
       ]) {
         await db.customStatement(
@@ -76,15 +76,15 @@ final class CloudFullZipFixture {
           '(revision_id,block_id,parent_revision_id,month_key,day_key,'
           'occurred_at_ms,body_json,deleted,edited_at_ms)'
           ' VALUES(?,?,?,?,?,?,?,?,?)',
-          [id,block,parent,month,day,when,body,deletedFlag?1:0,when+1]);
+          [id,block,parent,month,day,occurredMs,body,deletedFlag?1:0,occurredMs+1]);
         final digest=sha256.convert(utf8.encode(jsonEncode([
-          block,id,topic,month,'entry',parent,day,when,body,deletedFlag
+          block,id,topic,month,'entry',parent,day,occurredMs,body,deletedFlag
         ]))).toString();
         await db.customStatement(
           'INSERT INTO mod_month_ops'
           '(operation_id,payload_sha256,block_id,revision_id,applied_at_ms)'
           ' VALUES(?,?,?,?,?)',
-          ['operation-'+id,digest,block,id,when+1]);
+          ['operation-'+id,digest,block,id,occurredMs+1]);
       }
       await db.customStatement(
         'INSERT INTO mod_month_heads(block_id,revision_id) VALUES(?,?)',
