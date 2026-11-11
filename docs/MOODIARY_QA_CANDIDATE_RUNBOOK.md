@@ -15,7 +15,7 @@
 ## 构建候选包前的必备检查
 
 1. 检查 Fast CI 与 Full Acceptance。签名包构建在全回归之后执行。
-2. **用户已批准完全云端生成 JKS，禁止要求用户本地运行脚本或安装 JDK。** 在独立 Private 保险库的 GitHub Actions 网页配置临时 PAT 与独立恢复口令后，手动执行 `Cloud Signing Identity Bootstrap`；永久 JKS 仅保存在私人保险库的四项 `MOODIARY_SAFE_*` Actions Secrets，并将**AES-256-GCM 加密备份**保存至私人保险库 `backups/`。用户必须在密码管理器中另存恢复口令。旧 PowerShell 脚本仅为历史备用，**不是本项目认可的当前操作步骤**。
+2. **用户已批准完全云端生成 JKS，禁止要求用户本地运行脚本或安装 JDK。** 采用个人使用简化方案：只在独立 Private 保险库的 GitHub Actions 网页配置一个 `MOODIARY_RECOVERY_PASSPHRASE` Secret，并在密码管理器中另存相同口令；**不需要 PAT，也不需要四项 `MOODIARY_SAFE_*` Secrets**。手动执行 `Cloud Signing Identity Bootstrap`，由工作流自动使用短时 `GITHUB_TOKEN` 将 AES-256-GCM 加密 JKS 备份写入私人保险库 `backups/`。以后签名作业只在 Private Runner 中临时解密并清理 JKS。旧 PowerShell 脚本仅为历史备用，**不是本项目认可的当前操作步骤**。
 3. 签名配置不存在、证书不匹配、APK 包名/版本不匹配、没有可靠构建证明时，候选 APK 构建必须失败，不得降级为 debug 包。
 4. 从 Private 保险库 `Build Without Secrets and Sign Privately` 手动工作流获取 `Moodiary-V3Safe-Permanent-Signer-ARM64-QA` artifact。它是**签名 QA 候选**，包含 APK、SHA-256、签名和构建来源信息；不能仅凭文件存在判定通过原版数据迁移或正式验收。现有 `moodiary-ci/check-qa-artifact.py` 仍绑定旧公开构建证据格式，**尚未适配私人保险库的新 artifact**，必须补齐校验后再声称自动证据验收通过。
 

@@ -37,7 +37,7 @@ This section documents the earlier `cn.yooss.moodiary.v3dev` test APK only. It i
 
 ## Next (current v3safe branch)
 1. Run `[full-ci]` on the exact current candidate commit and inspect every full-regression job; Fast CI success alone is insufficient.
-2. Generate the one permanent v3safe JKS **entirely in the cloud** using the separate Private `moodiary-signing-vault` bootstrap workflow. Keep the AES-256-GCM backup in that vault and the distinct recovery passphrase in a password manager; signing Secrets stay in the vault, never the public development repository. Do not ask the user to run local commands.
+2. Generate the one permanent v3safe JKS **entirely in the cloud** using the separate Private `moodiary-signing-vault` bootstrap workflow. Configure only one GitHub Actions Secret, `MOODIARY_RECOVERY_PASSPHRASE`, and keep the same passphrase in a password manager. The workflow uses its short-lived scoped `GITHUB_TOKEN` to save the AES-256-GCM encrypted backup; no PAT and no four-part `MOODIARY_SAFE_*` Secrets are required. Never ask the user to run local commands.
 3. After public Fast/Full CI, manually run the Private vault's secret-free pinned-source build followed by vault-only signer. Verify package, version, signer fingerprint, source commit and APK SHA-256. The new private artifact provenance still needs integration with the device-QA evidence checker before official delivery.
 4. Perform controlled sample tests first, then validate an actual official-original backup under V1.0 C06 and complete real-device QA. Keep the original app and its data untouched throughout.
 
