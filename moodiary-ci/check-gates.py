@@ -16,7 +16,8 @@ for source in (public_unsigned_flow, public_unsigned_builder):
         if forbidden in source:
             raise SystemExit("Public unsigned QA build must not access signing identity: "+forbidden)
 for token in ("uses: ./.github/workflows/moodiary-v3-unsigned-qa.yml",
-              "needs: [fast, full-after-fast]"):
+              "needs: [fast, full-after-fast]",
+              "&& contains(github.event.head_commit.message, '[release-apk]')"):
     if token not in fast:
         raise SystemExit("Public unsigned QA must wait for full acceptance: "+token)
 for token in ("workflow_call:", "github.event_name == 'push'", "github.sha",
