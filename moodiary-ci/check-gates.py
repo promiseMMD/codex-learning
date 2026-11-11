@@ -427,6 +427,15 @@ buildMarker = "      - name: Build validated V3 safe parallel-install ARM64 APK"
 verifyMarker = "      - name: Verify safe package, migration assets, persistent signer and APK hash"
 cleanupMarker = "      - name: Remove signing material from ephemeral runner workspace"
 
+# Permanent sign/seal operations belong exclusively to the Private vault.
+public_signing_abort = "      - name: Refuse APK signing in public source repository"
+require(full, public_signing_abort, "public source must never sign an APK")
+abort_block = full[full.index(public_signing_abort):full.index("      - name: Reject signed APK builds outside the approved branch")]
+require(abort_block, "if: ${{ inputs.build_apk }}", "public signing guard must cover every APK build")
+require(abort_block, "exit 1", "public signing guard must fail closed")
+if not (full.index(public_signing_abort) < full.index(preflight_marker)):
+    raise SystemExit("Public APK signing guard must execute before Secrets preflight")
+
 # W9.8.4.15: signing material is only exposed on the approved branch, keytool
 # receives passwords through JDK 21 environment modifiers, and the ephemeral
 # runner removes the JKS and Gradle password properties on every exit path.

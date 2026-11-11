@@ -33,6 +33,15 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 110
     steps:
+      # Signing keys live ONLY in the independent Private signing vault.
+      # Public source repo must never perform APK signing, even when a maintainer
+      # accidentally configures repository Secrets here.
+      - name: Refuse APK signing in public source repository
+        if: ${{ inputs.build_apk }}
+        shell: bash
+        run: |
+          echo "::error::APK signing is permitted only in promiseMMD/moodiary-signing-vault"
+          exit 1
       - name: Reject signed APK builds outside the approved branch
         if: ${{ inputs.build_apk && github.ref != 'refs/heads/moodiary-v3-w9-8-4-31-permanent-application-id-20261110' }}
         shell: bash
