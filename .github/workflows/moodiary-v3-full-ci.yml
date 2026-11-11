@@ -111,8 +111,27 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          sudo apt-get update -qq
-          sudo apt-get install -y fonts-noto-cjk
+          # Browser DOM/interaction checks must not depend on Ubuntu apt DNS.
+          # Noto CJK is a SCREENSHOT rendering aid, not a functional dependency.
+          # Record degraded visual coverage explicitly; never skip browser tests.
+          mkdir -p /tmp/moodiary-w93-browser-qa
+          font_status=/tmp/moodiary-w93-browser-qa/cjk-font-status.txt
+          if ! fc-list -f '%{family}\\n' :lang=zh 2>/dev/null | grep -q '[^[:space:]]'; then
+            echo 'No CJK font preinstalled; attempting bounded apt installation.'
+            if timeout 90s sudo apt-get -o Acquire::Retries=1 -o Acquire::http::Timeout=12 update -qq &&
+               timeout 120s sudo apt-get -o Acquire::Retries=1 -o Acquire::http::Timeout=12 install -y fonts-noto-cjk; then
+              fc-cache -f >/dev/null
+            else
+              echo '::warning::Ubuntu font package mirror unavailable; running all browser functional tests, but CJK screenshot glyphs are not certified.'
+            fi
+          fi
+          if fc-list -f '%{family}\\n' :lang=zh 2>/dev/null | grep -q '[^[:space:]]'; then
+            echo 'CJK_FONT_RENDERING=available' > "$font_status"
+          else
+            echo 'CJK_FONT_RENDERING=unverified; visual screenshot acceptance pending' > "$font_status"
+            echo '::warning::CJK screenshot rendering remains unverified; this does not count as a visual-font acceptance pass.'
+          fi
+          cat "$font_status"
           npm install --prefix /tmp/moodiary-lan-browser --no-save --package-lock=false --ignore-scripts playwright@1.62.1
           export MOODIARY_PLAYWRIGHT_MODULE=/tmp/moodiary-lan-browser/node_modules/playwright
           export MOODIARY_CHROME="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
