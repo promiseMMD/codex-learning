@@ -161,10 +161,11 @@ void main() {
       childRevision:'revision0002',childBody:_doc('remote content'),
       childOperation:'operation0003');
     try {
-      expect(() => ModMonthGraphMergeV2.merge(
-          local:await ModMonthGraphArchiveV2.exportGraph(left),
-          remote:await ModMonthGraphArchiveV2.exportGraph(right)),
-        throwsA(isA<ModMonthGraphMergeException>()));
+      final local = await ModMonthGraphArchiveV2.exportGraph(left);
+      final remote = await ModMonthGraphArchiveV2.exportGraph(right);
+      expect(() => ModMonthGraphMergeV2.merge(local:local,remote:remote),
+        throwsA(isA<ModMonthGraphMergeException>().having(
+          (e)=>e.code,'code','identity_conflict_mod_month_revisions')));
     } finally {
       await left.close();
       await right.close();
