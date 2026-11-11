@@ -7,6 +7,7 @@ import 'dart:typed_data';
 import 'package:crypto/crypto.dart';
 import 'package:moodiary_sync/src/data/codec.dart';
 import 'package:moodiary_sync/src/data/mod_month_webdav_full_zip_v1.dart';
+import 'package:moodiary_sync/src/data/mod_month_webdav_resumable_v1.dart';
 import 'package:moodiary_sync/src/data/mod_month_zip_bundle_v2.dart';
 import 'package:moodiary_sync/src/data/sync.dart';
 
@@ -46,7 +47,7 @@ final class ModMonthRemoteVersionV1 {
         (parentSnapshotId != null &&
           (!validId(parentSnapshotId!) || parentSnapshotId == snapshotId)) ||
         !validSha(archiveSha256) || archiveBytes < 1 ||
-        archiveBytes > ModMonthWebdavFullZipV1.maxArchiveBytes ||
+        archiveBytes > ModMonthWebdavResumableV1.maxArchiveBytes ||
         createdAtMs <= 0) {
       throw const ModMonthVersionError('invalid_fields');
     }
