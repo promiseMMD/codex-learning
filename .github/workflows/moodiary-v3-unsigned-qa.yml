@@ -1,0 +1,62 @@
+name: Moodiary V3 Safe - Public Unsigned QA ARM64 (Reusable)
+on:
+  workflow_call:
+permissions:
+  contents: read
+jobs:
+  build-unsigned-qa:
+    if: >-
+      ${{ github.repository == 'promiseMMD/codex-learning'
+       && github.ref == 'refs/heads/moodiary-v3-w9-8-4-31-permanent-application-id-20261110'
+       && github.event_name == 'push' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 110
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Reclaim unused hosted disk for Flutter and Rust
+        shell: bash
+        run: |
+          set -euo pipefail
+          df -h /
+          for path in /usr/share/dotnet /usr/local/share/powershell /opt/ghc "${ANDROID_HOME}/system-images" "${ANDROID_HOME}/ndk"; do
+            if [[ -d "$path" ]]; then sudo rm -rf -- "$path"; fi
+          done
+          df -h /
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.2'
+          channel: stable
+          cache: true
+      - uses: nttld/setup-ndk@v1
+        id: ndk
+        with:
+          ndk-version: r28c
+          link-to-sdk: true
+      - name: Install Android native asset Rust toolchain
+        run: rustup toolchain install 1.99.1 --profile minimal
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-about@0.9.2
+      - name: Build approved commit with NO permanent signing secret
+        shell: bash
+        env:
+          ANDROID_NDK_HOME: ${{ steps.ndk.outputs.ndk-path }}
+          ANDROID_NDK_ROOT: ${{ steps.ndk.outputs.ndk-path }}
+          ANDROID_NDK: ${{ steps.ndk.outputs.ndk-path }}
+          MOODIARY_SOURCE_SHA: ${{ github.sha }}
+        run: bash moodiary-ci/build-unsigned-qa.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Moodiary-V3Safe-UNSIGNED-${{ github.sha }}-arm64
+          path: ${{ runner.temp }}/moodiary-public-unsigned/
+          retention-days: 7
+          if-no-files-found: error

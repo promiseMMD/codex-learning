@@ -200,3 +200,11 @@ jobs:
     with:
       build_apk: true
     secrets: inherit
+
+  unsigned-apk-after-full:
+    needs: [fast, full-after-fast]
+    # Only the approved branch, AFTER complete Fast + Full Acceptance passes.
+    # This public job builds an UNTRUSTED unsigned/debug-signed intermediate.
+    # It is not a permanent-signer APK and must not contain signing Secrets.
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/moodiary-v3-w9-8-4-31-permanent-application-id-20261110' }}
+    uses: ./.github/workflows/moodiary-v3-unsigned-qa.yml

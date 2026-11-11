@@ -6,6 +6,28 @@ import re
 import subprocess
 ROOT=Path(__file__).resolve().parents[1]
 fast=(ROOT/".github/workflows/moodiary-v3-fast-ci.yml").read_text()
+# Public QA builds never access the permanent signing identity; they emit
+# only a short-lived, clearly marked non-installable unsigned intermediate.
+public_unsigned_flow=(ROOT/".github/workflows/moodiary-v3-unsigned-qa.yml").read_text()
+public_unsigned_builder=(ROOT/"moodiary-ci/build-unsigned-qa.sh").read_text()
+for source in (public_unsigned_flow, public_unsigned_builder):
+    for forbidden in ("secrets.", "MOODIARY_SAFE_", "MOODIARY_RECOVERY_PASSPHRASE",
+                      "key.jks", "export-jks"):
+        if forbidden in source:
+            raise SystemExit("Public unsigned QA build must not access signing identity: "+forbidden)
+for token in ("uses: ./.github/workflows/moodiary-v3-unsigned-qa.yml",
+              "needs: [fast, full-after-fast]"):
+    if token not in fast:
+        raise SystemExit("Public unsigned QA must wait for full acceptance: "+token)
+for token in ("workflow_call:", "github.event_name == 'push'", "github.sha",
+              "moodiary-ci/build-unsigned-qa.sh", "actions/upload-artifact@v4"):
+    if token not in public_unsigned_flow:
+        raise SystemExit("Unsigned build workflow guard missing: "+token)
+for token in ("artifact_class=unsigned-or-debug-signed-untrusted",
+              "cn.yooss.moodiary.v3safe", "sha256sum -c app-to-sign.apk.sha256"):
+    if token not in public_unsigned_builder:
+        raise SystemExit("Public build must retain hash and provenance: "+token)
+
 full=(ROOT/".github/workflows/moodiary-v3-full-ci.yml").read_text()
 release=(ROOT/".github/workflows/moodiary-v3-release.yml").read_text()
 prepare=(ROOT/"moodiary-ci/prepare-workspace.sh").read_text()
