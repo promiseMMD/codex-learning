@@ -7,6 +7,7 @@ import 'dart:typed_data';
 import 'package:crypto/crypto.dart';
 import 'package:moodiary_sync/src/data/codec.dart';
 import 'package:moodiary_sync/src/data/mod_month_webdav_full_zip_v1.dart';
+import 'package:moodiary_sync/src/data/mod_month_zip_bundle_v2.dart';
 import 'package:moodiary_sync/src/data/sync.dart';
 
 final class ModMonthVersionError implements Exception {
@@ -150,6 +151,7 @@ final class ModMonthRemoteVersionStoreV1 {
     required RemoteObjectStore backend, required SyncCipher cipher,
     required ModMonthRemoteVersionV1 snapshot,
     required ModMonthWebdavZipReceipt receipt,
+    ModMonthZipTransportV2 zipTransport=const ModMonthNativeZipTransportV2(),
   }) async {
     if (!cipher.encrypted) _fail('encryption_required');
     snapshot.validate();
@@ -173,7 +175,8 @@ final class ModMonthRemoteVersionStoreV1 {
       final check=File(temp.path+'/check.zip');
       await ModMonthWebdavFullZipV1.downloadToNewFile(
         backend:backend,cipher:cipher,
-        sha256:snapshot.archiveSha256,destination:check);
+        sha256:snapshot.archiveSha256,destination:check,
+        zipTransport:zipTransport);
       if (await check.length()!=snapshot.archiveBytes) {
         _fail('archive_size_mismatch');
       }

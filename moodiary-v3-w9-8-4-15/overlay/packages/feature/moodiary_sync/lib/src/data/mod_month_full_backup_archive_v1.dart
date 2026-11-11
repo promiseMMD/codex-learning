@@ -390,6 +390,22 @@ final class ModMonthFullBackupArchiveV1 {
     }
   });
 
+  /// Cloud media proof: verify V2 native, graph, historical and current
+  /// attachment receipts in an isolated extraction, without DB mutation.
+  static Future<void> verifyCloudMedia({
+    required String zipPath,
+    ModMonthZipTransportV2 transport=const ModMonthNativeZipTransportV2(),
+  }) async {
+    final temp=await Directory.systemTemp.createTemp('month-cloud-proof-');
+    try {
+      await ModMonthZipBundleV2.extractVerifiedIntoIsolatedDirectory(
+        zipPath:zipPath,outputDirectory:p.join(temp.path,'readback'),
+        isTopic:_isTopic,transport:transport);
+    } finally {
+      if(await temp.exists())await temp.delete(recursive:true);
+    }
+  }
+
   /// Import only a full W9 bundle. A normal upstream ZIP without the complete
   /// graph is rejected rather than silently losing revision/operation history.
   static Future<SyncReport> importZip({

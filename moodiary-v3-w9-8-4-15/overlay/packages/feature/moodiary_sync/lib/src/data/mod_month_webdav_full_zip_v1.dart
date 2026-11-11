@@ -6,6 +6,8 @@ import 'dart:io';
 import 'package:crypto/crypto.dart';
 import 'package:moodiary_sync/src/data/codec.dart';
 import 'package:moodiary_sync/src/data/mod_month_zip_preflight_v2.dart';
+import 'package:moodiary_sync/src/data/mod_month_zip_bundle_v2.dart';
+import 'package:moodiary_sync/src/data/mod_month_full_backup_archive_v1.dart';
 import 'package:moodiary_sync/src/data/sync.dart';
 
 final class ModMonthWebdavZipException implements Exception {
@@ -50,7 +52,7 @@ final class ModMonthWebdavFullZipV1 {
   static Future<String> _hash(File file) async =>
       (await sha256.bind(file.openRead()).first).toString();
 
-  static Future<void> _validateZip(File file) async {
+  static Future<void> _validateZip(File file,{required ModMonthZipTransportV2 transport}) async {
     if (await FileSystemEntity.type(file.path, followLinks: false) !=
         FileSystemEntityType.file) _fail('zip_missing_or_not_regular');
     if (await file.length() > maxArchiveBytes) _fail('zip_too_large');
@@ -58,6 +60,8 @@ final class ModMonthWebdavFullZipV1 {
     if (!ModMonthZipPreflightV2.hasCompleteFullHistoryMarkers(names)) {
       _fail('not_full_history_backup');
     }
+    await ModMonthFullBackupArchiveV1.verifyCloudMedia(
+      zipPath:file.path,transport:transport);
   }
 
   static void _requireStreamingEncrypted(
@@ -69,6 +73,7 @@ final class ModMonthWebdavFullZipV1 {
 
   static Future<void> _verifyRemote(
     File encrypted, File decrypted, SyncCipher cipher, String digest,
+    ModMonthZipTransportV2 transport,
   ) async {
     if (await FileSystemEntity.type(encrypted.path,followLinks:false) !=
         FileSystemEntityType.file) _fail('remote_object_missing');
@@ -80,7 +85,7 @@ final class ModMonthWebdavFullZipV1 {
     }
     await cipher.decryptFileTo(encrypted.path,decrypted.path);
     if (await _hash(decrypted)!=digest) _fail('remote_archive_hash_mismatch');
-    await _validateZip(decrypted);
+    await _validateZip(decrypted,transport:transport);
   }
 
   /// Only creates a versioned immutable remote object. Never publishes a
@@ -89,9 +94,10 @@ final class ModMonthWebdavFullZipV1 {
     required RemoteObjectStore backend,
     required SyncCipher cipher,
     required File fullBackupZip,
+    ModMonthZipTransportV2 zipTransport=const ModMonthNativeZipTransportV2(),
   }) async {
     _requireStreamingEncrypted(backend,cipher);
-    await _validateZip(fullBackupZip);
+    await _validateZip(fullBackupZip,transport:zipTransport);
     final digest = await _hash(fullBackupZip);
     final key = keyFor(digest);
     final temp = await Directory.systemTemp.createTemp('moodiary-zip-upload-');
@@ -99,7 +105,7 @@ final class ModMonthWebdavFullZipV1 {
       final downloaded = File(temp.path+'/readback.enc');
       final plain = File(temp.path+'/readback.zip');
       if (await backend.readObjectToFile(key,downloaded.path)) {
-        await _verifyRemote(downloaded,plain,cipher,digest);
+        await _verifyRemote(downloaded,plain,cipher,digest,zipTransport);
         return ModMonthWebdavZipReceipt(
           remoteKey:key,sha256:digest,bytes:await fullBackupZip.length(),
           reused:true,
@@ -117,7 +123,7 @@ final class ModMonthWebdavFullZipV1 {
       if (!await backend.readObjectToFile(key,downloaded.path)) {
         _fail('upload_readback_missing');
       }
-      await _verifyRemote(downloaded,plain,cipher,digest);
+      await _verifyRemote(downloaded,plain,cipher,digest,zipTransport);
       return ModMonthWebdavZipReceipt(
         remoteKey:key,sha256:digest,bytes:await fullBackupZip.length(),
         reused:false,
@@ -133,6 +139,7 @@ final class ModMonthWebdavFullZipV1 {
     required SyncCipher cipher,
     required String sha256,
     required File destination,
+    ModMonthZipTransportV2 zipTransport=const ModMonthNativeZipTransportV2(),
   }) async {
     _requireStreamingEncrypted(backend,cipher);
     final key=keyFor(sha256);
@@ -147,7 +154,7 @@ final class ModMonthWebdavFullZipV1 {
       if (!await backend.readObjectToFile(key,incoming.path)) {
         _fail('remote_object_missing');
       }
-      await _verifyRemote(incoming,verified,cipher,sha256);
+      await _verifyRemote(incoming,verified,cipher,sha256,zipTransport);
       // Exclusive creation ensures no existing backup is overwritten even
       // if another process creates the destination after the initial check.
       RandomAccessFile? output;
