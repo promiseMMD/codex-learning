@@ -1040,15 +1040,22 @@ with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_STORED) as archive:
           {'type':'paragraph','content':[{'type':'text','text':'删除时的正文'}]},
         ],
       });
-      await source.customStatement(
-        'INSERT INTO diaries (id,title,content,content_text,time,'
-        'last_modified,show,type) VALUES(?,?,?,?,?,?,?,?)',
-        [topicId,'长期记录主题',deletedDoc,'长期记录主题',micros,micros,1,'tiptap'],
-      );
-      await source.customStatement(
-        'INSERT INTO diary_tags(diary_id,seq,tag) VALUES(?,?,?)',
-        [topicId,0,tag],
-      );
+      // Use the actual app repository write path. It canonicalizes derived
+      // content text and media references, unlike hand-written SQLite rows.
+      await DiaryRepository(source).insertADiary(Diary(
+        id: topicId,
+        title: '长期记录主题',
+        content: deletedDoc,
+        contentText: '删除时的正文',
+        time: DateTime.utc(2026, 11, 11),
+        lastModified: DateTime.utc(2026, 11, 11),
+        show: true,
+        imageName: const [],
+        audioName: const [],
+        videoName: const [],
+        tags: const [tag],
+        type: 'tiptap',
+      ), index: IndexMode.skip);
       await source.customStatement(
         'INSERT INTO mod_month_pages (topic_id,month_key,diary_id,created_ms)'
         ' VALUES(?,?,NULL,?)',[topicId,month,millis],
