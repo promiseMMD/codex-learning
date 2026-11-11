@@ -184,6 +184,7 @@ jobs:
        || (github.event_name == 'workflow_dispatch' && inputs.tier == 'full')
        || (github.event_name == 'push' &&
            (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/integration'
+            || github.ref == 'refs/heads/moodiary-v3-w9-8-4-31-permanent-application-id-20261110'
             || contains(github.event.head_commit.message, '[full-ci]'))) }}
     uses: ./.github/workflows/moodiary-v3-full-ci.yml
     with:
