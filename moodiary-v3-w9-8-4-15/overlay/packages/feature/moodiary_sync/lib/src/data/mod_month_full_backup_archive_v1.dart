@@ -452,7 +452,11 @@ final class ModMonthFullBackupArchiveV1 {
       }
       // Bind the source only after the ZIP and all full-history receipts verify;
       // a malformed ZIP must not lock the target to an unusable source file.
-      await _writeJournal(journal,sourceSha,'verified');
+      // Never downgrade an interrupted native/graph-import journal to
+      // 'verified': a second process death must still be safely resumable.
+      if (previous == null) {
+        await _writeJournal(journal,sourceSha,'verified');
+      }
 
       // A crash after native import can leave a fully committed W9 graph.
       // Re-entering LocalArchive.importDirectory would hit the legacy cloud

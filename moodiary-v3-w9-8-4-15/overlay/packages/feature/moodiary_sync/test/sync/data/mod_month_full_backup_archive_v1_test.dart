@@ -1129,6 +1129,26 @@ with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_STORED) as archive:
       }
       expect(await destination.customSelect('PRAGMA foreign_key_check').get(),
         isEmpty);
+
+      // Simulate process death AFTER graph commit but BEFORE recording
+      // completion. Resuming must not re-enter the legacy-only importer and
+      // must not alter an already-restored revision, operation, or media.
+      final journal = File(p.join(
+        PlatformService.get().applicationSupportPath,
+        '.moodiary-migration','full-v1.json'));
+      final receipt = jsonDecode(await journal.readAsString())
+          as Map<String,dynamic>;
+      expect(receipt['phase'],'completed');
+      receipt['phase'] = 'graph_imported';
+      await journal.writeAsString(jsonEncode(receipt),flush:true);
+      final resumed = await ModMonthFullBackupArchiveV1.importZip(
+        zipPath:zip, db:destination, transport:const _PythonFullBackupZip());
+      expect(resumed.failed,0);
+      expect(resumed.cancelled,isFalse);
+      expect(await ModMonthGraphArchiveV2.exportGraph(destination),graphBefore);
+      expect(await media.readAsBytes(),mediaBytes);
+      expect((jsonDecode(await journal.readAsString())
+          as Map<String,dynamic>)['phase'],'completed');
     } finally {
       await source.close();
       await destination.close();
