@@ -308,7 +308,10 @@ final class ModMonthFullBackupArchiveV1 {
 
   /// Build a user-facing ZIP containing native records, every W9 revision,
   /// operation, day mapping and all media used by current or historical data.
-  static Future<String> export({required MoodiaryDatabase db}) =>
+  static Future<String> export({
+    required MoodiaryDatabase db,
+    ModMonthZipTransportV2 transport = const ModMonthNativeZipTransportV2(),
+  }) =>
       IncrementalSyncEngine.runExclusive(() async {
     final snapshot=await db.transaction(() async {
       final diaries=await DiaryRepository(db).getAllDiaries();
@@ -374,6 +377,7 @@ final class ModMonthFullBackupArchiveV1 {
         sourceDirectory:published,
         outputZip:zipPath,
         isTopic:_isTopic,
+        transport:transport,
       );
     } catch (_) {
       await stage.abort();
@@ -391,6 +395,7 @@ final class ModMonthFullBackupArchiveV1 {
   static Future<SyncReport> importZip({
     required String zipPath,
     required MoodiaryDatabase db,
+    ModMonthZipTransportV2 transport = const ModMonthNativeZipTransportV2(),
   }) async {
     final source=File(zipPath);
     if(await FileSystemEntity.type(source.path,followLinks:false)!=
@@ -415,6 +420,7 @@ final class ModMonthFullBackupArchiveV1 {
         zipPath:source.path,
         outputDirectory:verified,
         isTopic:_isTopic,
+        transport:transport,
       );
       final graphFile=File(p.joinAll([verified,..._graphPath.split('/')]));
       final graph=await graphFile.readAsString();
@@ -447,6 +453,42 @@ final class ModMonthFullBackupArchiveV1 {
       // Bind the source only after the ZIP and all full-history receipts verify;
       // a malformed ZIP must not lock the target to an unusable source file.
       await _writeJournal(journal,sourceSha,'verified');
+
+      // A crash after native import can leave a fully committed W9 graph.
+      // Re-entering LocalArchive.importDirectory would hit the legacy cloud
+      // guard and fail even though all source-owned data is already present.
+      // Finish only the already-verified archive; never merge arbitrary data.
+      final recordedPhase = previous?['phase'];
+      if (recordedPhase == 'native_imported' ||
+          recordedPhase == 'graph_imported') {
+        return IncrementalSyncEngine.runExclusive(() async {
+          await _verifyNativeEntities(db,nativeManifest);
+          await _verifyNativeTombstones(db,nativeManifest);
+          await _copyAndVerifyAllMedia(verified);
+          if (recordedPhase == 'native_imported') {
+            final existingGraph = await ModMonthGraphArchiveV2.exportGraph(db);
+            if (existingGraph != graph) {
+              // validateResumeTarget already proved every W9 table empty.
+              // Restore the entire immutable graph in a single transaction.
+              await ModMonthGraphArchiveV2.restoreIntoEmptyDatabase(db,graph);
+            }
+          }
+          await _verifyGraph(db,graph);
+          await _verifyDatabase(db);
+          await _writeJournal(journal,sourceSha,'completed');
+          return SyncReport(
+            elapsed: Duration.zero,
+            pulled: SyncCounts(
+              diaries: nativeManifest.entries.entries.where((e) =>
+                !e.value.deleted && e.key.startsWith(SyncKeys.diaryPrefix)).length,
+              categories: nativeManifest.entries.entries.where((e) =>
+                !e.value.deleted && e.key.startsWith(SyncKeys.categoryPrefix)).length,
+              places: nativeManifest.entries.entries.where((e) =>
+                !e.value.deleted && e.key.startsWith(SyncKeys.placePrefix)).length,
+            ),
+          );
+        });
+      }
 
       final report=await LocalArchive.importDirectory(
         verified,

@@ -7,6 +7,9 @@ import 'package:drift/native.dart';
 import 'package:moodiary_data/moodiary_data.dart';
 import 'package:moodiary_di/moodiary_di.dart';
 import 'package:moodiary_models/moodiary_models.dart';
+import 'package:moodiary_platform/moodiary_platform.dart';
+import 'package:crypto/crypto.dart';
+import 'package:moodiary_sync/src/data/mod_month_zip_bundle_v2.dart';
 import 'package:moodiary_sync/src/data/model/manifest.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:moodiary_sync/src/data/archive_apply.dart';
@@ -54,8 +57,57 @@ final class _SqliteTestDiskMedia extends DiskSyncMediaFiles {
   String? realPath(String type, String filename) => null;
 }
 
+/// Real ZIP bytes in Dart-only CI; production keeps the native Rust transport.
+final class _PythonFullBackupZip implements ModMonthZipTransportV2 {
+  const _PythonFullBackupZip();
+
+  static Future<void> _run(List<String> args) async {
+    final result = await Process.run('python3', args);
+    if (result.exitCode != 0) {
+      throw StateError('ZIP fixture failed: ${result.stderr}');
+    }
+  }
+
+  @override
+  Future<void> create({
+    required String archivePath,
+    required String sourceDirectory,
+    required List<String> entries,
+  }) => _run(['-c', r'''
+import os,sys,zipfile
+dest,root,*names=sys.argv[1:]
+with zipfile.ZipFile(dest,'w',allowZip64=True) as archive:
+  for name in names:
+    archive.write(os.path.join(root,*name.split('/')),arcname=name,
+                  compress_type=zipfile.ZIP_STORED)
+''', archivePath, sourceDirectory, ...entries]);
+
+  @override
+  Future<void> extract({
+    required String archivePath,
+    required String destinationDirectory,
+  }) => _run(['-c', r'''
+import sys,zipfile
+with zipfile.ZipFile(sys.argv[1]) as archive:
+  archive.extractall(sys.argv[2])
+''', archivePath, destinationDirectory]);
+}
+
 void main() {
   late Directory sandbox;
+  late Directory backupPaths;
+
+  setUpAll(() async {
+    backupPaths = await Directory.systemTemp.createTemp('moodiary-full-backup-e2e-');
+    final support = await Directory(p.join(backupPaths.path,'support')).create();
+    final cache = await Directory(p.join(backupPaths.path,'cache')).create();
+    PlatformService.get().applicationSupportPath = support.path;
+    PlatformService.get().applicationCachePath = cache.path;
+  });
+
+  tearDownAll(() async {
+    if (await backupPaths.exists()) await backupPaths.delete(recursive: true);
+  });
 
   setUp(() async {
     sandbox = await Directory.systemTemp.createTemp('moodiary-legacy-zip-');
@@ -955,6 +1007,133 @@ with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_STORED) as archive:
     }
     expect(await dbFile.exists(), isTrue,
         reason: 'test must exercise real SQLite file persistence');
+  });
+
+
+  test('full history ZIP exports and restores native records, every revision, '
+      'operations, deleted state, day mapping and historical media', () async {
+    await setUpSyncEnv();
+    final source = MoodiaryDatabase.forTesting(NativeDatabase.memory(
+      setup: (raw) => raw.execute('PRAGMA foreign_keys = ON'),
+    ));
+    final destination = MoodiaryDatabase.forTesting(NativeDatabase.memory(
+      setup: (raw) => raw.execute('PRAGMA foreign_keys = ON'),
+    ));
+    try {
+      const topicId = 'aac26e25-4a1d-4b4c-b256-9b0c347d36e2';
+      const month = '2026-11';
+      const day = '2026-11-11';
+      const block = 'full-backup-block-0001';
+      const first = 'full-backup-revision-0001';
+      const second = 'full-backup-revision-0002';
+      const tag = '__moodiary_mod_topic_v1';
+      final micros = DateTime.utc(2026, 11, 11).microsecondsSinceEpoch;
+      final millis = micros ~/ 1000;
+      final originalDoc = jsonEncode({
+        'type':'doc','attrs':{'v':2},'content':[
+          {'type':'paragraph','content':[{'type':'text','text':'初稿'}]},
+          {'type':'image','attrs':{'src':'history.png'}},
+        ],
+      });
+      final deletedDoc = jsonEncode({
+        'type':'doc','attrs':{'v':2},'content':[
+          {'type':'paragraph','content':[{'type':'text','text':'删除时的正文'}]},
+        ],
+      });
+      await source.customStatement(
+        'INSERT INTO diaries (id,title,content,content_text,time,'
+        'last_modified,show,type) VALUES(?,?,?,?,?,?,?,?)',
+        [topicId,'长期记录主题',deletedDoc,'长期记录主题',micros,micros,1,'tiptap'],
+      );
+      await source.customStatement(
+        'INSERT INTO diary_tags(diary_id,seq,tag) VALUES(?,?,?)',
+        [topicId,0,tag],
+      );
+      await source.customStatement(
+        'INSERT INTO mod_month_pages (topic_id,month_key,diary_id,created_ms)'
+        ' VALUES(?,?,NULL,?)',[topicId,month,millis],
+      );
+      await source.customStatement(
+        'INSERT INTO mod_month_blocks (block_id,topic_id,month_key,kind,created_ms)'
+        ' VALUES(?,?,?,?,?)',[block,topicId,month,'entry',millis],
+      );
+      for (final (revision, parent, body, deleted, offset) in [
+        (first,null,originalDoc,false,0),
+        (second,first,deletedDoc,true,1),
+      ]) {
+        await source.customStatement(
+          'INSERT INTO mod_month_revisions '
+          '(revision_id,block_id,parent_revision_id,month_key,day_key,'
+          'occurred_at_ms,body_json,deleted,edited_at_ms)'
+          ' VALUES(?,?,?,?,?,?,?,?,?)',
+          [revision,block,parent,month,day,millis,body,deleted?1:0,millis+offset],
+        );
+        final hash = sha256.convert(utf8.encode(jsonEncode([
+          block,revision,topicId,month,'entry',parent,day,millis,body,deleted
+        ]))).toString();
+        await source.customStatement(
+          'INSERT INTO mod_month_ops '
+          '(operation_id,payload_sha256,block_id,revision_id,applied_at_ms)'
+          ' VALUES(?,?,?,?,?)',
+          ['operation-$revision',hash,block,revision,millis+offset],
+        );
+      }
+      await source.customStatement(
+        'INSERT INTO mod_month_heads(block_id,revision_id) VALUES(?,?)',
+        [block,second],
+      );
+      await source.customStatement(
+        'INSERT INTO mod_day_pages(topic_id,day_key,diary_id,visible_local,created_ms)'
+        ' VALUES(?,?,NULL,?,?)',[topicId,day,0,millis],
+      );
+      final media = File(p.join(
+        PlatformService.get().applicationSupportPath,'image','history.png'));
+      await media.parent.create(recursive:true);
+      final mediaBytes = utf8.encode('historic media is required even after deletion');
+      await media.writeAsBytes(mediaBytes);
+      final graphBefore = await ModMonthGraphArchiveV2.exportGraph(source);
+
+      final zip = await ModMonthFullBackupArchiveV1.export(
+        db:source, transport:const _PythonFullBackupZip());
+      final names = await ModMonthZipPreflightV2.inspectForBackupRouting(zip);
+      expect(ModMonthZipPreflightV2.hasCompleteFullHistoryMarkers(names),isTrue);
+      expect(names, containsAll([
+        'manifest.json','structured/month-day-graph-v2.json',
+        'verified-day-bundle-v2.json','media/image/history.png',
+      ]));
+
+      // A user must be able to restore this ZIP onto a fresh installation.
+      // Remove the original media first to prove the import writes the bytes.
+      await media.delete();
+      getIt.registerSingleton<MoodiaryDatabase>(destination);
+      getIt.registerSingleton<DiaryRepository>(DiaryRepository(destination));
+      getIt.registerSingleton<CategoryRepository>(CategoryRepository(destination));
+      getIt.registerSingleton<PlaceRepository>(PlaceRepository(destination));
+      getIt.registerSingleton<TombstoneRepository>(TombstoneRepository(destination));
+      final report = await ModMonthFullBackupArchiveV1.importZip(
+        zipPath:zip, db:destination, transport:const _PythonFullBackupZip());
+      expect(report.failed,0);
+      expect(report.cancelled,isFalse);
+      expect(await ModMonthGraphArchiveV2.exportGraph(destination),graphBefore);
+      expect((await DiaryRepository(destination).getAllDiaries()).single.title,
+        '长期记录主题');
+      expect(await media.readAsBytes(),mediaBytes);
+      for (final (table,count) in [
+        ('mod_month_pages',1),('mod_month_blocks',1),
+        ('mod_month_revisions',2),('mod_month_heads',1),
+        ('mod_month_ops',2),('mod_day_pages',1),
+      ]) {
+        final row = await destination.customSelect(
+          'SELECT COUNT(*) AS n FROM $table').getSingle();
+        expect(row.read<int>('n'),count,reason:table);
+      }
+      expect(await destination.customSelect('PRAGMA foreign_key_check').get(),
+        isEmpty);
+    } finally {
+      await source.close();
+      await destination.close();
+      await tearDownSyncEnv();
+    }
   });
 
 }
