@@ -192,4 +192,68 @@ final class ModMonthGraphMergeV2 {
     }
     return candidate;
   }
+
+  /// Pure review artifact: never resolves a concurrent delete/edit conflict
+  /// by selecting the newest timestamp. All divergent heads remain present.
+  /// A valid graph is NOT a verified full native/media backup, so callers
+  /// must not treat this review as authorization to modify live SQLite.
+  static ModMonthGraphMergeReviewV2 review({
+    required String local, required String remote,
+  }) {
+    final candidate = merge(local:local,remote:remote);
+    final envelope=jsonDecode(candidate) as Map<String,dynamic>;
+    final graph=envelope['monthGraph'] as Map<String,dynamic>;
+    final tables=graph['tables'] as Map<String,dynamic>;
+    final revisions=tables['mod_month_revisions'] as List<dynamic>;
+    final heads=tables['mod_month_heads'] as List<dynamic>;
+    final deleted=<String>{
+      for(final row in revisions)
+        if((row as Map<String,dynamic>)['deleted']==1)
+          row['revision_id'] as String,
+    };
+    final byBlock=<String,List<String>>{};
+    for(final raw in heads) {
+      final row=raw as Map<String,dynamic>;
+      (byBlock[row['block_id'] as String] ??= <String>[])
+          .add(row['revision_id'] as String);
+    }
+    final conflicts=<String,List<String>>{};
+    final deletionConflicts=<String,List<String>>{};
+    for(final entry in byBlock.entries) {
+      entry.value.sort();
+      if(entry.value.length<2)continue;
+      conflicts[entry.key]=List<String>.unmodifiable(entry.value);
+      final missing=entry.value.where(deleted.contains).toList();
+      if(missing.isNotEmpty) {
+        deletionConflicts[entry.key]=List<String>.unmodifiable(missing);
+      }
+    }
+    return ModMonthGraphMergeReviewV2(
+      candidateGraph:candidate,
+      conflictHeads:Map<String,List<String>>.unmodifiable(conflicts),
+      deletionConflictHeads:Map<String,List<String>>.unmodifiable(
+        deletionConflicts),
+      revisionCount:revisions.length,
+      operationCount:(tables['mod_month_ops'] as List<dynamic>).length,
+    );
+  }
+
+}
+
+final class ModMonthGraphMergeReviewV2 {
+  const ModMonthGraphMergeReviewV2({
+    required this.candidateGraph,
+    required this.conflictHeads,
+    required this.deletionConflictHeads,
+    required this.revisionCount,
+    required this.operationCount,
+  });
+
+  final String candidateGraph;
+  final Map<String,List<String>> conflictHeads;
+  final Map<String,List<String>> deletionConflictHeads;
+  final int revisionCount;
+  final int operationCount;
+
+  bool get needsManualResolution => conflictHeads.isNotEmpty;
 }

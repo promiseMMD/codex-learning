@@ -94,6 +94,14 @@ void main() {
       final local = await ModMonthGraphArchiveV2.exportGraph(left);
       final remote = await ModMonthGraphArchiveV2.exportGraph(right);
       final merged = ModMonthGraphMergeV2.merge(local:local,remote:remote);
+      final review = ModMonthGraphMergeV2.review(
+        local:local,remote:remote);
+      expect(review.candidateGraph,merged);
+      expect(review.needsManualResolution,true);
+      expect(review.conflictHeads[_block],['revision0002','revision0003']);
+      expect(review.deletionConflictHeads[_block],['revision0003']);
+      expect(review.revisionCount,3);
+      expect(review.operationCount,3);
       ModMonthGraphArchiveV2.verify(merged);
       final graph = jsonDecode(merged) as Map<String,dynamic>;
       final tables = (graph['monthGraph'] as Map)['tables'] as Map;
@@ -169,6 +177,27 @@ void main() {
     } finally {
       await left.close();
       await right.close();
+    }
+  });
+
+
+  test('same graph yields no false conflict and does not alter SQLite',
+      () async {
+    final db=await _seed(
+      childRevision:'revision0002',childBody:_doc('unchanged'),
+      childOperation:'operation0002');
+    try {
+      final original=await ModMonthGraphArchiveV2.exportGraph(db);
+      final result=ModMonthGraphMergeV2.review(
+        local:original,remote:original);
+      expect(result.needsManualResolution,false);
+      expect(result.conflictHeads,isEmpty);
+      expect(result.deletionConflictHeads,isEmpty);
+      expect(result.candidateGraph,original);
+      expect(result.operationCount,2);
+      expect(await ModMonthGraphArchiveV2.exportGraph(db),original);
+    } finally {
+      await db.close();
     }
   });
 
