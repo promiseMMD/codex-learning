@@ -694,11 +694,16 @@ final class ModMonthFullBackupArchiveV1 {
       final expectedSize=raw['size'] as int;
       final expectedSha=raw['sha256'] as String;
       final from=File(p.joinAll([verified,...parts]));
+      // Keep diagnostics separate without printing private file paths or data.
       if(await FileSystemEntity.type(from.path,followLinks:false)!=
-          FileSystemEntityType.file ||
-         await from.length()!=expectedSize ||
-         await _hashFile(from)!=expectedSha) {
-        _fail('bundle_media_source_mismatch');
+          FileSystemEntityType.file) {
+        _fail('bundle_media_source_missing_or_unsafe');
+      }
+      if(await from.length()!=expectedSize) {
+        _fail('bundle_media_source_size_mismatch');
+      }
+      if(await _hashFile(from)!=expectedSha) {
+        _fail('bundle_media_source_sha_mismatch');
       }
       final to=File(p.join(mediaBase,parts[1],parts[2]));
       final targetType=await FileSystemEntity.type(to.path,followLinks:false);
