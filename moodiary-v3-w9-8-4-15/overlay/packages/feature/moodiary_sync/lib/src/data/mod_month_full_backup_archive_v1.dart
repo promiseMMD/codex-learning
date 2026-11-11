@@ -458,6 +458,11 @@ final class ModMonthFullBackupArchiveV1 {
         await _writeJournal(journal,sourceSha,'verified');
       }
 
+      // This ZIP and target have passed strict verification. Copy every
+      // native/historical media file and verify its SHA-256 BEFORE native
+      // import mutates live state; failures must stop before DB writes.
+      await _copyAndVerifyAllMedia(verified);
+
       // A crash after native import can leave a fully committed W9 graph.
       // Re-entering LocalArchive.importDirectory would hit the legacy cloud
       // guard and fail even though all source-owned data is already present.
@@ -468,7 +473,6 @@ final class ModMonthFullBackupArchiveV1 {
         return IncrementalSyncEngine.runExclusive(() async {
           await _verifyNativeEntities(db,nativeManifest);
           await _verifyNativeTombstones(db,nativeManifest);
-          await _copyAndVerifyAllMedia(verified);
           if (recordedPhase == 'native_imported') {
             final existingGraph = await ModMonthGraphArchiveV2.exportGraph(db);
             if (existingGraph != graph) {
@@ -519,7 +523,6 @@ final class ModMonthFullBackupArchiveV1 {
           await _verifyNativeTombstones(db,nativeManifest);
           await _writeJournal(journal,sourceSha,'native_imported');
 
-          await _copyAndVerifyAllMedia(verified);
           await ModMonthGraphArchiveV2.restoreIntoEmptyDatabase(db,graph);
           await _writeJournal(journal,sourceSha,'graph_imported');
 
