@@ -6,6 +6,7 @@ import 'package:moodiary_sync/src/data/codec.dart';
 import 'package:moodiary_sync/src/data/mod_month_webdav_full_zip_v1.dart';
 import 'package:moodiary_sync/src/data/mod_month_remote_versions_v1.dart';
 import '../sync_test_harness.dart';
+import 'cloud_full_zip_fixture.dart';
 
 final class _TestCipher extends SyncCipher {
   const _TestCipher() : super.withKey(const [1,2,3,4]);
@@ -27,17 +28,6 @@ final class _TestCipher extends SyncCipher {
   }
 }
 
-Future<File> fixture(String path) async {
-  final run=await Process.run('python3',['-c',r'''
-import sys,zipfile
-with zipfile.ZipFile(sys.argv[1],'w') as z:
-  for name in ['manifest.json','verified-day-bundle-v2.json',
-               'structured/month-day-graph-v2.json']:
-    z.writestr(name,'{"transport":"test"}')
-''',path]);
-  if (run.exitCode!=0) throw StateError(run.stderr.toString());
-  return File(path);
-}
 
 void main() {
   const cipher=_TestCipher();
@@ -47,7 +37,7 @@ void main() {
   late File zip;
   setUp(() async {
     dir=await Directory.systemTemp.createTemp('month-ver-test-');
-    zip=await fixture(dir.path+'/source.zip');
+    zip=(await CloudFullZipFixture.create(dir)).zip;
   });
   tearDown(() async {
     if(await dir.exists())await dir.delete(recursive:true);
@@ -61,19 +51,20 @@ void main() {
 
   Future<ModMonthWebdavZipReceipt> upload(FakeRemoteBackend cloud) =>
     ModMonthWebdavFullZipV1.upload(
-      backend:cloud,cipher:cipher,fullBackupZip:zip);
+      backend:cloud,cipher:cipher,fullBackupZip:zip,
+      zipTransport:const CloudTestZipTransport());
 
   test('same device parent chain is immutable and duplicate is a no-op',
       () async {
     final cloud=FakeRemoteBackend(),r=await upload(cloud);
     final root=ver(r);
     expect(await ModMonthRemoteVersionStoreV1.publish(
-      backend:cloud,cipher:cipher,snapshot:root,receipt:r),false);
+      backend:cloud,cipher:cipher,snapshot:root,receipt:r,zipTransport:const CloudTestZipTransport()),false);
     expect(await ModMonthRemoteVersionStoreV1.publish(
-      backend:cloud,cipher:cipher,snapshot:root,receipt:r),true);
+      backend:cloud,cipher:cipher,snapshot:root,receipt:r,zipTransport:const CloudTestZipTransport()),true);
     final child=ver(r,snap:second,parent:first);
     await ModMonthRemoteVersionStoreV1.publish(
-      backend:cloud,cipher:cipher,snapshot:child,receipt:r);
+      backend:cloud,cipher:cipher,snapshot:child,receipt:r,zipTransport:const CloudTestZipTransport());
     final item=await ModMonthRemoteVersionStoreV1.read(
       backend:cloud,cipher:cipher,deviceId:device,snapshotId:second);
     expect(item!.parentSnapshotId,first);
@@ -86,7 +77,7 @@ void main() {
     final cloud=FakeRemoteBackend(),r=await upload(cloud);
     for(final id in [device,other]) {
       await ModMonthRemoteVersionStoreV1.publish(
-        backend:cloud,cipher:cipher,snapshot:ver(r,owner:id),receipt:r);
+        backend:cloud,cipher:cipher,snapshot:ver(r,owner:id),receipt:r,zipTransport:const CloudTestZipTransport());
     }
     expect(cloud.objects.containsKey(
       ModMonthRemoteVersionStoreV1.keyFor(device,first)),true);
@@ -97,11 +88,11 @@ void main() {
   test('same device snapshot cannot overwrite different data',() async {
     final cloud=FakeRemoteBackend(),r=await upload(cloud);
     await ModMonthRemoteVersionStoreV1.publish(
-      backend:cloud,cipher:cipher,snapshot:ver(r),receipt:r);
+      backend:cloud,cipher:cipher,snapshot:ver(r),receipt:r,zipTransport:const CloudTestZipTransport());
     final key=ModMonthRemoteVersionStoreV1.keyFor(device,first);
     final before=cloud.objects[key]!.toList(),writes=cloud.opCount('create');
     await expectLater(ModMonthRemoteVersionStoreV1.publish(
-      backend:cloud,cipher:cipher,snapshot:ver(r,at:10001),receipt:r),
+      backend:cloud,cipher:cipher,snapshot:ver(r,at:10001),receipt:r,zipTransport:const CloudTestZipTransport()),
       throwsA(isA<ModMonthVersionError>().having(
         (e)=>e.code,'code','immutable_version_conflict')));
     expect(cloud.objects[key],orderedEquals(before));
@@ -113,12 +104,12 @@ void main() {
     final cloud=FakeRemoteBackend(),r=await upload(cloud);
     await expectLater(ModMonthRemoteVersionStoreV1.publish(
       backend:cloud,cipher:cipher,
-      snapshot:ver(r,snap:second,parent:first),receipt:r),
+      snapshot:ver(r,snap:second,parent:first),receipt:r,zipTransport:const CloudTestZipTransport()),
       throwsA(isA<ModMonthVersionError>().having(
         (e)=>e.code,'code','parent_not_published')));
     cloud.conditionalPutSupported=false;
     await expectLater(ModMonthRemoteVersionStoreV1.publish(
-      backend:cloud,cipher:cipher,snapshot:ver(r),receipt:r),
+      backend:cloud,cipher:cipher,snapshot:ver(r),receipt:r,zipTransport:const CloudTestZipTransport()),
       throwsA(isA<ModMonthVersionError>().having(
         (e)=>e.code,'code','exclusive_creation_unsupported')));
     expect(cloud.opCount('write'),1);
@@ -129,7 +120,7 @@ void main() {
     final cloud=FakeRemoteBackend(),r=await upload(cloud);
     cloud.objects.remove(r.remoteKey);
     await expectLater(ModMonthRemoteVersionStoreV1.publish(
-      backend:cloud,cipher:cipher,snapshot:ver(r),receipt:r),
+      backend:cloud,cipher:cipher,snapshot:ver(r),receipt:r,zipTransport:const CloudTestZipTransport()),
       throwsA(isA<ModMonthWebdavZipException>()));
     expect(cloud.opCount('create'),0);
     final key=ModMonthRemoteVersionStoreV1.keyFor(device,first);
