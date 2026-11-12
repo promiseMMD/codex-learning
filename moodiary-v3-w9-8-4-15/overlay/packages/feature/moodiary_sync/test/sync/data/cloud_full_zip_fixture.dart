@@ -51,6 +51,8 @@ final class CloudFullZipFixture {
 
   static Future<CloudFullZipFixture> create(Directory scratch, {
     String childRevisionId='cloud-history-revision-0002',
+    bool includeChild=true,
+    String? childImageName,
     bool childDeleted=true,
     String nativeTitle='cloud backup',
     List<int>? historicalMediaBytes,
@@ -65,7 +67,9 @@ final class CloudFullZipFixture {
         'content':[{'type':'image','attrs':{'src':'history.png'}}]});
       final edited=jsonEncode({'type':'doc','attrs':{'v':2},
         'content':[{'type':'paragraph','content':[
-          {'type':'text','text':'edited history'}]}]});
+          {'type':'text','text':'edited history'}]},
+          if(childImageName!=null)
+            {'type':'image','attrs':{'src':childImageName}}]});
       final deleted=jsonEncode({'type':'doc','attrs':{'v':2},
         'content':[{'type':'paragraph','content':[
           {'type':'text','text':'deleted history'}]}]});
@@ -77,7 +81,8 @@ final class CloudFullZipFixture {
         ' VALUES(?,?,?,?,?)',[block,topic,month,'entry',11]);
       for(final (id,parent,body,deletedFlag,occurredMs) in [
         (first,null,old,false,12),
-        (childRevisionId,first,childDeleted?deleted:edited,childDeleted,14)
+        if(includeChild)
+          (childRevisionId,first,childDeleted?deleted:edited,childDeleted,14)
       ]) {
         await db.customStatement(
           'INSERT INTO mod_month_revisions'
@@ -96,7 +101,7 @@ final class CloudFullZipFixture {
       }
       await db.customStatement(
         'INSERT INTO mod_month_heads(block_id,revision_id) VALUES(?,?)',
-        [block,childRevisionId]);
+        [block,includeChild?childRevisionId:first]);
       await db.customStatement(
         'INSERT INTO mod_day_pages'
         '(topic_id,day_key,diary_id,visible_local,created_ms)'
@@ -121,6 +126,11 @@ final class CloudFullZipFixture {
         tombstones:const [],mediaBaseDir:media.path);
       await stage.addLocalFile(historicalMedia,
         media.path+'/image/history.png');
+      if(includeChild && !childDeleted && childImageName!=null){
+        final extra=File(media.path+'/image/'+childImageName);
+        await extra.writeAsBytes(const [33,44,55,66]);
+        await stage.addLocalFile('media/image/'+childImageName,extra.path);
+      }
       await stage.addBytes(ModMonthVerifiedManifestV2.graphPath,
         Uint8List.fromList(utf8.encode(
           await ModMonthGraphArchiveV2.exportGraph(db))));
