@@ -296,7 +296,7 @@ void main() {
     final candidate=await build(cloud,'verified-before-kill.zip');
     final published=File(temp.path+'/published-before-kill.zip');
     final child=await Process.start('sh',[
-      '-c','link "$1" "$2" || exit 31; kill -9 "$$"',
+      '-c',r'link "$1" "$2" || exit 31; kill -9 "$"',
       'sh',candidate.file.absolute.path,published.absolute.path,
     ]);
     expect(await child.exitCode,isNot(0));
@@ -348,7 +348,7 @@ void main() {
     final candidate=await build(cloud,'verified-before-link.zip');
     final published=File(temp.path+'/never-published.zip');
     final child=await Process.start('sh',[
-      '-c','kill -9 "$$"; link "$1" "$2"',
+      '-c',r'kill -9 "$"; link "$1" "$2"',
       'sh',candidate.file.absolute.path,published.absolute.path,
     ]);
     expect(await child.exitCode,isNot(0));
