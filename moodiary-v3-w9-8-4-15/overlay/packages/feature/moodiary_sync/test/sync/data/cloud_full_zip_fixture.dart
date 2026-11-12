@@ -49,16 +49,23 @@ final class CloudFullZipFixture {
   static const historicalBytes=<int>[10,11,12,13,14];
   static const currentBytes=<int>[137,80,78,71,99,98,97];
 
-  static Future<CloudFullZipFixture> create(Directory scratch) async {
+  static Future<CloudFullZipFixture> create(Directory scratch, {
+    String childRevisionId='cloud-history-revision-0002',
+    bool childDeleted=true,
+    String nativeTitle='cloud backup',
+    List<int>? historicalMediaBytes,
+  }) async {
     const topic='aac26e25-4a1d-4b4c-b256-9b0c347d36e2';
     const block='cloud-history-block-0001';
     const first='cloud-history-revision-0001';
-    const second='cloud-history-revision-0002';
     const month='2026-11',day='2026-11-11';
     final db=MoodiaryDatabase.forTesting(NativeDatabase.memory());
     try {
       final old=jsonEncode({'type':'doc','attrs':{'v':2},
         'content':[{'type':'image','attrs':{'src':'history.png'}}]});
+      final edited=jsonEncode({'type':'doc','attrs':{'v':2},
+        'content':[{'type':'paragraph','content':[
+          {'type':'text','text':'edited history'}]}]});
       final deleted=jsonEncode({'type':'doc','attrs':{'v':2},
         'content':[{'type':'paragraph','content':[
           {'type':'text','text':'deleted history'}]}]});
@@ -69,7 +76,8 @@ final class CloudFullZipFixture {
         'INSERT INTO mod_month_blocks(block_id,topic_id,month_key,kind,created_ms)'
         ' VALUES(?,?,?,?,?)',[block,topic,month,'entry',11]);
       for(final (id,parent,body,deletedFlag,occurredMs) in [
-        (first,null,old,false,12),(second,first,deleted,true,14)
+        (first,null,old,false,12),
+        (childRevisionId,first,childDeleted?deleted:edited,childDeleted,14)
       ]) {
         await db.customStatement(
           'INSERT INTO mod_month_revisions'
@@ -88,7 +96,7 @@ final class CloudFullZipFixture {
       }
       await db.customStatement(
         'INSERT INTO mod_month_heads(block_id,revision_id) VALUES(?,?)',
-        [block,second]);
+        [block,childRevisionId]);
       await db.customStatement(
         'INSERT INTO mod_day_pages'
         '(topic_id,day_key,diary_id,visible_local,created_ms)'
@@ -96,7 +104,8 @@ final class CloudFullZipFixture {
 
       final media=Directory(scratch.path+'/media');
       for(final item in [
-        (currentMedia,currentBytes),(historicalMedia,historicalBytes)
+        (currentMedia,currentBytes),
+        (historicalMedia,historicalMediaBytes??historicalBytes)
       ]) {
         final file=File(media.path+'/'+item.$1.substring(6));
         await file.parent.create(recursive:true);
@@ -104,7 +113,7 @@ final class CloudFullZipFixture {
       }
       final stage=await ModMonthStreamStageV2.create(
         scratch.path+'/sealed');
-      final native=buildDiary(id:topic,title:'cloud backup',
+      final native=buildDiary(id:topic,title:nativeTitle,
         images:['current.png']).copyWith(
           tags:['__moodiary_mod_topic_v1']);
       await LocalArchive.writeArchive(
