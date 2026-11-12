@@ -207,6 +207,33 @@ void main() {
     expect(cloud.ops,isEmpty);
   });
 
+  test('existing symlink destination is rejected before remote access',
+      () async {
+    final cloud=FakeRemoteBackend();
+    final protected=File(temp.path+'/protected-original.zip');
+    await protected.writeAsString('keep this original');
+    final link=Link(temp.path+'/linked-candidate.zip');
+    await link.create(protected.path);
+    await expectLater(build(cloud,'linked-candidate.zip'),
+      throwsA(isA<ModMonthVersionError>().having(
+        (e)=>e.code,'code','destination_exists')));
+    expect(await protected.readAsString(),'keep this original');
+    expect(await link.exists(),true);
+    expect(cloud.ops,isEmpty);
+  });
+
+  test('existing directory destination is rejected before remote access',
+      () async {
+    final cloud=FakeRemoteBackend();
+    final dir=Directory(temp.path+'/directory-candidate.zip');
+    await dir.create();
+    await expectLater(build(cloud,'directory-candidate.zip'),
+      throwsA(isA<ModMonthVersionError>().having(
+        (e)=>e.code,'code','destination_exists')));
+    expect(await dir.exists(),true);
+    expect(cloud.ops,isEmpty);
+  });
+
   test('interrupted remote read fails closed without candidate or writes',
       () async {
     final cloud=FakeRemoteBackend();
