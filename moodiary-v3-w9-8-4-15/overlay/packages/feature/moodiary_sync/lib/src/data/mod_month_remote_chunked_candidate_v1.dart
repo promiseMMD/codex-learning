@@ -9,6 +9,7 @@ import 'package:crypto/crypto.dart';
 import 'package:moodiary_data/src/mod_month_graph_merge_v2.dart';
 import 'package:moodiary_sync/src/data/codec.dart';
 import 'package:moodiary_sync/src/data/mod_month_full_backup_archive_v1.dart';
+import 'package:moodiary_sync/src/data/model/manifest.dart';
 import 'package:moodiary_sync/src/data/mod_month_remote_chunked_inventory_v1.dart';
 import 'package:moodiary_sync/src/data/mod_month_remote_chunked_versions_v1.dart';
 import 'package:moodiary_sync/src/data/mod_month_remote_versions_v1.dart';
@@ -82,6 +83,31 @@ final class ModMonthRemoteChunkedCandidateV1 {
     return output;
   }
 
+  // Native updatedAt is a backup-generation timestamp, not a content
+  // revision. Ignore ONLY that field; verify every real entry, deletion,
+  // media reference, write token and native metadata file strictly.
+  static Future<bool> _sameNativeManifest(String aRoot,String bRoot) async {
+    final aRaw=jsonDecode(await _read(aRoot,'manifest.json'));
+    final bRaw=jsonDecode(await _read(bRoot,'manifest.json'));
+    if(aRaw is! Map<String,dynamic> || bRaw is! Map<String,dynamic>){
+      _fail('candidate_native_manifest_invalid');
+    }
+    final a=SyncManifest.fromJson(aRaw);
+    final b=SyncManifest.fromJson(bRaw);
+    if(a.version!=b.version || a.writeToken!=b.writeToken ||
+       a.entries.length!=b.entries.length)return false;
+    for(final item in a.entries.entries){
+      final other=b.entries[item.key];
+      if(other==null ||
+         other.timeMs!=item.value.timeMs ||
+         other.deleted!=item.value.deleted ||
+         jsonEncode(other.media)!=jsonEncode(item.value.media)){
+        return false;
+      }
+    }
+    return true;
+  }
+
   /// Build a new, fully verified ZIP into an absent caller-supplied path.
   /// Only a conflict-free graph plus byte-identical native records and
   /// non-colliding, SHA-bound historical media may be assembled. The inputs
@@ -149,7 +175,14 @@ final class ModMonthRemoteChunkedCandidateV1 {
       final meta=allPaths.where((path)=>
           path!=graphPath && !path.startsWith('media/')).toList()..sort();
       for(final name in meta){
-        if(l[name]==null || r[name]==null || l[name]!=r[name]){
+        if(l[name]==null || r[name]==null){
+          _fail('native_payload_conflict');
+        }
+        if(name=='manifest.json'){
+          if(!await _sameNativeManifest(leftDir,rightDir)){
+            _fail('native_payload_conflict');
+          }
+        }else if(l[name]!=r[name]){
           _fail('native_payload_conflict');
         }
       }
