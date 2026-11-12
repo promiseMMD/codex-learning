@@ -34,11 +34,4 @@ void main() {
     }
   });
 
-  test('Android candidate publication fails closed if link is unavailable',
-      () async {
-    if (!Platform.isAndroid) return;
-    // The first test is the actual device compatibility gate. Do not
-    // silently replace it with rename/copy or write into the final path.
-    expect(Platform.isAndroid,true);
-  });
 }
