@@ -1,0 +1,61 @@
+name: Moodiary Android candidate link probe (isolated)
+
+on:
+  push:
+    branches:
+      - moodiary-v3-w9-8-4-31-permanent-application-id-20261110
+    paths:
+      - '.github/workflows/moodiary-android-link-probe.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  android-link-probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Android emulator POSIX no-clobber probe (no app, no secrets)
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 29
+          target: default
+          arch: x86_64
+          profile: pixel_2
+          disable-animations: true
+          script: |
+            set -euo pipefail
+            cat > /tmp/moodiary_link_probe.sh <<'SCRIPT'
+            #!/system/bin/sh
+            set -eu
+            ROOT="/data/local/tmp/moodiary-link-probe-$$"
+            mkdir -p "$ROOT/stage" "$ROOT/out"
+            trap 'rm -rf "$ROOT"' EXIT
+            printf 'verified candidate payload\n' > "$ROOT/stage/source.zip"
+            printf 'different payload\n' > "$ROOT/stage/other.zip"
+            # Invoke the same external command name as Dart Process.run('link').
+            if ! command -v link >/dev/null 2>&1; then
+              echo 'BLOCKED: Android does not expose external link command' >&2
+              exit 21
+            fi
+            link "$ROOT/stage/source.zip" "$ROOT/out/candidate.zip"
+            cmp "$ROOT/stage/source.zip" "$ROOT/out/candidate.zip"
+            if link "$ROOT/stage/other.zip" "$ROOT/out/candidate.zip"; then
+              echo 'FAIL: existing final path was replaced' >&2
+              exit 22
+            fi
+            cmp "$ROOT/stage/source.zip" "$ROOT/out/candidate.zip"
+            ln -s "$ROOT/out/missing.zip" "$ROOT/out/dangling.zip"
+            if link "$ROOT/stage/other.zip" "$ROOT/out/dangling.zip"; then
+              echo 'FAIL: dangling symlink was replaced' >&2
+              exit 23
+            fi
+            test -L "$ROOT/out/dangling.zip"
+            test ! -e "$ROOT/out/missing.zip"
+            cmp "$ROOT/stage/source.zip" "$ROOT/out/candidate.zip"
+            echo 'PASS: emulator shell link and no-clobber behavior'
+            SCRIPT
+            adb push /tmp/moodiary_link_probe.sh /data/local/tmp/moodiary_link_probe.sh
+            adb shell sh /data/local/tmp/moodiary_link_probe.sh
+            adb shell rm -f /data/local/tmp/moodiary_link_probe.sh
