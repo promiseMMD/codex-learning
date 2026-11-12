@@ -38,6 +38,7 @@ void main() {
   Future<CloudFullZipFixture> fixture(String label,{
     bool includeChild=true,
     bool deleted=true,
+    String childId='cloud-history-revision-0002',
     String? childImageName,
     String nativeTitle='cloud backup',
     List<int>? historic,
@@ -46,6 +47,7 @@ void main() {
     await dir.create();
     return CloudFullZipFixture.create(dir,
       includeChild:includeChild,
+      childRevisionId:childId,
       childDeleted:deleted,
       childImageName:childImageName,
       nativeTitle:nativeTitle,
@@ -142,6 +144,7 @@ void main() {
       () async {
     final cloud=FakeRemoteBackend();
     final edit=await fixture('edit',deleted:false,
+      childId:'cloud-history-revision-0003',
       childImageName:'only-edit.png');
     final deleted=await fixture('deleted');
     await publish(cloud,await upload(cloud,edit),a);
