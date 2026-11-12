@@ -396,4 +396,33 @@ void main() {
       op.startsWith('write ') || op.startsWith('create ') ||
       op.startsWith('delete ')).length,remoteWrites);
   });
+
+  test('concurrent candidate publishers cannot replace the winner',() async {
+    if(!Platform.isLinux)return;
+    final cloud=FakeRemoteBackend();
+    final one=await fixture('concurrent');
+    final receipt=await upload(cloud,one);
+    await publish(cloud,receipt,a);
+    await publish(cloud,receipt,b);
+
+    // Two independent export calls race to publish the same final path.
+    // Exactly one may succeed; the other must report a no-clobber conflict.
+    final outcomes=await Future.wait([
+      build(cloud,'concurrent.zip').then<Object>((r)=>r,
+        onError:(Object e,StackTrace _) => e),
+      build(cloud,'concurrent.zip').then<Object>((r)=>r,
+        onError:(Object e,StackTrace _) => e),
+    ]);
+    final winners=outcomes.whereType<ModMonthCandidateReceiptV1>().toList();
+    final failures=outcomes.whereType<ModMonthVersionError>().toList();
+    expect(winners.length,1);
+    expect(failures.length,1);
+    expect(failures.single.code,'destination_exists');
+    final finalZip=File(temp.path+'/concurrent.zip');
+    expect(await finalZip.exists(),true);
+    expect((await sha256.bind(finalZip.openRead()).first).toString(),
+      winners.single.sha256);
+    await ModMonthFullBackupArchiveV1.verifyCloudMedia(
+      zipPath:finalZip.path,transport:const CloudTestZipTransport());
+  });
 }
