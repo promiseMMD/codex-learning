@@ -25,7 +25,7 @@ jobs:
           profile: pixel_2
           disable-animations: true
           script: |
-            set -euo pipefail
+            set -eu
             cat > /tmp/moodiary_link_probe.sh <<'SCRIPT'
             #!/system/bin/sh
             set -eu
