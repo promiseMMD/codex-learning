@@ -92,6 +92,12 @@ void main() {
       op.startsWith('create ') || op.startsWith('delete ')).length;
 
     final candidate=await build(cloud,'candidate.zip');
+    // Publication must not leave a staging directory behind. A crash may
+    // leave staging bytes, but must never expose an incomplete final ZIP.
+    final remaining=await temp.list().map((entry)=>
+      entry.path.split(Platform.pathSeparator).last).toList();
+    expect(remaining.where((name)=>name.startsWith('.moodiary-candidate-')),
+      isEmpty);
     expect(candidate.bytes,greaterThan(0));
     expect(candidate.revisions,2);
     expect(candidate.operations,2);
