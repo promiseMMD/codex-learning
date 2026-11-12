@@ -220,37 +220,46 @@ final class ModMonthRemoteChunkedCandidateV1 {
         final size=await verifiedZip.length();
         if(size<1)_fail('candidate_zip_empty');
 
-        // Only create the final file after all expensive archive checks.
-        // Existing user data is never overwritten and an in-process error
-        // cleans up only the newly created output.
-        var created=false;
-        RandomAccessFile? out;
-        try {
+        // Expose the complete candidate in one no-clobber filesystem step.
+        // A final-path stream/copy or Dart File.rename() is unsafe: SIGKILL
+        // can leave a partial ZIP, and rename can replace existing files.
+        if(!Platform.isLinux && !Platform.isAndroid && !Platform.isMacOS){
+          _fail('candidate_atomic_publish_unavailable');
+        }
+        if(await FileSystemEntity.type(destination.path,followLinks:false)!=
+           FileSystemEntityType.notFound)_fail('destination_exists');
+        final handle=await verifiedZip.open(mode:FileMode.append);
+        try{
+          await handle.flush();
+        }finally{
+          await handle.close();
+        }
+        // POSIX link(1) creates an atomic, non-replacing hard link. Both
+        // paths reside under destination.parent (same filesystem). No shell
+        // is used. If the platform or storage cannot do this, fail closed.
+        final source=verifiedZip.absolute.path;
+        final target=destination.absolute.path;
+        ProcessResult result;
+        try{
+          result=await Process.run('link',[source,target]);
+        }on ProcessException{
+          _fail('candidate_atomic_publish_unavailable');
+        }
+        if(result.exitCode!=0){
           if(await FileSystemEntity.type(destination.path,followLinks:false)!=
              FileSystemEntityType.notFound)_fail('destination_exists');
-          await destination.create(exclusive:true);
-          created=true;
-          out=await destination.open(mode:FileMode.writeOnlyAppend);
-          await for(final chunk in verifiedZip.openRead()){
-            await out.writeFrom(chunk);
-          }
-          await out.flush();
-          await out.close();
-          out=null;
-          if(await destination.length()!=size ||
-             (await sha256.bind(destination.openRead()).first).toString()!=sha){
-            _fail('candidate_export_hash_mismatch');
-          }
-          return ModMonthCandidateReceiptV1(
-            file:destination,sha256:sha,bytes:size,
-            revisions:graph.revisionCount,operations:graph.operationCount,
-            mediaFiles:media.length,leftSha256:left.archiveSha256,
-            rightSha256:right.archiveSha256);
-        }catch(_){
-          await out?.close();
-          if(created && await destination.exists())await destination.delete();
-          rethrow;
+          _fail('candidate_atomic_publish_unavailable');
         }
+        if(!await FileSystemEntity.identical(source,target) ||
+           await destination.length()!=size ||
+           (await sha256.bind(destination.openRead()).first).toString()!=sha){
+          _fail('candidate_export_hash_mismatch');
+        }
+        return ModMonthCandidateReceiptV1(
+          file:destination,sha256:sha,bytes:size,
+          revisions:graph.revisionCount,operations:graph.operationCount,
+          mediaFiles:media.length,leftSha256:left.archiveSha256,
+          rightSha256:right.archiveSha256);
       }catch(_){
         await stage.abort();
         rethrow;
