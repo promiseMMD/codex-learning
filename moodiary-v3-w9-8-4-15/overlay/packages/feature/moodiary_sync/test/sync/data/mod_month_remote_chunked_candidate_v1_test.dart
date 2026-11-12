@@ -254,4 +254,57 @@ void main() {
     expect(cloud.objects.length,before);
     expect(cloud.ops.where((op)=>op.startsWith('delete ')),isEmpty);
   });
+
+  test('destination created after preflight is never overwritten',() async {
+    final cloud=FakeRemoteBackend();
+    final one=await fixture('race');
+    final receipt=await upload(cloud,one);
+    await publish(cloud,receipt,a);
+    await publish(cloud,receipt,b);
+    final dst=File(temp.path+'/race-candidate.zip');
+    var injected=false;
+    cloud.beforeOp=(op,key){
+      if(op=='read' && !injected){
+        injected=true;
+        dst.writeAsStringSync('new owner data');
+      }
+    };
+    await expectLater(build(cloud,'race-candidate.zip'),
+      throwsA(isA<ModMonthVersionError>().having(
+        (e)=>e.code,'code','destination_exists')));
+    expect(injected,true);
+    expect(await dst.readAsString(),'new owner data');
+  });
+
+  // Linux CI exercises the exact no-clobber hard-link primitive used by
+  // build(). SIGKILL is sent at the publication boundary, after link(1)
+  // returns. This complements, but does not replace, Android device tests.
+  test('SIGKILL immediately after hard-link publish leaves a complete ZIP',
+      () async {
+    if(!Platform.isLinux)return;
+    final cloud=FakeRemoteBackend();
+    final one=await fixture('kill');
+    final receipt=await upload(cloud,one);
+    await publish(cloud,receipt,a);
+    await publish(cloud,receipt,b);
+    final candidate=await build(cloud,'verified-before-kill.zip');
+    final published=File(temp.path+'/published-before-kill.zip');
+    final child=await Process.start('sh',[
+      '-c','link "$1" "$2" || exit 31; kill -9 "$$"',
+      'sh',candidate.file.absolute.path,published.absolute.path,
+    ]);
+    expect(await child.exitCode,isNot(0));
+    expect(await FileSystemEntity.type(published.path,followLinks:false),
+      FileSystemEntityType.file);
+    expect(await published.readAsBytes(),
+      orderedEquals(await candidate.file.readAsBytes()));
+    await ModMonthFullBackupArchiveV1.verifyCloudMedia(
+      zipPath:published.path,transport:const CloudTestZipTransport());
+    final before=await published.readAsBytes();
+    final collision=await Process.run('link',[
+      candidate.file.absolute.path,published.absolute.path,
+    ]);
+    expect(collision.exitCode,isNot(0));
+    expect(await published.readAsBytes(),orderedEquals(before));
+  });
 }
