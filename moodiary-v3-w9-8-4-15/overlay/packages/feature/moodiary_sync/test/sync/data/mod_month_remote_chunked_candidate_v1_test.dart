@@ -307,4 +307,48 @@ void main() {
     expect(collision.exitCode,isNot(0));
     expect(await published.readAsBytes(),orderedEquals(before));
   });
+
+  test('late symlink collision preserves the linked user file',() async {
+    final cloud=FakeRemoteBackend();
+    final one=await fixture('late-link');
+    final receipt=await upload(cloud,one);
+    await publish(cloud,receipt,a);
+    await publish(cloud,receipt,b);
+    final protected=File(temp.path+'/late-protected.zip');
+    await protected.writeAsString('must remain intact');
+    final dst=Link(temp.path+'/late-link-candidate.zip');
+    var injected=false;
+    cloud.beforeOp=(op,key){
+      if(op=='read' && !injected){
+        injected=true;
+        dst.createSync(protected.path);
+      }
+    };
+    await expectLater(build(cloud,'late-link-candidate.zip'),
+      throwsA(isA<ModMonthVersionError>().having(
+        (e)=>e.code,'code','destination_exists')));
+    expect(injected,true);
+    expect(await protected.readAsString(),'must remain intact');
+    expect(await Link(dst.path).exists(),true);
+  });
+
+  test('SIGKILL before hard-link publication exposes no final ZIP',() async {
+    if(!Platform.isLinux)return;
+    final cloud=FakeRemoteBackend();
+    final one=await fixture('kill-before');
+    final receipt=await upload(cloud,one);
+    await publish(cloud,receipt,a);
+    await publish(cloud,receipt,b);
+    final candidate=await build(cloud,'verified-before-link.zip');
+    final published=File(temp.path+'/never-published.zip');
+    final child=await Process.start('sh',[
+      '-c','kill -9 "$$"; link "$1" "$2"',
+      'sh',candidate.file.absolute.path,published.absolute.path,
+    ]);
+    expect(await child.exitCode,isNot(0));
+    expect(await FileSystemEntity.type(published.path,followLinks:false),
+      FileSystemEntityType.notFound);
+    await ModMonthFullBackupArchiveV1.verifyCloudMedia(
+      zipPath:candidate.file.path,transport:const CloudTestZipTransport());
+  });
 }
