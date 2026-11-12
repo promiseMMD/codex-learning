@@ -357,4 +357,43 @@ void main() {
     await ModMonthFullBackupArchiveV1.verifyCloudMedia(
       zipPath:candidate.file.path,transport:const CloudTestZipTransport());
   });
+
+  test('stale crash quarantine is ignored on repeated verified exports',
+      () async {
+    final cloud=FakeRemoteBackend();
+    final one=await fixture('crash-retry');
+    final receipt=await upload(cloud,one);
+    await publish(cloud,receipt,a);
+    await publish(cloud,receipt,b);
+
+    // SIGKILL skips finally. A previous process can leave a partial ZIP
+    // inside its private staging directory without publishing a final ZIP.
+    final orphan=Directory(temp.path+'/.moodiary-candidate-interrupted');
+    await orphan.create();
+    final partial=File(orphan.path+'/verified-candidate.zip');
+    await partial.writeAsBytes([0,1,2,3],flush:true);
+    final remoteWrites=cloud.ops.where((op)=>
+      op.startsWith('write ') || op.startsWith('create ') ||
+      op.startsWith('delete ')).length;
+
+    // A retry must download and verify the snapshots again, never treat
+    // the abandoned quarantine as a complete candidate or delete it.
+    final first=await build(cloud,'retry-one.zip');
+    await ModMonthFullBackupArchiveV1.verifyCloudMedia(
+      zipPath:first.file.path,transport:const CloudTestZipTransport());
+    expect(first.revisions,2);
+    expect(await partial.readAsBytes(),orderedEquals([0,1,2,3]));
+    expect(await orphan.exists(),true);
+    final firstBytes=await first.file.readAsBytes();
+
+    final second=await build(cloud,'retry-two.zip');
+    await ModMonthFullBackupArchiveV1.verifyCloudMedia(
+      zipPath:second.file.path,transport:const CloudTestZipTransport());
+    expect(await first.file.readAsBytes(),orderedEquals(firstBytes));
+    expect(await partial.readAsBytes(),orderedEquals([0,1,2,3]));
+    expect(await orphan.exists(),true);
+    expect(cloud.ops.where((op)=>
+      op.startsWith('write ') || op.startsWith('create ') ||
+      op.startsWith('delete ')).length,remoteWrites);
+  });
 }
