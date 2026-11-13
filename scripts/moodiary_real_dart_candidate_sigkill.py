@@ -109,20 +109,28 @@ def run(stage):
                 assert archive.testzip() is None, "abandoned ZIP is corrupt"
             orphan_sha256 = hashlib.sha256(candidate.read_bytes()).hexdigest()
             orphan_size = candidate.stat().st_size
-            # Do not reuse or remove abandoned quarantine. Run a clean
-            # production Dart candidate build against a fresh fake backend.
+            # Restart in a separate Dart process at the EXACT same absent
+            # destination. The orphan quarantine must remain untouched.
+            restart_env = os.environ.copy()
+            restart_env["MOODIARY_CANDIDATE_KILL_ROOT"] = temp
+            restart_env["MOODIARY_CANDIDATE_KILL_STAGE"] = "restart-absent"
             retry = subprocess.run(
-                ["flutter", "test", TEST, "--plain-name", RETRY, "--reporter", "compact"],
-                timeout=240, check=False)
-            assert retry.returncode == 0, "fresh verified Dart build retry failed"
+                ["flutter", "test", TEST, "--plain-name",
+                 "external restart rebuilds absent candidate without touching orphan",
+                 "--reporter", "compact"],
+                env=restart_env, timeout=240, check=False)
+            assert retry.returncode == 0, "same-path cross-process Dart recovery failed"
+            assert final.is_file(), "restart did not publish the original destination"
+            with zipfile.ZipFile(final) as archive:
+                assert archive.testzip() is None, "recovered ZIP failed CRC"
             assert candidate.exists(), "retry incorrectly removed old quarantine"
             assert candidate.stat().st_size == orphan_size, "retry changed orphan ZIP size"
             assert hashlib.sha256(candidate.read_bytes()).hexdigest() == orphan_sha256, (
                 "retry changed abandoned candidate ZIP bytes")
             assert list(root.glob(".moodiary-candidate-*")) == quarantines, (
                 "retry created or reused an unexpected quarantine in the killed build root")
-            assert not final.exists(), "retry reused an abandoned final destination"
-            print(f"PASS real Dart candidate ZIP {stage} SIGKILL; no exposed final; safe fresh retry")
+            assert final.exists(), "same-path restart lost recovered final ZIP"
+            print(f"PASS real Dart candidate ZIP {stage} SIGKILL; same-path recovery preserved orphan")
         finally:
             if worker.poll() is None:
                 os.killpg(worker.pid, signal.SIGKILL)
