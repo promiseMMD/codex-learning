@@ -52,17 +52,32 @@ def run(stage):
             if stage == "published":
                 assert final.is_file(), "published candidate lost after SIGKILL"
                 with zipfile.ZipFile(final) as archive:
-                    assert archive.namelist() and archive.testzip() is None, (
+                    names = archive.namelist()
+                    assert names, "published candidate has no ZIP entries"
+                    assert len(names) == len(set(names)), (
+                        "published candidate has duplicate ZIP entries")
+                    assert all(
+                        name and not name.startswith("/") and
+                        ".." not in Path(name).parts and chr(92) not in name
+                        for name in names
+                    ), "published candidate has unsafe ZIP entry names"
+                    assert archive.testzip() is None, (
                         "published candidate is incomplete after SIGKILL")
                 published_hash = hashlib.sha256(final.read_bytes()).hexdigest()
+                published_size = final.stat().st_size
                 assert not list(root.glob(".moodiary-candidate-*")), (
                     "completed build left a staging quarantine")
                 retry = subprocess.run(
                     ["flutter", "test", TEST, "--plain-name", RETRY, "--reporter", "compact"],
                     timeout=240, check=False)
                 assert retry.returncode == 0, "fresh verified Dart build retry failed"
+                assert final.stat().st_size == published_size, (
+                    "retry changed already published candidate size")
                 assert hashlib.sha256(final.read_bytes()).hexdigest() == published_hash, (
                     "retry modified already published candidate")
+                with zipfile.ZipFile(final) as archive:
+                    assert archive.testzip() is None, (
+                        "published candidate failed CRC after retry")
                 print("PASS real Dart post-publication SIGKILL; verified final preserved")
                 return
             assert not final.exists(), "SIGKILL left a partially published final ZIP"
