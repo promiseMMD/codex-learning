@@ -4,6 +4,7 @@
 Synthetic FakeRemoteBackend only. Never uses user data, live WebDAV or APK.
 Run from upstream/packages/feature/moodiary_sync after flutter pub get.
 """
+import hashlib
 import os
 from pathlib import Path
 import signal
@@ -50,6 +51,8 @@ def run():
             assert candidate.is_file(), "ZIP assembly checkpoint was not reached"
             with zipfile.ZipFile(candidate) as archive:
                 assert archive.testzip() is None, "abandoned ZIP is corrupt"
+            orphan_sha256 = hashlib.sha256(candidate.read_bytes()).hexdigest()
+            orphan_size = candidate.stat().st_size
             # Do not reuse or remove abandoned quarantine. Run a clean
             # production Dart candidate build against a fresh fake backend.
             retry = subprocess.run(
@@ -57,6 +60,11 @@ def run():
                 timeout=240, check=False)
             assert retry.returncode == 0, "fresh verified Dart build retry failed"
             assert candidate.exists(), "retry incorrectly removed old quarantine"
+            assert candidate.stat().st_size == orphan_size, "retry changed orphan ZIP size"
+            assert hashlib.sha256(candidate.read_bytes()).hexdigest() == orphan_sha256, (
+                "retry changed abandoned candidate ZIP bytes")
+            assert list(root.glob(".moodiary-candidate-*")) == quarantines, (
+                "retry created or reused an unexpected quarantine in the killed build root")
             assert not final.exists(), "retry reused an abandoned final destination"
             print("PASS real Dart candidate ZIP assembly SIGKILL; no exposed final; safe fresh retry")
         finally:
