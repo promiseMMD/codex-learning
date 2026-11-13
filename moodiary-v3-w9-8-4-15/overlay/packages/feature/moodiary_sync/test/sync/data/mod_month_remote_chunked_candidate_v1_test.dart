@@ -246,6 +246,36 @@ void main() {
     expect(cloud.ops.where((op)=>op.startsWith('delete ')),isEmpty);
   });
 
+  test('published verified candidate is immutable on restart before remote reads',
+      () async {
+    final cloud=FakeRemoteBackend();
+    final one=await fixture('published-restart');
+    final receipt=await upload(cloud,one);
+    await publish(cloud,receipt,a);
+    await publish(cloud,receipt,b);
+    final first=await build(cloud,'published-restart.zip');
+    await ModMonthFullBackupArchiveV1.verifyCloudMedia(
+      zipPath:first.file.path,transport:const CloudTestZipTransport());
+    final original=await first.file.readAsBytes();
+    final opsBefore=cloud.ops.length;
+    // A restarted build must reject the occupied destination without
+    // fetching a newer remote state or replacing a verified published ZIP.
+    cloud.beforeOp=(op,key){
+      throw StateError('restart unexpectedly accessed remote: $op $key');
+    };
+    await expectLater(build(cloud,'published-restart.zip'),
+      throwsA(isA<ModMonthVersionError>().having(
+        (e)=>e.code,'code','destination_exists')));
+    expect(cloud.ops.length,opsBefore);
+    expect(await first.file.readAsBytes(),orderedEquals(original));
+    await ModMonthFullBackupArchiveV1.verifyCloudMedia(
+      zipPath:first.file.path,transport:const CloudTestZipTransport());
+    final remains=await temp.list().map((e)=>
+      e.path.split(Platform.pathSeparator).last).toList();
+    expect(remains.where((name)=>name.startsWith('.moodiary-candidate-')),
+      isEmpty);
+  });
+
   test('existing user file is protected BEFORE remote reads',() async {
     final cloud=FakeRemoteBackend();
     final dst=File(temp.path+'/keep.zip');
