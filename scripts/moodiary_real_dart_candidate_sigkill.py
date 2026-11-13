@@ -18,7 +18,7 @@ CHECKPOINT = "external SIGKILL checkpoint inside actual Dart candidate build"
 RETRY = "ancestor and descendant histories create a full verified ZIP with"
 
 
-def run():
+def run(stage):
     with tempfile.TemporaryDirectory(prefix="moodiary-real-dart-kill-") as temp:
         root = Path(temp)
         marker = root / "checkpoint.ready"
@@ -26,6 +26,7 @@ def run():
         env = os.environ.copy()
         env["MOODIARY_CANDIDATE_KILL_ROOT"] = temp
         env["MOODIARY_CANDIDATE_KILL_MARKER"] = str(marker)
+        env["MOODIARY_CANDIDATE_KILL_STAGE"] = stage
         cmd = ["flutter", "test", TEST, "--plain-name", CHECKPOINT, "--reporter", "compact"]
         worker = subprocess.Popen(cmd, env=env, start_new_session=True)
         try:
@@ -36,7 +37,7 @@ def run():
                 if time.monotonic() > deadline:
                     raise AssertionError("Dart candidate checkpoint timed out")
                 time.sleep(.1)
-            assert marker.read_text() == "zip_assembled_not_published"
+            assert marker.read_text() == ( "zip_readback_extracted_not_published" if stage == "readback" else "zip_assembled_not_published" )
             assert not final.exists(), "final path exposed before verified publication"
             # Kill the entire Flutter/Dart process group, not just a test wrapper.
             os.killpg(worker.pid, signal.SIGKILL)
@@ -45,7 +46,7 @@ def run():
             assert not final.exists(), "SIGKILL left a partially published final ZIP"
             quarantines = list(root.glob(".moodiary-candidate-*"))
             assert len(quarantines) == 1, "expected one abandoned private quarantine"
-            pending = list(quarantines[0].rglob("pending.zip"))
+            pending = list(quarantines[0].rglob("verified-candidate.zip" if stage == "readback" else "pending.zip"))
             assert len(pending) == 1, "expected one isolated assembled pending ZIP"
             candidate = pending[0]
             assert candidate.is_file(), "ZIP assembly checkpoint was not reached"
@@ -77,7 +78,7 @@ def run():
             assert list(root.glob(".moodiary-candidate-*")) == quarantines, (
                 "retry created or reused an unexpected quarantine in the killed build root")
             assert not final.exists(), "retry reused an abandoned final destination"
-            print("PASS real Dart candidate ZIP assembly SIGKILL; no exposed final; safe fresh retry")
+            print(f"PASS real Dart candidate ZIP {stage} SIGKILL; no exposed final; safe fresh retry")
         finally:
             if worker.poll() is None:
                 os.killpg(worker.pid, signal.SIGKILL)
@@ -85,4 +86,5 @@ def run():
 
 
 if __name__ == "__main__":
-    run()
+    for stage in ("assembly", "readback"):
+        run(stage)
