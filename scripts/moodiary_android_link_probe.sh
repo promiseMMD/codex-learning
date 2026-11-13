@@ -11,7 +11,13 @@ if ! command -v ln >/dev/null 2>&1; then
   echo 'BLOCKED: Android does not expose ln command' >&2
   exit 21
 fi
-ln "$ROOT/stage/source.zip" "$ROOT/out/candidate.zip"
+# A shell probe runs as Android shell UID, not the app UID.
+# A denial is a blocker, not proof about app-private storage.
+echo "PROBE: uid=$(id -u) context=$(id -Z 2>/dev/null || echo unknown)"
+if ! ln "$ROOT/stage/source.zip" "$ROOT/out/candidate.zip"; then
+  echo 'BLOCKED: ln exists but hard-link creation denied/unsupported for shell UID; app-private storage unverified' >&2
+  exit 24
+fi
 cmp "$ROOT/stage/source.zip" "$ROOT/out/candidate.zip"
 if ln "$ROOT/stage/other.zip" "$ROOT/out/candidate.zip"; then
   echo 'FAIL: existing final path was replaced' >&2
