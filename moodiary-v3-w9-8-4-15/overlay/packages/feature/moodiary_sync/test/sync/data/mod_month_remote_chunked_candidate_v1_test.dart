@@ -552,6 +552,39 @@ void main() {
 
   // Independent process restart against the exact published destination left
   // by the killed worker. No remote read may precede destination rejection.
+  // A new process must reuse the exact absent destination after a crash,
+  // while leaving the old process's private quarantine untouched.
+  test('external restart rebuilds absent candidate without touching orphan',
+      () async {
+    final root=Platform.environment['MOODIARY_CANDIDATE_KILL_ROOT'];
+    if(root==null ||
+        Platform.environment['MOODIARY_CANDIDATE_KILL_STAGE']!='restart-absent')return;
+    final destination=File('$root/real-candidate.zip');
+    expect(await FileSystemEntity.type(destination.path,followLinks:false),
+      FileSystemEntityType.notFound);
+    final cloud=FakeRemoteBackend();
+    final one=await fixture('restart-absent');
+    final receipt=await upload(cloud,one);
+    await publish(cloud,receipt,a);
+    await publish(cloud,receipt,b);
+    cloud.beforeOp=(op,key){
+      if(op=='write' || op=='create' || op=='delete'){
+        throw StateError('candidate restart mutated remote: $op $key');
+      }
+    };
+    final candidate=await ModMonthRemoteChunkedCandidateV1.build(
+      backend:cloud,cipher:cipher,
+      leftDeviceId:a,leftSnapshotId:snapshot,
+      rightDeviceId:b,rightSnapshotId:snapshot,
+      destination:destination,zipTransport:const CloudTestZipTransport());
+    expect(candidate.eligibleForAutomaticApply,false);
+    expect(await destination.exists(),true);
+    await ModMonthFullBackupArchiveV1.verifyCloudMedia(
+      zipPath:destination.path,transport:const CloudTestZipTransport());
+    expect((await sha256.bind(destination.openRead()).first).toString(),
+      candidate.sha256);
+  });
+
   test('external restart rejects published candidate before remote reads',
       () async {
     final root=Platform.environment['MOODIARY_CANDIDATE_KILL_ROOT'];
