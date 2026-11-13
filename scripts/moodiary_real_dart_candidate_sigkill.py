@@ -27,7 +27,9 @@ def run(stage):
         env["MOODIARY_CANDIDATE_KILL_ROOT"] = temp
         env["MOODIARY_CANDIDATE_KILL_MARKER"] = str(marker)
         env["MOODIARY_CANDIDATE_KILL_STAGE"] = stage
-        cmd = ["flutter", "test", TEST, "--plain-name", CHECKPOINT, "--reporter", "compact"]
+        cmd = ["flutter", "test", TEST, "--plain-name", (
+            "external SIGKILL after actual Dart candidate publication"
+            if stage == "published" else CHECKPOINT), "--reporter", "compact"]
         worker = subprocess.Popen(cmd, env=env, start_new_session=True)
         try:
             deadline = time.monotonic() + 240
@@ -37,12 +39,32 @@ def run(stage):
                 if time.monotonic() > deadline:
                     raise AssertionError("Dart candidate checkpoint timed out")
                 time.sleep(.1)
-            assert marker.read_text() == ( "zip_readback_extracted_not_published" if stage == "readback" else "zip_assembled_not_published" )
-            assert not final.exists(), "final path exposed before verified publication"
+            assert marker.read_text() == (
+                "verified_published_before_sigkill" if stage == "published" else
+                "zip_readback_extracted_not_published" if stage == "readback" else
+                "zip_assembled_not_published")
+            assert final.exists() if stage == "published" else not final.exists(), (
+                "incorrect final ZIP visibility at checkpoint")
             # Kill the entire Flutter/Dart process group, not just a test wrapper.
             os.killpg(worker.pid, signal.SIGKILL)
             worker.wait(timeout=15)
             assert worker.returncode != 0, "worker was not terminated"
+            if stage == "published":
+                assert final.is_file(), "published candidate lost after SIGKILL"
+                with zipfile.ZipFile(final) as archive:
+                    assert archive.namelist() and archive.testzip() is None, (
+                        "published candidate is incomplete after SIGKILL")
+                published_hash = hashlib.sha256(final.read_bytes()).hexdigest()
+                assert not list(root.glob(".moodiary-candidate-*")), (
+                    "completed build left a staging quarantine")
+                retry = subprocess.run(
+                    ["flutter", "test", TEST, "--plain-name", RETRY, "--reporter", "compact"],
+                    timeout=240, check=False)
+                assert retry.returncode == 0, "fresh verified Dart build retry failed"
+                assert hashlib.sha256(final.read_bytes()).hexdigest() == published_hash, (
+                    "retry modified already published candidate")
+                print("PASS real Dart post-publication SIGKILL; verified final preserved")
+                return
             assert not final.exists(), "SIGKILL left a partially published final ZIP"
             quarantines = list(root.glob(".moodiary-candidate-*"))
             assert len(quarantines) == 1, "expected one abandoned private quarantine"
@@ -86,5 +108,5 @@ def run(stage):
 
 
 if __name__ == "__main__":
-    for stage in ("assembly", "readback"):
+    for stage in ("assembly", "readback", "published"):
         run(stage)
