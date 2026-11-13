@@ -67,10 +67,17 @@ def run(stage):
                 published_size = final.stat().st_size
                 assert not list(root.glob(".moodiary-candidate-*")), (
                     "completed build left a staging quarantine")
+                # A separate Dart process must attempt the SAME final path.
+                # It must reject the published file before any remote read.
+                restart_env = os.environ.copy()
+                restart_env["MOODIARY_CANDIDATE_KILL_ROOT"] = temp
+                restart_env["MOODIARY_CANDIDATE_KILL_STAGE"] = "restart"
                 retry = subprocess.run(
-                    ["flutter", "test", TEST, "--plain-name", RETRY, "--reporter", "compact"],
-                    timeout=240, check=False)
-                assert retry.returncode == 0, "fresh verified Dart build retry failed"
+                    ["flutter", "test", TEST, "--plain-name",
+                     "external restart rejects published candidate before remote reads",
+                     "--reporter", "compact"],
+                    env=restart_env, timeout=240, check=False)
+                assert retry.returncode == 0, "cross-process published ZIP restart safety failed"
                 assert final.stat().st_size == published_size, (
                     "retry changed already published candidate size")
                 assert hashlib.sha256(final.read_bytes()).hexdigest() == published_hash, (
