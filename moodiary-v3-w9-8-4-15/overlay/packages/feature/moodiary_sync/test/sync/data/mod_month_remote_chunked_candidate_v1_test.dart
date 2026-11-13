@@ -550,6 +550,33 @@ void main() {
       zipPath:finalZip.path,transport:const CloudTestZipTransport());
   });
 
+  // Independent process restart against the exact published destination left
+  // by the killed worker. No remote read may precede destination rejection.
+  test('external restart rejects published candidate before remote reads',
+      () async {
+    final root=Platform.environment['MOODIARY_CANDIDATE_KILL_ROOT'];
+    if(root==null ||
+        Platform.environment['MOODIARY_CANDIDATE_KILL_STAGE']!='restart')return;
+    final destination=File('$root/real-candidate.zip');
+    expect(await destination.exists(),true);
+    final before=await destination.readAsBytes();
+    final cloud=FakeRemoteBackend();
+    cloud.beforeOp=(op,key){
+      throw StateError('restart accessed remote: $op $key');
+    };
+    await expectLater(ModMonthRemoteChunkedCandidateV1.build(
+      backend:cloud,cipher:cipher,
+      leftDeviceId:a,leftSnapshotId:snapshot,
+      rightDeviceId:b,rightSnapshotId:snapshot,
+      destination:destination,zipTransport:const CloudTestZipTransport()),
+      throwsA(isA<ModMonthVersionError>().having(
+        (e)=>e.code,'code','destination_exists')));
+    expect(cloud.ops,isEmpty);
+    expect(await destination.readAsBytes(),orderedEquals(before));
+    await ModMonthFullBackupArchiveV1.verifyCloudMedia(
+      zipPath:destination.path,transport:const CloudTestZipTransport());
+  });
+
   test('external SIGKILL after actual Dart candidate publication',() async {
     final root=Platform.environment['MOODIARY_CANDIDATE_KILL_ROOT'];
     if(root==null || Platform.environment['MOODIARY_CANDIDATE_KILL_STAGE']!='published')return;
