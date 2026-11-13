@@ -44,10 +44,14 @@ def child(root, checkpoint):
     os.link(candidate, final)  # atomic no-clobber on same filesystem
     pause("after_publish")
 
-def check(root, point):
+def check(root, point, preexisting=False):
     root.mkdir()
     source = os.urandom(1024 * 1024)
     (root / "source.bin").write_bytes(source)
+    final = root / "final.zip"
+    old = b"existing-target-must-remain-unchanged"
+    if preexisting:
+        final.write_bytes(old)
     p = subprocess.Popen([sys.executable, __file__, "--child", str(root), point])
     try:
         deadline = time.monotonic() + 15
@@ -59,10 +63,11 @@ def check(root, point):
             time.sleep(.02)
         os.kill(p.pid, signal.SIGKILL)
         assert p.wait(timeout=5) == -signal.SIGKILL
-        final = root / "final.zip"
-        assert final.exists() == (point == "after_publish")
+        assert final.exists() == (preexisting or point == "after_publish")
+        if preexisting:
+            assert final.read_bytes() == old
         assert (root / "source.bin").read_bytes() == source
-        if final.exists():
+        if final.exists() and not preexisting:
             with zipfile.ZipFile(final) as z:
                 assert z.testzip() is None
                 assert sha(z.read("media.bin")) == sha(source)
@@ -82,10 +87,13 @@ def check(root, point):
                 raise AssertionError("existing final overwritten")
         else:
             os.link(retry, final)
-        with zipfile.ZipFile(final) as z:
-            assert z.testzip() is None
-            assert sha(z.read("media.bin")) == sha(source)
-        print(f"PASS {point}: SIGKILL, no partial final, safe retry")
+        if preexisting:
+            assert final.read_bytes() == old, "retry overwrote preexisting target"
+        else:
+            with zipfile.ZipFile(final) as z:
+                assert z.testzip() is None
+                assert sha(z.read("media.bin")) == sha(source)
+        print(f"PASS {point} preexisting={preexisting}: SIGKILL, no partial final, safe retry")
     finally:
         if p.poll() is None:
             p.kill()
@@ -100,3 +108,4 @@ if __name__ == "__main__":
         with tempfile.TemporaryDirectory(prefix="moodiary-zip-sigkill-") as tmp:
             for point in POINTS:
                 check(Path(tmp) / point, point)
+                check(Path(tmp) / (point + "-existing"), point, preexisting=True)
