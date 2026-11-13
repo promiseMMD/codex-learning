@@ -335,6 +335,56 @@ void main() {
     expect(cloud.ops.where((op)=>op.startsWith('delete ')),isEmpty);
   });
 
+  test('remote outage can retry same destination after recovery without writes',
+      () async {
+    final cloud=FakeRemoteBackend();
+    final one=await fixture('outage-retry');
+    final receipt=await upload(cloud,one);
+    await publish(cloud,receipt,a);
+    await publish(cloud,receipt,b);
+    final remoteBefore=Map<String,Uint8List>.from(cloud.objects);
+    final key=ModMonthRemoteChunkedVersionStoreV1.keyFor(b,snapshot);
+    cloud.beforeOp=(op,path){
+      if(op=='write' || op=='create' || op=='delete'){
+        throw StateError('candidate mutated remote during retry: $op $path');
+      }
+      if(op=='read' && path==key){
+        throw const SocketException('transient offline');
+      }
+    };
+    final destination=File(temp.path+'/outage-retry.zip');
+    await expectLater(build(cloud,'outage-retry.zip'),
+      throwsA(isA<SocketException>()));
+    expect(await FileSystemEntity.type(destination.path,followLinks:false),
+      FileSystemEntityType.notFound);
+    expect(temp.listSync().where((entry)=>
+      entry.path.split(Platform.pathSeparator).last
+        .startsWith('.moodiary-candidate-')),isEmpty);
+
+    // Retry the identical destination after connectivity returns. Neither
+    // attempt may mutate a remote object or publish an unverified partial.
+    cloud.beforeOp=(op,path){
+      if(op=='write' || op=='create' || op=='delete'){
+        throw StateError('candidate mutated remote during retry: $op $path');
+      }
+    };
+    final recovered=await build(cloud,'outage-retry.zip');
+    expect(recovered.eligibleForAutomaticApply,false);
+    expect(await destination.exists(),true);
+    await ModMonthFullBackupArchiveV1.verifyCloudMedia(
+      zipPath:destination.path,transport:const CloudTestZipTransport());
+    expect((await sha256.bind(destination.openRead()).first).toString(),
+      recovered.sha256);
+    expect(cloud.objects.keys.toSet(),remoteBefore.keys.toSet());
+    for(final entry in remoteBefore.entries){
+      expect(cloud.objects[entry.key],orderedEquals(entry.value),
+        reason:'remote object changed: ${entry.key}');
+    }
+    expect(temp.listSync().where((entry)=>
+      entry.path.split(Platform.pathSeparator).last
+        .startsWith('.moodiary-candidate-')),isEmpty);
+  });
+
   test('destination created after preflight is never overwritten',() async {
     final cloud=FakeRemoteBackend();
     final one=await fixture('race');
