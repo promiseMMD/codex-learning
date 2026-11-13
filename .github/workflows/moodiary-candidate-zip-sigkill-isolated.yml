@@ -1,0 +1,22 @@
+name: Moodiary isolated candidate ZIP SIGKILL contract
+
+on:
+  push:
+    branches:
+      - moodiary-v3-w9-8-4-31-permanent-application-id-20261110
+    paths:
+      - scripts/moodiary_candidate_zip_build_sigkill_isolated.py
+      - .github/workflows/moodiary-candidate-zip-sigkill-isolated.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  isolated-zip-sigkill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Exercise real process SIGKILL during synthetic ZIP assembly and retry
+        run: python3 scripts/moodiary_candidate_zip_build_sigkill_isolated.py
