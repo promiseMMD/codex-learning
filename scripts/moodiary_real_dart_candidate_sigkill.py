@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Kill the real Dart candidate builder after verified ZIP assembly.
+"""Kill the real Dart candidate builder after candidate ZIP assembly.
 
 Synthetic FakeRemoteBackend only. Never uses user data, live WebDAV or APK.
 Run from upstream/packages/feature/moodiary_sync after flutter pub get.
@@ -35,7 +35,7 @@ def run():
                 if time.monotonic() > deadline:
                     raise AssertionError("Dart candidate checkpoint timed out")
                 time.sleep(.1)
-            assert marker.read_text() == "zip_complete_not_published"
+            assert marker.read_text() == "zip_assembled_not_published"
             assert not final.exists(), "final path exposed before verified publication"
             # Kill the entire Flutter/Dart process group, not just a test wrapper.
             os.killpg(worker.pid, signal.SIGKILL)
@@ -44,7 +44,9 @@ def run():
             assert not final.exists(), "SIGKILL left a partially published final ZIP"
             quarantines = list(root.glob(".moodiary-candidate-*"))
             assert len(quarantines) == 1, "expected one abandoned private quarantine"
-            candidate = quarantines[0] / "verified-candidate.zip"
+            pending = list(quarantines[0].rglob("pending.zip"))
+            assert len(pending) == 1, "expected one isolated assembled pending ZIP"
+            candidate = pending[0]
             assert candidate.is_file(), "ZIP assembly checkpoint was not reached"
             with zipfile.ZipFile(candidate) as archive:
                 assert archive.testzip() is None, "abandoned ZIP is corrupt"
@@ -56,7 +58,7 @@ def run():
             assert retry.returncode == 0, "fresh verified Dart build retry failed"
             assert candidate.exists(), "retry incorrectly removed old quarantine"
             assert not final.exists(), "retry reused an abandoned final destination"
-            print("PASS real Dart build SIGKILL after ZIP assembly; no exposed final; safe fresh retry")
+            print("PASS real Dart candidate ZIP assembly SIGKILL; no exposed final; safe fresh retry")
         finally:
             if worker.poll() is None:
                 os.killpg(worker.pid, signal.SIGKILL)
