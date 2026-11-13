@@ -475,6 +475,14 @@ void main() {
     expect(await destination.exists(),false);
     expect(cloud.ops.where((op)=>op.startsWith('write ') ||
       op.startsWith('create ') || op.startsWith('delete ')).length,writes);
+    // After fixture setup, candidate assembly must be strictly read-only.
+    // Fail immediately if a regression attempts any remote mutation before
+    // the external SIGKILL checkpoint; the killed worker cannot report later.
+    cloud.beforeOp=(op,key){
+      if(op=='write' || op=='create' || op=='delete'){
+        throw StateError('candidate build attempted remote mutation: $op $key');
+      }
+    };
     await ModMonthRemoteChunkedCandidateV1.build(
       backend:cloud,cipher:cipher,
       leftDeviceId:a,leftSnapshotId:snapshot,
