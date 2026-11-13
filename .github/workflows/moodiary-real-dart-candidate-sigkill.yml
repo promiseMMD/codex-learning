@@ -1,0 +1,49 @@
+name: Moodiary real Dart candidate SIGKILL (isolated)
+
+on:
+  push:
+    branches:
+      - moodiary-v3-w9-8-4-31-permanent-application-id-20261110
+    paths:
+      - scripts/moodiary_real_dart_candidate_sigkill.py
+      - moodiary-v3-w9-8-4-15/overlay/packages/feature/moodiary_sync/test/sync/data/mod_month_remote_chunked_candidate_v1_test.dart
+      - .github/workflows/moodiary-real-dart-candidate-sigkill.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  real-dart-candidate-sigkill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare pinned Moodiary sources
+        shell: bash
+        run: bash moodiary-ci/prepare-workspace.sh
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.2'
+          channel: stable
+          cache: true
+      - name: Resolve dependencies
+        working-directory: upstream
+        run: flutter pub get
+      - name: Use distro SQLite only for isolated CI tests
+        working-directory: upstream
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('pubspec.yaml')
+          contents=p.read_text()
+          assert contents.count('build_assets: true')==6
+          native=contents.replace('build_assets: true','build_assets: false')
+          anchor='    fast_zip: {build_assets: false}'
+          assert native.count(anchor)==1
+          p.write_text(native.replace(anchor,anchor+'\n    sqlite3: {source: system}'))
+          PY
+      - name: Real Dart ZIP assembly SIGKILL and isolated fresh retry
+        working-directory: upstream/packages/feature/moodiary_sync
+        run: python3 ../../../scripts/moodiary_real_dart_candidate_sigkill.py
