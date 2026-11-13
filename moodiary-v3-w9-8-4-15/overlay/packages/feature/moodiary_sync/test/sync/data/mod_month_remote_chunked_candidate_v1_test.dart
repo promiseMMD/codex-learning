@@ -438,6 +438,34 @@ void main() {
     expect(await published.readAsBytes(),orderedEquals(before));
   });
 
+  test('late regular-file collision preserves caller data and remote bytes',() async {
+    final cloud=FakeRemoteBackend();
+    final one=await fixture('late-regular');
+    final receipt=await upload(cloud,one);
+    await publish(cloud,receipt,a);
+    await publish(cloud,receipt,b);
+    final dst=File(temp.path+'/late-regular-candidate.zip');
+    const sentinel='existing caller data must never be replaced';
+    var injected=false;
+    cloud.beforeOp=(op,key){
+      if(op=='read' && !injected){
+        injected=true;
+        dst.writeAsStringSync(sentinel,flush:true);
+      }
+    };
+    final writesBefore=cloud.ops.where((op)=>
+      op.startsWith('write ') || op.startsWith('create ') ||
+      op.startsWith('delete ')).length;
+    await expectLater(build(cloud,'late-regular-candidate.zip'),
+      throwsA(isA<ModMonthVersionError>().having(
+        (e)=>e.code,'code','destination_exists')));
+    expect(injected,true);
+    expect(await dst.readAsString(),sentinel);
+    expect(cloud.ops.where((op)=>
+      op.startsWith('write ') || op.startsWith('create ') ||
+      op.startsWith('delete ')).length,writesBefore);
+  });
+
   test('late symlink collision preserves the linked user file',() async {
     final cloud=FakeRemoteBackend();
     final one=await fixture('late-link');
