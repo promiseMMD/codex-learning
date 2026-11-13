@@ -49,7 +49,18 @@ def run():
             assert len(pending) == 1, "expected one isolated assembled pending ZIP"
             candidate = pending[0]
             assert candidate.is_file(), "ZIP assembly checkpoint was not reached"
+            # Validate the interrupted archive's central directory and entries,
+            # not merely its existence. The private orphan must be a complete
+            # assembled ZIP, never an accidentally exposed final artifact.
             with zipfile.ZipFile(candidate) as archive:
+                names = archive.namelist()
+                assert names, "assembled ZIP has no entries"
+                assert len(names) == len(set(names)), "assembled ZIP has duplicate entries"
+                assert all(
+                    name and not name.startswith("/") and
+                    ".." not in Path(name).parts and "\\\\" not in name
+                    for name in names
+                ), "assembled ZIP has unsafe entry names"
                 assert archive.testzip() is None, "abandoned ZIP is corrupt"
             orphan_sha256 = hashlib.sha256(candidate.read_bytes()).hexdigest()
             orphan_size = candidate.stat().st_size
