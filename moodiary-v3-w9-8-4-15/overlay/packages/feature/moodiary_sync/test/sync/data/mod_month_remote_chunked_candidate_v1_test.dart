@@ -40,7 +40,8 @@ final class _PauseAfterCandidateZipTransport implements ModMonthZipTransportV2 {
       archivePath:archivePath,sourceDirectory:sourceDirectory,entries:entries);
     // createVerified writes to an inner pending.zip, not its final output.
     // Only pause the combined candidate, never the downloaded snapshots.
-    if(archivePath.endsWith('/pending.zip') &&
+    if(Platform.environment['MOODIARY_CANDIDATE_KILL_STAGE']!='readback' &&
+        archivePath.endsWith('/pending.zip') &&
         sourceDirectory.contains('/combined')) {
       await File(marker).writeAsString('zip_assembled_not_published',flush:true);
       // The external orchestrator kills this real Dart test process here.
@@ -51,8 +52,19 @@ final class _PauseAfterCandidateZipTransport implements ModMonthZipTransportV2 {
   Future<void> extract({
     required String archivePath,
     required String destinationDirectory,
-  }) => const CloudTestZipTransport().extract(
-    archivePath:archivePath,destinationDirectory:destinationDirectory);
+  }) async {
+    await const CloudTestZipTransport().extract(
+      archivePath:archivePath,destinationDirectory:destinationDirectory);
+    // The real candidate ZIP has reached the independent media readback.
+    // Pause before the verifier returns; no final destination may exist.
+    if(Platform.environment['MOODIARY_CANDIDATE_KILL_STAGE']=='readback' &&
+        archivePath.endsWith('/verified-candidate.zip') &&
+        destinationDirectory.contains('month-cloud-proof-')) {
+      await File(marker).writeAsString('zip_readback_extracted_not_published',
+        flush:true);
+      await Completer<void>().future;
+    }
+  }
 }
 
 void main() {
