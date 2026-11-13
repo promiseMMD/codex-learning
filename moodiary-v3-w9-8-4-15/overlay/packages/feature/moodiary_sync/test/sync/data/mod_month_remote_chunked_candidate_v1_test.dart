@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
@@ -22,6 +23,32 @@ final class _TestCipher extends SyncCipher {
   @override
   Future<Uint8List> decryptBytes(Uint8List encrypted) async =>
       Uint8List.fromList(encrypted.sublist(SyncCipher.magic.length).reversed.toList());
+}
+
+
+final class _PauseAfterCandidateZipTransport implements ModMonthZipTransportV2 {
+  const _PauseAfterCandidateZipTransport(this.marker);
+  final String marker;
+  @override
+  Future<void> create({
+    required String archivePath,
+    required String sourceDirectory,
+    required List<String> entries,
+  }) async {
+    await const CloudTestZipTransport().create(
+      archivePath:archivePath,sourceDirectory:sourceDirectory,entries:entries);
+    if(archivePath.endsWith('verified-candidate.zip')) {
+      await File(marker).writeAsString('zip_complete_not_published',flush:true);
+      // The external orchestrator kills this real Dart test process here.
+      await Completer<void>().future;
+    }
+  }
+  @override
+  Future<void> extract({
+    required String archivePath,
+    required String destinationDirectory,
+  }) => const CloudTestZipTransport().extract(
+    archivePath:archivePath,destinationDirectory:destinationDirectory);
 }
 
 void main() {
@@ -426,4 +453,31 @@ void main() {
     await ModMonthFullBackupArchiveV1.verifyCloudMedia(
       zipPath:finalZip.path,transport:const CloudTestZipTransport());
   });
+
+  test('external SIGKILL checkpoint inside actual Dart candidate build',
+      () async {
+    final root=Platform.environment['MOODIARY_CANDIDATE_KILL_ROOT'];
+    if(root==null)return; // Only activated by the isolated kill orchestrator.
+    final marker=Platform.environment['MOODIARY_CANDIDATE_KILL_MARKER'];
+    if(marker==null)throw StateError('missing kill marker');
+    final cloud=FakeRemoteBackend();
+    final one=await fixture('real-kill');
+    final receipt=await upload(cloud,one);
+    await publish(cloud,receipt,a);
+    await publish(cloud,receipt,b);
+    final writes=cloud.ops.where((op)=>op.startsWith('write ') ||
+      op.startsWith('create ') || op.startsWith('delete ')).length;
+    final destination=File('$root/real-candidate.zip');
+    expect(await destination.exists(),false);
+    expect(cloud.ops.where((op)=>op.startsWith('write ') ||
+      op.startsWith('create ') || op.startsWith('delete ')).length,writes);
+    await ModMonthRemoteChunkedCandidateV1.build(
+      backend:cloud,cipher:cipher,
+      leftDeviceId:a,leftSnapshotId:snapshot,
+      rightDeviceId:b,rightSnapshotId:snapshot,
+      destination:destination,
+      zipTransport:_PauseAfterCandidateZipTransport(marker));
+    fail('SIGKILL orchestrator did not terminate the worker');
+  });
+
 }
