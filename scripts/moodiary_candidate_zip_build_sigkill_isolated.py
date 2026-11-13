@@ -41,7 +41,11 @@ def child(root, checkpoint):
         assert z.testzip() is None
         assert sha(z.read("media.bin")) == sha(source)
     pause("after_verify")
-    os.link(candidate, final)  # atomic no-clobber on same filesystem
+    try:
+        os.link(candidate, final)  # atomic no-clobber on same filesystem
+    except FileExistsError:
+        # Existing destination is a protected conflict, not a publish success.
+        assert final.read_bytes() == b"existing-target-must-remain-unchanged"
     pause("after_publish")
 
 def check(root, point, preexisting=False):
