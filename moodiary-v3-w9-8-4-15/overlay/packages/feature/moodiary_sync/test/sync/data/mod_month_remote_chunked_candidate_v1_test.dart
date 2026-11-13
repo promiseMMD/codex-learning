@@ -11,6 +11,7 @@ import 'package:moodiary_sync/src/data/mod_month_remote_chunked_versions_v1.dart
 import 'package:moodiary_sync/src/data/mod_month_remote_versions_v1.dart';
 import 'package:moodiary_sync/src/data/mod_month_webdav_resumable_v1.dart';
 import 'package:moodiary_sync/src/data/mod_month_full_backup_archive_v1.dart';
+import 'package:moodiary_sync/src/data/mod_month_zip_bundle_v2.dart';
 import 'package:moodiary_sync/src/data/mod_month_verified_manifest_v2.dart';
 import '../sync_test_harness.dart';
 import 'cloud_full_zip_fixture.dart';
