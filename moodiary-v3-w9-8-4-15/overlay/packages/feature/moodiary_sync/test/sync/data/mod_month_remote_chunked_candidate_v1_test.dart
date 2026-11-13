@@ -38,8 +38,11 @@ final class _PauseAfterCandidateZipTransport implements ModMonthZipTransportV2 {
   }) async {
     await const CloudTestZipTransport().create(
       archivePath:archivePath,sourceDirectory:sourceDirectory,entries:entries);
-    if(archivePath.endsWith('verified-candidate.zip')) {
-      await File(marker).writeAsString('zip_complete_not_published',flush:true);
+    // createVerified writes to an inner pending.zip, not its final output.
+    // Only pause the combined candidate, never the downloaded snapshots.
+    if(archivePath.endsWith('/pending.zip') &&
+        sourceDirectory.contains('/combined')) {
+      await File(marker).writeAsString('zip_assembled_not_published',flush:true);
       // The external orchestrator kills this real Dart test process here.
       await Completer<void>().future;
     }
