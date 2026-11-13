@@ -46,4 +46,4 @@ jobs:
           PY
       - name: Real Dart ZIP assembly SIGKILL and isolated fresh retry
         working-directory: upstream/packages/feature/moodiary_sync
-        run: python3 ../../../scripts/moodiary_real_dart_candidate_sigkill.py
+        run: python3 ../../../../scripts/moodiary_real_dart_candidate_sigkill.py
