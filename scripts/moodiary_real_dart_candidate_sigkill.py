@@ -58,7 +58,7 @@ def run():
                 assert len(names) == len(set(names)), "assembled ZIP has duplicate entries"
                 assert all(
                     name and not name.startswith("/") and
-                    ".." not in Path(name).parts and "\\\\" not in name
+                    ".." not in Path(name).parts and "\\" not in name
                     for name in names
                 ), "assembled ZIP has unsafe entry names"
                 assert archive.testzip() is None, "abandoned ZIP is corrupt"
