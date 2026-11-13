@@ -470,6 +470,34 @@ void main() {
       zipPath:finalZip.path,transport:const CloudTestZipTransport());
   });
 
+  test('external SIGKILL after actual Dart candidate publication',() async {
+    final root=Platform.environment['MOODIARY_CANDIDATE_KILL_ROOT'];
+    if(root==null || Platform.environment['MOODIARY_CANDIDATE_KILL_STAGE']!='published')return;
+    final marker=Platform.environment['MOODIARY_CANDIDATE_KILL_MARKER'];
+    if(marker==null)throw StateError('missing kill marker');
+    final cloud=FakeRemoteBackend();
+    final one=await fixture('real-published-kill');
+    final receipt=await upload(cloud,one);
+    await publish(cloud,receipt,a);
+    await publish(cloud,receipt,b);
+    cloud.beforeOp=(op,key){
+      if(op=='write' || op=='create' || op=='delete'){
+        throw StateError('candidate build attempted remote mutation: $op $key');
+      }
+    };
+    final destination=File('$root/real-candidate.zip');
+    final candidate=await ModMonthRemoteChunkedCandidateV1.build(
+      backend:cloud,cipher:cipher,
+      leftDeviceId:a,leftSnapshotId:snapshot,
+      rightDeviceId:b,rightSnapshotId:snapshot,
+      destination:destination,zipTransport:const CloudTestZipTransport());
+    expect(candidate.eligibleForAutomaticApply,false);
+    await ModMonthFullBackupArchiveV1.verifyCloudMedia(
+      zipPath:destination.path,transport:const CloudTestZipTransport());
+    await File(marker).writeAsString('verified_published_before_sigkill',flush:true);
+    await Completer<void>().future;
+  });
+
   test('external SIGKILL checkpoint inside actual Dart candidate build',
       () async {
     final root=Platform.environment['MOODIARY_CANDIDATE_KILL_ROOT'];
