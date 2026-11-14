@@ -6,6 +6,11 @@ on:
       - moodiary-v3-w9-8-4-31-permanent-application-id-20261110
     paths:
       - scripts/moodiary_real_dart_candidate_sigkill.py
+      # Re-run real Dart coverage when Fast CI's publication gate or isolated
+      # ZIP SIGKILL boundary implementation changes, not only Dart tests.
+      - scripts/moodiary_candidate_zip_build_sigkill_isolated.py
+      - .github/workflows/moodiary-v3-fast-ci.yml
+      - .github/workflows/moodiary-candidate-zip-sigkill-isolated.yml
       - moodiary-v3-w9-8-4-15/overlay/packages/feature/moodiary_sync/test/sync/data/mod_month_remote_chunked_candidate_v1_test.dart
       - .github/workflows/moodiary-real-dart-candidate-sigkill.yml
   workflow_dispatch:
