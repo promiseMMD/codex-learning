@@ -13,7 +13,7 @@ import tempfile
 import time
 import zipfile
 
-POINTS = ("before_zip", "during_zip", "after_zip", "after_verify", "after_publish")
+POINTS = ("before_zip", "during_zip", "after_zip", "after_verify", "before_publish", "after_publish")
 
 def sha(data):
     return hashlib.sha256(data).hexdigest()
@@ -41,6 +41,7 @@ def child(root, checkpoint):
         assert z.testzip() is None
         assert sha(z.read("media.bin")) == sha(source)
     pause("after_verify")
+    pause("before_publish")
     try:
         os.link(candidate, final)  # atomic no-clobber on same filesystem
     except FileExistsError:
